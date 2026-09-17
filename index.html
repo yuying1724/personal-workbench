@@ -331,9 +331,18 @@
   .table-wrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow-sm); }
   table{ border-collapse:collapse; width:100%; min-width:720px; font-size:13px; }
   th, td{ padding:8px 10px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap; transition:background-color .12s ease; }
-  th{ position:sticky; top:0; background:var(--accent-soft); color:var(--accent); cursor:pointer; user-select:none; font-weight:600; transition:opacity .12s ease; }
-  th:hover{ opacity:.85; }
-  tbody tr:hover td{ background:var(--bg); }
+  /* Bootstrap 的 .table 會用比較高優先權的規則把每個儲存格背景設成 --bs-table-bg，
+     蓋掉單純寫 th{...} 的顏色，所以這裡用比它更高的優先權（多一層 .table-wrap table）
+     把標題列的底色/字色蓋回來，跟內文列做出區隔 */
+  .table-wrap table thead th{
+    position:sticky; top:0; background:var(--accent-soft) !important; color:var(--accent) !important;
+    cursor:pointer; user-select:none; font-weight:600; transition:opacity .12s ease;
+  }
+  .table-wrap table thead th:hover{ opacity:.85; }
+  .table-wrap table tbody tr:hover td{ background:var(--bg) !important; }
+  /* 欄與欄之間的分隔線（先加上讓妳看實際效果，不喜歡的話這幾行刪掉就好） */
+  .table-wrap table th, .table-wrap table td{ border-right:1px solid var(--line); }
+  .table-wrap table th:last-child, .table-wrap table td:last-child{ border-right:none; }
   td.wrap{ white-space:normal; max-width:280px; }
   .progress-cell{ display:flex; align-items:center; gap:6px; }
   .progress-cell .bar-bg{ width:60px; background:var(--bg); border-radius:4px; height:8px; overflow:hidden; }
