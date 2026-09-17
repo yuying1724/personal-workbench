@@ -66,21 +66,45 @@
   .panel{ display:none; }
   .panel.active{ display:block; }
 
+  /* ---- 手機版頂部列（漢堡選單按鈕），預設隱藏，只在小螢幕出現 ---- */
+  .mobile-topbar{ display:none; }
+  .sidebar-backdrop{ display:none; }
+
   @media (max-width:680px){
     .app{ flex-direction:column; }
-    .sidebar{
-      width:100%; flex-direction:row; align-items:center; gap:4px;
-      overflow-x:auto; border-right:none; border-bottom:1px solid var(--line); padding:8px;
+
+    /* 手機版頂部列：漢堡按鈕 + 目前頁面標題，取代原本擠在畫面最上方的一整排圖示 */
+    .mobile-topbar{
+      display:flex; align-items:center; gap:10px; padding:10px 14px;
+      background:var(--sidebar-bg); border-bottom:1px solid var(--line);
+      position:sticky; top:0; z-index:40;
     }
-    .brand{ padding:6px 10px; flex-shrink:0; }
-    .nav-item span.label{ display:none; }
-    .nav-item{ padding:10px; }
-    .nav-group-header span.label{ display:none; }
-    .nav-group-caret{ display:none; }
-    .nav-subgroup{ flex-direction:row; padding-left:0; }
-    .nav-subgroup.open{ display:flex; }
-    .nav-item.nav-subitem{ padding-left:10px; }
-    .sidebar-status{ display:none; }
+    .mobile-topbar .hamburger-btn{
+      background:transparent; border:none; color:var(--text); font-size:22px;
+      padding:2px 6px; cursor:pointer; line-height:1;
+    }
+    .mobile-topbar .mobile-title{ font-weight:700; font-size:15px; flex:1; }
+
+    /* 側邊選單改成手機常見的「側滑抽屜」：預設收在畫面外，點漢堡按鈕才滑出來，
+       選單內容（含子選單展開）跟電腦版一樣是完整的圖示＋文字直式列表，不用再猜圖示是什麼 */
+    .sidebar{
+      position:fixed; top:0; left:0; bottom:0; z-index:60;
+      width:78vw; max-width:290px;
+      transform:translateX(-100%); transition:transform .2s ease;
+      flex-direction:column; align-items:stretch;
+      overflow-y:auto; overflow-x:hidden;
+      border-right:1px solid var(--line); border-bottom:none;
+      box-shadow:2px 0 16px rgba(0,0,0,.15);
+    }
+    .sidebar.open{ transform:translateX(0); }
+    .sidebar-backdrop{
+      display:block; position:fixed; inset:0; background:rgba(30,25,15,.4);
+      z-index:55; opacity:0; pointer-events:none; transition:opacity .2s ease;
+    }
+    .sidebar-backdrop.open{ opacity:1; pointer-events:auto; }
+
+    .brand{ padding:6px 10px 16px; }
+    .sidebar-status{ display:block; }
     .content{ padding:16px; }
 
     /* 手機上輸入框字級至少 16px，避免 iOS Safari 自動放大畫面 */
@@ -397,7 +421,12 @@
 <body>
 
 <div class="app">
-  <aside class="sidebar">
+  <div class="mobile-topbar">
+    <button type="button" class="hamburger-btn" onclick="toggleMobileNav()" aria-label="開啟選單">☰</button>
+    <span class="mobile-title" id="mobileTopbarTitle">📋 個人工作台</span>
+  </div>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileNav()"></div>
+  <aside class="sidebar" id="sidebarEl">
     <div class="brand">📋 <span>個人工作台</span></div>
     <nav>
       <div class="nav-item active" data-panel="home"><span class="icon">🏠</span><span class="label">總覽</span></div>
@@ -1170,10 +1199,22 @@ function switchPanel(name) {
     document.getElementById("navGroupAdminItems").classList.add("open");
     document.getElementById("navGroupAdminCaret").textContent = "▾";
   }
+  const activeLabel = document.querySelector(`.nav-item[data-panel="${name}"] .label`);
+  const titleEl = document.getElementById("mobileTopbarTitle");
+  if (titleEl) titleEl.textContent = activeLabel ? activeLabel.textContent : "📋 個人工作台";
+  closeMobileNav();
 }
 document.querySelectorAll(".nav-item").forEach(item => {
   item.addEventListener("click", () => switchPanel(item.dataset.panel));
 });
+function toggleMobileNav() {
+  document.getElementById("sidebarEl").classList.toggle("open");
+  document.getElementById("sidebarBackdrop").classList.toggle("open");
+}
+function closeMobileNav() {
+  document.getElementById("sidebarEl").classList.remove("open");
+  document.getElementById("sidebarBackdrop").classList.remove("open");
+}
 function toggleAdminGroup() {
   const el = document.getElementById("navGroupAdminItems");
   const caret = document.getElementById("navGroupAdminCaret");
