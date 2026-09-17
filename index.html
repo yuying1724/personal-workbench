@@ -2,6 +2,15 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
+<script>
+/* 盡早套用深色模式設定，避免畫面先閃一下淺色再變深色 */
+(function () {
+  try {
+    var t = localStorage.getItem("workbench_theme");
+    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  } catch (e) { /* localStorage 不可用時忽略，預設走系統主題 */ }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>個人工作台（原型）</title>
 <meta name="theme-color" content="#8fac97">
@@ -18,6 +27,19 @@
     --line:#ece6da; --accent:#8fac97; --accent-soft:#eaf1ec;
     --good:#7fa887; --warn:#dba86a; --bad:#d98a86;
     --sidebar-w:200px;
+  }
+  /* 深色模式：沒手動選擇時跟隨系統設定，選了「淺色/深色」則以手動選擇為準 */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]){
+      --bg:#1e1c18; --card:#2a2722; --sidebar-bg:#221f1a; --text:#ece7dd; --sub:#a39a8c;
+      --line:#3a352c; --accent:#9fc2a8; --accent-soft:#2f3b32;
+      --good:#8fbf97; --warn:#e0ab72; --bad:#e0948f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1e1c18; --card:#2a2722; --sidebar-bg:#221f1a; --text:#ece7dd; --sub:#a39a8c;
+    --line:#3a352c; --accent:#9fc2a8; --accent-soft:#2f3b32;
+    --good:#8fbf97; --warn:#e0ab72; --bad:#e0948f;
   }
   *{box-sizing:border-box;}
   body{
@@ -61,6 +83,14 @@
   }
   .sidebar-status.ok{ color:var(--good); }
   .sidebar-status.err{ color:var(--bad); }
+  .theme-toggle-btn{
+    display:flex; align-items:center; gap:8px; width:100%; margin-top:6px;
+    padding:9px 12px; font-size:13px; font-weight:600; color:var(--text);
+    background:var(--card); border:1px solid var(--line); border-radius:8px;
+    cursor:pointer; transition:background .15s ease;
+  }
+  .theme-toggle-btn:hover{ background:var(--bg); }
+  .theme-toggle-btn .icon{ font-size:15px; }
 
   .content{ flex:1; min-width:0; padding:20px 24px 40px; }
   .panel{ display:none; }
@@ -449,6 +479,9 @@
 
       <div class="nav-item" data-panel="settings"><span class="icon">⚙️</span><span class="label">設定</span></div>
     </nav>
+    <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="cycleTheme()">
+      <span class="icon" id="themeToggleIcon">🌗</span><span id="themeToggleLabel">跟隨系統</span>
+    </button>
     <div class="sidebar-status" id="sidebarStatus">尚未連線</div>
   </aside>
 
@@ -1220,6 +1253,47 @@ function toggleAdminGroup() {
   const caret = document.getElementById("navGroupAdminCaret");
   const isOpen = el.classList.toggle("open");
   caret.textContent = isOpen ? "▾" : "▸";
+}
+
+/* ---------------- 深色模式 ---------------- */
+
+const THEME_KEY = "workbench_theme";
+
+function applyTheme(mode) {
+  // mode: "system" | "light" | "dark"
+  if (mode === "light" || mode === "dark") {
+    document.documentElement.setAttribute("data-theme", mode);
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  try {
+    if (mode === "light" || mode === "dark") localStorage.setItem(THEME_KEY, mode);
+    else localStorage.removeItem(THEME_KEY);
+  } catch (e) { /* localStorage 不可用時忽略 */ }
+
+  const icon = document.getElementById("themeToggleIcon");
+  const label = document.getElementById("themeToggleLabel");
+  if (icon && label) {
+    if (mode === "light") { icon.textContent = "☀️"; label.textContent = "淺色模式"; }
+    else if (mode === "dark") { icon.textContent = "🌙"; label.textContent = "深色模式"; }
+    else { icon.textContent = "🌗"; label.textContent = "跟隨系統"; }
+  }
+}
+
+function cycleTheme() {
+  let current = "system";
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark") current = stored;
+  } catch (e) {}
+  const next = current === "system" ? "light" : current === "light" ? "dark" : "system";
+  applyTheme(next);
+}
+
+function initTheme() {
+  let stored = null;
+  try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}
+  applyTheme(stored === "light" || stored === "dark" ? stored : "system");
 }
 
 /* ---------------- 總覽（首頁） ---------------- */
@@ -2933,6 +3007,8 @@ document.getElementById("panel-admin").addEventListener("click", async (e) => {
 if (document.getElementById("apiBase").value.trim() && document.getElementById("apiToken").value.trim()) {
   loadAll();
 }
+
+initTheme();
 </script>
 </body>
 </html>
