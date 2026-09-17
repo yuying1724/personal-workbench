@@ -48,6 +48,10 @@
     --shadow-md:0 12px 28px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
   }
   *{box-sizing:border-box;}
+  /* 有些區塊（例如重複規則的子選項）平常用 class 設定 display:flex，
+     但需要用 JS 的 hidden 屬性動態藏起來；瀏覽器預設的 [hidden]{display:none}
+     優先權比自訂 class 低，沒有這行會被蓋掉、藏不住，這裡強制讓 hidden 屬性生效 */
+  [hidden]{ display:none !important; }
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif;
@@ -2181,8 +2185,8 @@ function openSubForm(id) {
     <div class="form-field"><label>訂閱費</label><input type="number" id="f_fee" value="${s && s["訂閱費"] != null ? s["訂閱費"] : ""}"></div>
     <div class="form-field"><label>訂閱週期</label><select id="f_cycle"><option value="">（未選）</option>${selectOptions(API_OPTIONS["訂閱週期"], s ? s["訂閱週期"] : "")}</select></div>
     <div class="form-field"><label>訂閱開始日</label><input type="date" id="f_subStart" value="${s && s["訂閱開始日"] ? s["訂閱開始日"] : ""}"></div>
-    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_canceled" ${s && s["取消訂閱"] ? "checked" : ""}> 已取消訂閱</label></div>
-    <div class="form-field"><label>取消訂閱日</label><input type="date" id="f_cancelDate" value="${s && s["取消訂閱日"] ? s["取消訂閱日"] : ""}"></div>
+    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_canceled" onchange="onSubCanceledChange()" ${s && s["取消訂閱"] ? "checked" : ""}> 已取消訂閱</label></div>
+    <div class="form-field" id="f_cancelDateRow" ${s && s["取消訂閱"] ? "" : "hidden"}><label>取消訂閱日</label><input type="date" id="f_cancelDate" value="${s && s["取消訂閱日"] ? s["取消訂閱日"] : ""}"></div>
     <div class="form-field"><label>重要性</label><select id="f_importance"><option value="">（未選）</option>${selectOptions(API_OPTIONS["重要性"], s ? s["重要性"] : "")}</select></div>
     <div class="form-field"><label>備註</label><textarea id="f_memo" rows="2">${s ? escapeHtml(s["備註"] || "") : ""}</textarea></div>
     <div class="form-field"><label>付款URL</label><input type="text" id="f_payUrl" value="${s ? escapeAttr(s["付款URL"]) : ""}"></div>
@@ -2193,6 +2197,10 @@ function openSubForm(id) {
     </div>
   `;
   document.getElementById("modalOverlay").classList.remove("hidden");
+}
+
+function onSubCanceledChange() {
+  document.getElementById("f_cancelDateRow").hidden = !document.getElementById("f_canceled").checked;
 }
 
 async function saveSubForm(id) {
@@ -2269,8 +2277,8 @@ function openTaskForm(id) {
   document.getElementById("modalBody").innerHTML = `
     <h2>${t ? "編輯任務" : "新增任務"}</h2>
     <div class="form-field"><label>任務名稱</label><input type="text" id="f_taskName" value="${t ? escapeAttr(t["任務名稱"]) : ""}"></div>
-    <div class="form-field"><label>優先順序</label><select id="f_taskPriority"><option value="">（未選）</option>${selectOptions(API_OPTIONS["任務優先順序"], t ? t["優先順序"] : "")}</select></div>
-    <div class="form-field"><label>狀態</label><select id="f_taskStatus"><option value="">（未選）</option>${selectOptions(API_OPTIONS["任務狀態"], t ? t["狀態"] : "")}</select></div>
+    <div class="form-field"><label>分類</label><div class="chk-list">${checkboxList(API_OPTIONS["任務分類"], t ? t["分類"] : [])}</div></div>
+    <div class="form-field"><label>所屬專案</label><select id="f_taskProject"><option value="">（無）</option>${projectData.map(p => `<option value="${escapeAttr(p["專案ID"])}" ${t && t["所屬專案"] === p["專案ID"] ? "selected" : ""}>${escapeHtml(p["專案名稱"] || "")}</option>`).join("")}</select></div>
     <div class="form-field">
       <label>到期日</label>
       <input type="date" id="f_taskDue" value="${t && t["到期日"] ? t["到期日"] : ""}">
@@ -2323,8 +2331,6 @@ function openTaskForm(id) {
       </div>
     </div>
     <div class="form-field"><label>備註</label><textarea id="f_taskNotes" rows="2">${t ? escapeHtml(t["備註"] || "") : ""}</textarea></div>
-    <div class="form-field"><label>分類</label><div class="chk-list">${checkboxList(API_OPTIONS["任務分類"], t ? t["分類"] : [])}</div></div>
-    <div class="form-field"><label>所屬專案</label><select id="f_taskProject"><option value="">（無）</option>${projectData.map(p => `<option value="${escapeAttr(p["專案ID"])}" ${t && t["所屬專案"] === p["專案ID"] ? "selected" : ""}>${escapeHtml(p["專案名稱"] || "")}</option>`).join("")}</select></div>
     <div class="form-field">
       <label>子任務</label>
       <div id="subtaskEditor">${renderSubtaskEditorRows(t ? t["子任務"] : [])}</div>
@@ -2396,6 +2402,9 @@ function clearTaskDue() {
 }
 
 async function saveTaskForm(id) {
+  // 優先順序／狀態欄位已從新增/編輯畫面移除（狀態改由清單打勾控制，優先順序目前用不到），
+  // 但後端欄位還在，儲存時要把原本的值原封不動送回去，不然會被清空成空白
+  const existingTask = id ? taskData.find(x => x["任務ID"] === id) : null;
   const repeatFreq = document.getElementById("f_repeatFreq").value;
   const repeatInterval = document.getElementById("f_repeatInterval").value;
   const repeatCustomLabel = document.getElementById("f_repeatCustomLabel").value;
@@ -2410,8 +2419,8 @@ async function saveTaskForm(id) {
 
   const payload = {
     "任務名稱": document.getElementById("f_taskName").value.trim(),
-    "優先順序": document.getElementById("f_taskPriority").value,
-    "狀態": document.getElementById("f_taskStatus").value,
+    "優先順序": existingTask ? (existingTask["優先順序"] || "") : "",
+    "狀態": existingTask ? (existingTask["狀態"] || "") : "",
     "到期日": document.getElementById("f_taskDue").value,
     "星標": document.getElementById("f_taskStar").checked,
     "重複規則": repeatRule,
