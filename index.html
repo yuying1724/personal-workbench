@@ -3,14 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <script>
-/* 盡早套用深色模式設定，避免畫面先閃一下淺色再變深色 */
+/* 盡早套用深色模式設定，避免畫面先閃一下淺色再變深色。
+   Bootstrap 的深色模式只認 data-bs-theme 屬性、不會自動跟系統設定走，
+   所以「跟隨系統」這個選項要靠這裡的 matchMedia 自己判斷、算出 light/dark 再設定屬性。 */
 (function () {
   try {
     var t = localStorage.getItem("workbench_theme");
-    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-  } catch (e) { /* localStorage 不可用時忽略，預設走系統主題 */ }
+    var mode = (t === "light" || t === "dark")
+      ? t
+      : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-bs-theme", mode);
+  } catch (e) { document.documentElement.setAttribute("data-bs-theme", "light"); }
 })();
 </script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>個人工作台（原型）</title>
 <meta name="theme-color" content="#8fac97">
@@ -30,23 +37,62 @@
     --shadow-sm:0 1px 3px rgba(74,70,63,.07), 0 1px 2px rgba(74,70,63,.05);
     --shadow-md:0 10px 24px rgba(74,70,63,.12), 0 2px 8px rgba(74,70,63,.06);
   }
-  /* 深色模式：沒手動選擇時跟隨系統設定，選了「淺色/深色」則以手動選擇為準 */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]){
-      --bg:#1e1c18; --card:#2a2722; --sidebar-bg:#221f1a; --text:#ece7dd; --sub:#a39a8c;
-      --line:#3a352c; --accent:#9fc2a8; --accent-soft:#2f3b32;
-      --good:#8fbf97; --warn:#e0ab72; --bad:#e0948f;
-      --shadow-sm:0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
-      --shadow-md:0 12px 28px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
-    }
-  }
-  :root[data-theme="dark"]{
+  /* 深色模式：改用 Bootstrap 原生的 data-bs-theme 機制切換（JS 的 initTheme()/applyTheme()
+     會自己用 matchMedia 判斷系統偏好、換算成 light/dark 寫進這個屬性，「跟隨系統」才會生效） */
+  [data-bs-theme="dark"]{
     --bg:#1e1c18; --card:#2a2722; --sidebar-bg:#221f1a; --text:#ece7dd; --sub:#a39a8c;
     --line:#3a352c; --accent:#9fc2a8; --accent-soft:#2f3b32;
     --good:#8fbf97; --warn:#e0ab72; --bad:#e0948f;
     --shadow-sm:0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
     --shadow-md:0 12px 28px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
   }
+
+  /* ---- Bootstrap 主色覆寫：把品牌鼠尾草綠設成 Bootstrap 的 primary（取代預設藍） ----
+     Bootstrap 5.3 的 .btn-primary 等元件把顏色寫死在元件自己的 --bs-btn-* 變數上，
+     不是單純讀 --bs-primary，所以除了覆寫 --bs-primary(-rgb) 之外，也要另外覆寫
+     .btn-primary / .btn-outline-primary 自己的變數，顏色才會真的變成綠色。 */
+  :root, [data-bs-theme="light"]{
+    --bs-primary:#8fac97; --bs-primary-rgb:143,172,151;
+    --bs-primary-text-emphasis:#4f6656; --bs-primary-bg-subtle:#eaf1ec; --bs-primary-border-subtle:#cfe0d5;
+    --bs-link-color:#8fac97; --bs-link-color-rgb:143,172,151;
+    --bs-link-hover-color:#7b9482; --bs-link-hover-color-rgb:123,148,130;
+  }
+  [data-bs-theme="dark"]{
+    --bs-primary:#9fc2a8; --bs-primary-rgb:159,194,168;
+    --bs-primary-text-emphasis:#c8dece; --bs-primary-bg-subtle:#2f3b32; --bs-primary-border-subtle:#4d6455;
+    --bs-link-color:#9fc2a8; --bs-link-color-rgb:159,194,168;
+    --bs-link-hover-color:#89a790; --bs-link-hover-color-rgb:137,167,144;
+  }
+  .btn-primary{
+    --bs-btn-color:#fff; --bs-btn-bg:#8fac97; --bs-btn-border-color:#8fac97;
+    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#849e8b; --bs-btn-hover-border-color:#7b9482;
+    --bs-btn-focus-shadow-rgb:143,172,151;
+    --bs-btn-active-color:#fff; --bs-btn-active-bg:#7b9482; --bs-btn-active-border-color:#729079;
+    --bs-btn-disabled-color:#fff; --bs-btn-disabled-bg:#8fac97; --bs-btn-disabled-border-color:#8fac97;
+  }
+  .btn-outline-primary{
+    --bs-btn-color:#8fac97; --bs-btn-border-color:#8fac97;
+    --bs-btn-hover-color:#fff; --bs-btn-hover-bg:#8fac97; --bs-btn-hover-border-color:#8fac97;
+    --bs-btn-focus-shadow-rgb:143,172,151;
+    --bs-btn-active-color:#fff; --bs-btn-active-bg:#8fac97; --bs-btn-active-border-color:#8fac97;
+    --bs-btn-disabled-color:#8fac97; --bs-btn-disabled-border-color:#8fac97;
+  }
+  [data-bs-theme="dark"] .btn-primary{
+    --bs-btn-color:#1e1c18; --bs-btn-bg:#9fc2a8; --bs-btn-border-color:#9fc2a8;
+    --bs-btn-hover-color:#1e1c18; --bs-btn-hover-bg:#92b29b; --bs-btn-hover-border-color:#89a790;
+    --bs-btn-focus-shadow-rgb:159,194,168;
+    --bs-btn-active-color:#1e1c18; --bs-btn-active-bg:#89a790; --bs-btn-active-border-color:#7f9c86;
+    --bs-btn-disabled-color:#1e1c18; --bs-btn-disabled-bg:#9fc2a8; --bs-btn-disabled-border-color:#9fc2a8;
+  }
+  [data-bs-theme="dark"] .btn-outline-primary{
+    --bs-btn-color:#9fc2a8; --bs-btn-border-color:#9fc2a8;
+    --bs-btn-hover-color:#1e1c18; --bs-btn-hover-bg:#9fc2a8; --bs-btn-hover-border-color:#9fc2a8;
+    --bs-btn-focus-shadow-rgb:159,194,168;
+    --bs-btn-active-color:#1e1c18; --bs-btn-active-bg:#9fc2a8; --bs-btn-active-border-color:#9fc2a8;
+  }
+  .form-check-input:checked{ background-color:var(--bs-primary); border-color:var(--bs-primary); }
+  .form-check-input:focus{ border-color:var(--bs-primary); box-shadow:0 0 0 .25rem rgba(var(--bs-primary-rgb),.25); }
+  .form-control:focus, .form-select:focus{ border-color:var(--bs-primary); box-shadow:0 0 0 .25rem rgba(var(--bs-primary-rgb),.25); }
   *{box-sizing:border-box;}
   /* 有些區塊（例如重複規則的子選項）平常用 class 設定 display:flex，
      但需要用 JS 的 hidden 屬性動態藏起來；瀏覽器預設的 [hidden]{display:none}
@@ -79,12 +125,24 @@
   h2:first-child{ margin-top:0; }
   .muted{color:var(--sub); font-size:12px;}
 
-  /* ---- 整體版面：左側選單 + 右側內容 ---- */
+  /* ---- 整體版面：左側選單 + 右側內容 ----
+     左側選單現在是 Bootstrap 的 Offcanvas 元件（.offcanvas-md .offcanvas-start）：
+     螢幕寬度 >= md（768px）時它會被 Bootstrap 重設成一般的靜態區塊（甚至用
+     !important 蓋掉背景色/邊框），所以桌機版外觀要蓋回來的地方也用 !important，
+     手機版寬度（< 768px）則是真正的側滑抽屜，寬度/陰影另外用 offcanvas-md 的
+     斷點設定，跟 Bootstrap 自己判斷「要不要變成抽屜」的斷點對齊，避免兩邊對不上。 */
   .app{ display:flex; min-height:100vh; }
   .sidebar{
-    width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg);
-    border-right:1px solid var(--line); padding:16px 10px;
+    width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg) !important;
+    border-right:1px solid var(--line) !important; padding:16px 10px;
     display:flex; flex-direction:column; gap:2px;
+  }
+  @media (max-width:767.98px){
+    .sidebar{
+      width:78vw; max-width:290px;
+      box-shadow:2px 0 16px rgba(0,0,0,.15);
+    }
+    .offcanvas-backdrop{ --bs-backdrop-bg:#1e190f; --bs-backdrop-opacity:.4; }
   }
   .brand{ display:flex; align-items:center; gap:8px; padding:6px 10px 16px; font-weight:700; font-size:15px; }
   .nav-item{
@@ -129,14 +187,13 @@
   .panel{ display:none; }
   .panel.active{ display:block; animation:panelFadeIn .25s ease; }
 
-  /* ---- 手機版頂部列（漢堡選單按鈕），預設隱藏，只在小螢幕出現 ---- */
+  /* ---- 手機版頂部列（漢堡選單按鈕），預設隱藏，只在小螢幕出現。
+     斷點跟 Bootstrap 的 offcanvas-md（md=768px）對齊，因為這顆漢堡按鈕就是用來
+     開關側邊選單的抽屜，兩者的「算不算手機版」判斷要一致，不然中間會有一段
+     寬度側邊選單已經收起來、卻找不到按鈕可以打開的空窗期。 */
   .mobile-topbar{ display:none; }
-  .sidebar-backdrop{ display:none; }
 
-  @media (max-width:680px){
-    .app{ flex-direction:column; }
-
-    /* 手機版頂部列：漢堡按鈕 + 目前頁面標題，取代原本擠在畫面最上方的一整排圖示 */
+  @media (max-width:767.98px){
     .mobile-topbar{
       display:flex; align-items:center; gap:10px; padding:10px 14px;
       background:var(--sidebar-bg); border-bottom:1px solid var(--line);
@@ -147,24 +204,10 @@
       padding:2px 6px; cursor:pointer; line-height:1;
     }
     .mobile-topbar .mobile-title{ font-weight:700; font-size:15px; flex:1; }
+  }
 
-    /* 側邊選單改成手機常見的「側滑抽屜」：預設收在畫面外，點漢堡按鈕才滑出來，
-       選單內容（含子選單展開）跟電腦版一樣是完整的圖示＋文字直式列表，不用再猜圖示是什麼 */
-    .sidebar{
-      position:fixed; top:0; left:0; bottom:0; z-index:60;
-      width:78vw; max-width:290px;
-      transform:translateX(-100%); transition:transform .2s ease;
-      flex-direction:column; align-items:stretch;
-      overflow-y:auto; overflow-x:hidden;
-      border-right:1px solid var(--line); border-bottom:none;
-      box-shadow:2px 0 16px rgba(0,0,0,.15);
-    }
-    .sidebar.open{ transform:translateX(0); }
-    .sidebar-backdrop{
-      display:block; position:fixed; inset:0; background:rgba(30,25,15,.4);
-      z-index:55; opacity:0; pointer-events:none; transition:opacity .2s ease;
-    }
-    .sidebar-backdrop.open{ opacity:1; pointer-events:auto; }
+  @media (max-width:680px){
+    .app{ flex-direction:column; }
 
     .brand{ padding:6px 10px 16px; }
     .sidebar-status{ display:block; }
@@ -181,7 +224,6 @@
     .task-check, .habit-check{ width:22px; height:22px; }
 
     /* 彈窗在小螢幕上盡量利用寬度，內部元件容易太窄就換行 */
-    .modal-overlay{ padding:10px; }
     .modal-box{ padding:16px; }
     .modal-actions{ flex-wrap:wrap; }
     .repeat-sub{ flex-wrap:wrap; }
@@ -441,18 +483,15 @@
   .actions .btn-delete{ border:1px solid var(--bad); color:var(--bad); }
   .actions .btn-delete:hover{ background:rgba(217,138,134,.15); }
 
-  /* ---- 新增/編輯 彈窗 ---- */
-  .modal-overlay{
-    position:fixed; inset:0; background:rgba(30,25,15,.35); display:flex;
-    align-items:center; justify-content:center; padding:20px; z-index:50;
+  /* ---- 新增/編輯 彈窗（外層 .modal/.modal-dialog/.modal-content 交給 Bootstrap Modal 元件處理，
+     這裡的 .modal-box 只補一點跟整體風格搭配的樣式，疊加在 Bootstrap 的 .modal-content 上） ---- */
+  .modal-content.modal-box{
+    background:var(--card); color:var(--text); border-radius:12px; padding:6px 6px;
+    max-height:88vh; overflow-y:auto; border-color:var(--line);
+    box-shadow:var(--shadow-md);
   }
-  .modal-overlay.hidden{ display:none; }
-  .modal-box{
-    background:var(--card); border-radius:12px; padding:20px 22px; width:100%;
-    max-width:480px; max-height:88vh; overflow-y:auto;
-    box-shadow:var(--shadow-md); animation:modalPopIn .18s ease;
-  }
-  .modal-box h2{ margin-top:0; }
+  .modal-box .modal-body{ padding:16px 18px; }
+  .modal-box h2{ margin-top:0; font-size:16px; }
   .form-field{ margin-bottom:12px; }
   .form-field label{ display:block; font-size:12px; color:var(--sub); margin-bottom:4px; }
   .form-field input[type=text], .form-field input[type=number], .form-field input[type=date],
@@ -466,7 +505,8 @@
     max-height:150px; overflow-y:auto; border:1px solid var(--line); border-radius:6px;
     padding:8px 10px; display:flex; flex-wrap:wrap; gap:6px 14px; background:var(--bg);
   }
-  .chk-list label{ font-size:13px; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .chk-list .form-check{ font-size:13px; display:flex; align-items:center; gap:4px; white-space:nowrap; margin-bottom:0; padding-left:1.4em; }
+  .chk-list .form-check .form-check-input{ margin-left:-1.4em; flex-shrink:0; }
   .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
   .modal-message{ font-size:13px; line-height:1.6; color:var(--text); margin:4px 0 2px; }
   .modal-actions .btn-danger-solid{ background:var(--bad); }
@@ -507,14 +547,13 @@
 
 <div class="app">
   <div class="mobile-topbar">
-    <button type="button" class="hamburger-btn" onclick="toggleMobileNav()" aria-label="開啟選單">☰</button>
-    <span class="mobile-title" id="mobileTopbarTitle">📋 個人工作台</span>
+    <button type="button" class="hamburger-btn btn btn-outline-secondary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#sidebarEl" aria-controls="sidebarEl" aria-label="開啟選單"><i class="bi bi-list"></i></button>
+    <span class="mobile-title" id="mobileTopbarTitle"><i class="bi bi-clipboard-check"></i> 個人工作台</span>
   </div>
-  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileNav()"></div>
-  <aside class="sidebar" id="sidebarEl">
-    <div class="brand">📋 <span>個人工作台</span></div>
+  <aside class="sidebar offcanvas-md offcanvas-start" tabindex="-1" id="sidebarEl" aria-labelledby="sidebarElLabel">
+    <div class="brand" id="sidebarElLabel"><i class="bi bi-clipboard-check"></i> <span>個人工作台</span></div>
     <nav>
-      <div class="nav-item active" data-panel="home"><span class="icon">🏠</span><span class="label">總覽</span></div>
+      <div class="nav-item active" data-panel="home"><span class="icon"><i class="bi bi-house"></i></span><span class="label">總覽</span></div>
       <div class="nav-item" data-panel="tasks"><span class="icon" id="navIconTasks">✅</span><span class="label" id="navLabelTasks">任務</span></div>
       <div class="nav-item" data-panel="habits"><span class="icon" id="navIconHabits">🔥</span><span class="label" id="navLabelHabits">習慣</span></div>
       <div class="nav-item" data-panel="diary"><span class="icon" id="navIconDiary">📔</span><span class="label" id="navLabelDiary">日記</span></div>
@@ -524,18 +563,18 @@
 
       <div class="nav-group">
         <div class="nav-group-header" onclick="toggleAdminGroup()">
-          <span class="icon">🛠️</span><span class="label">後台管理</span><span class="nav-group-caret" id="navGroupAdminCaret">▸</span>
+          <span class="icon"><i class="bi bi-tools"></i></span><span class="label">後台管理</span><span class="nav-group-caret" id="navGroupAdminCaret">▸</span>
         </div>
         <div class="nav-subgroup" id="navGroupAdminItems">
-          <div class="nav-item nav-subitem" data-panel="admin"><span class="icon">🏷️</span><span class="label">分類管理</span></div>
-          <div class="nav-item nav-subitem" data-panel="habit-admin"><span class="icon">🔥</span><span class="label">習慣管理</span></div>
+          <div class="nav-item nav-subitem" data-panel="admin"><span class="icon"><i class="bi bi-tags"></i></span><span class="label">分類管理</span></div>
+          <div class="nav-item nav-subitem" data-panel="habit-admin"><span class="icon"><i class="bi bi-fire"></i></span><span class="label">習慣管理</span></div>
         </div>
       </div>
 
-      <div class="nav-item" data-panel="settings"><span class="icon">⚙️</span><span class="label">設定</span></div>
+      <div class="nav-item" data-panel="settings"><span class="icon"><i class="bi bi-gear"></i></span><span class="label">設定</span></div>
     </nav>
-    <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="cycleTheme()">
-      <span class="icon" id="themeToggleIcon">🌗</span><span id="themeToggleLabel">跟隨系統</span>
+    <button type="button" class="theme-toggle-btn btn btn-outline-secondary" id="themeToggleBtn" onclick="cycleTheme()">
+      <span class="icon" id="themeToggleIcon"><i class="bi bi-circle-half"></i></span><span id="themeToggleLabel">跟隨系統</span>
     </button>
     <div class="sidebar-status" id="sidebarStatus">尚未連線</div>
   </aside>
@@ -584,22 +623,22 @@
     <div class="panel" id="panel-courses">
       <div class="page-title-row">
         <h1 id="coursesPageTitle">課程</h1>
-        <button type="button" class="secondary page-refresh-btn" onclick="reloadCourses()">🔄 重新整理本頁</button>
+        <button type="button" class="secondary page-refresh-btn btn btn-outline-secondary btn-sm" onclick="reloadCourses()"><i class="bi bi-arrow-clockwise"></i> 重新整理本頁</button>
       </div>
       <h2>課程總覽</h2>
       <div class="cards" id="courseCards"></div>
 
       <h2>全部課程清單</h2>
-      <div class="toolbar-row"><button onclick="openCourseForm(null)">+ 新增課程</button></div>
+      <div class="toolbar-row"><button class="btn btn-primary" onclick="openCourseForm(null)"><i class="bi bi-plus-lg"></i> 新增課程</button></div>
       <div class="filters">
-        <input type="text" id="courseSearch" placeholder="搜尋課程名稱 / 講師..." oninput="renderCourseTable()">
-        <select id="courseFilterStatus" onchange="renderCourseTable()"><option value="">全部狀態</option></select>
-        <select id="courseFilterCategory" onchange="renderCourseTable()"><option value="">全部分類</option></select>
-        <select id="courseFilterPlatform" onchange="renderCourseTable()"><option value="">全部平台</option></select>
+        <input type="text" id="courseSearch" class="form-control" placeholder="搜尋課程名稱 / 講師..." oninput="renderCourseTable()">
+        <select id="courseFilterStatus" class="form-select" onchange="renderCourseTable()"><option value="">全部狀態</option></select>
+        <select id="courseFilterCategory" class="form-select" onchange="renderCourseTable()"><option value="">全部分類</option></select>
+        <select id="courseFilterPlatform" class="form-select" onchange="renderCourseTable()"><option value="">全部平台</option></select>
         <span class="count" id="courseCount"></span>
       </div>
-      <div class="table-wrap">
-        <table id="courseTable">
+      <div class="table-wrap table-responsive">
+        <table id="courseTable" class="table table-hover align-middle">
           <thead><tr>
             <th data-key="課程名稱">課程名稱</th>
             <th data-key="平台">平台</th>
@@ -618,26 +657,26 @@
     <div class="panel" id="panel-subs">
       <div class="page-title-row">
         <h1 id="subsPageTitle">訂閱</h1>
-        <button type="button" class="secondary page-refresh-btn" onclick="reloadSubs()">🔄 重新整理本頁</button>
+        <button type="button" class="secondary page-refresh-btn btn btn-outline-secondary btn-sm" onclick="reloadSubs()"><i class="bi bi-arrow-clockwise"></i> 重新整理本頁</button>
       </div>
       <h2>訂閱總覽</h2>
       <div class="cards" id="subCards"></div>
       <div class="list-block" id="subUpcoming"></div>
 
       <h2>全部訂閱清單</h2>
-      <div class="toolbar-row"><button onclick="openSubForm(null)">+ 新增訂閱</button></div>
+      <div class="toolbar-row"><button class="btn btn-primary" onclick="openSubForm(null)"><i class="bi bi-plus-lg"></i> 新增訂閱</button></div>
       <div class="filters">
-        <input type="text" id="subSearch" placeholder="搜尋產品名稱..." oninput="renderSubTable()">
-        <select id="subFilterTag" onchange="renderSubTable()"><option value="">全部標籤</option></select>
-        <select id="subFilterStatus" onchange="renderSubTable()">
+        <input type="text" id="subSearch" class="form-control" placeholder="搜尋產品名稱..." oninput="renderSubTable()">
+        <select id="subFilterTag" class="form-select" onchange="renderSubTable()"><option value="">全部標籤</option></select>
+        <select id="subFilterStatus" class="form-select" onchange="renderSubTable()">
           <option value="">全部（含已取消）</option>
           <option value="active">僅使用中</option>
           <option value="canceled">僅已取消</option>
         </select>
         <span class="count" id="subCount"></span>
       </div>
-      <div class="table-wrap">
-        <table id="subTable">
+      <div class="table-wrap table-responsive">
+        <table id="subTable" class="table table-hover align-middle">
           <thead><tr>
             <th data-key="產品">產品</th>
             <th data-key="訂閱週期">週期</th>
@@ -658,18 +697,18 @@
     <div class="panel" id="panel-tasks">
       <div class="page-title-row">
         <h1 id="tasksPageTitle">任務</h1>
-        <button type="button" class="secondary page-refresh-btn" onclick="reloadTasks()">🔄 重新整理本頁</button>
+        <button type="button" class="secondary page-refresh-btn btn btn-outline-secondary btn-sm" onclick="reloadTasks()"><i class="bi bi-arrow-clockwise"></i> 重新整理本頁</button>
       </div>
       <h2>任務總覽</h2>
       <div class="cards" id="taskCards"></div>
 
       <h2>全部任務清單</h2>
-      <div class="toolbar-row"><button onclick="openTaskForm(null)">+ 新增任務</button></div>
+      <div class="toolbar-row"><button class="btn btn-primary" onclick="openTaskForm(null)"><i class="bi bi-plus-lg"></i> 新增任務</button></div>
       <div class="filters">
-        <input type="text" id="taskSearch" placeholder="搜尋任務名稱..." oninput="renderTaskTable()">
-        <select id="taskFilterStatus" onchange="renderTaskTable()"><option value="">全部狀態</option></select>
-        <select id="taskFilterPriority" onchange="renderTaskTable()"><option value="">全部優先順序</option></select>
-        <select id="taskFilterProject" onchange="renderTaskTable()"><option value="">全部專案</option></select>
+        <input type="text" id="taskSearch" class="form-control" placeholder="搜尋任務名稱..." oninput="renderTaskTable()">
+        <select id="taskFilterStatus" class="form-select" onchange="renderTaskTable()"><option value="">全部狀態</option></select>
+        <select id="taskFilterPriority" class="form-select" onchange="renderTaskTable()"><option value="">全部優先順序</option></select>
+        <select id="taskFilterProject" class="form-select" onchange="renderTaskTable()"><option value="">全部專案</option></select>
         <span class="count" id="taskCount"></span>
       </div>
       <div class="chip-filter" id="taskFilterCategoryChips"></div>
@@ -680,21 +719,21 @@
     <div class="panel" id="panel-projects">
       <div class="page-title-row">
         <h1 id="projectsPageTitle">專案</h1>
-        <button type="button" class="secondary page-refresh-btn" onclick="reloadProjects()">🔄 重新整理本頁</button>
+        <button type="button" class="secondary page-refresh-btn btn btn-outline-secondary btn-sm" onclick="reloadProjects()"><i class="bi bi-arrow-clockwise"></i> 重新整理本頁</button>
       </div>
       <h2>專案總覽</h2>
       <div class="cards" id="projectCards"></div>
 
       <h2>全部專案清單</h2>
-      <div class="toolbar-row"><button onclick="openProjectForm(null)">+ 新增專案</button></div>
+      <div class="toolbar-row"><button class="btn btn-primary" onclick="openProjectForm(null)"><i class="bi bi-plus-lg"></i> 新增專案</button></div>
       <div class="filters">
-        <input type="text" id="projectSearch" placeholder="搜尋專案名稱..." oninput="renderProjectTable()">
-        <select id="projectFilterStatus" onchange="renderProjectTable()"><option value="">全部狀態</option></select>
-        <select id="projectFilterPriority" onchange="renderProjectTable()"><option value="">全部優先級</option></select>
+        <input type="text" id="projectSearch" class="form-control" placeholder="搜尋專案名稱..." oninput="renderProjectTable()">
+        <select id="projectFilterStatus" class="form-select" onchange="renderProjectTable()"><option value="">全部狀態</option></select>
+        <select id="projectFilterPriority" class="form-select" onchange="renderProjectTable()"><option value="">全部優先級</option></select>
         <span class="count" id="projectCount"></span>
       </div>
-      <div class="table-wrap">
-        <table id="projectTable">
+      <div class="table-wrap table-responsive">
+        <table id="projectTable" class="table table-hover align-middle">
           <thead><tr>
             <th data-key="專案名稱">專案名稱</th>
             <th data-key="開始日">開始日</th>
@@ -713,7 +752,7 @@
     <div class="panel" id="panel-habits">
       <div class="page-title-row">
         <h1 id="habitsPageTitle">習慣</h1>
-        <button type="button" class="secondary page-refresh-btn" onclick="reloadHabits()">🔄 重新整理本頁</button>
+        <button type="button" class="secondary page-refresh-btn btn btn-outline-secondary btn-sm" onclick="reloadHabits()"><i class="bi bi-arrow-clockwise"></i> 重新整理本頁</button>
       </div>
       <h2>習慣總覽</h2>
       <div class="cards" id="habitCards"></div>
@@ -721,21 +760,21 @@
       <h2>今日打卡</h2>
       <div id="habitTodayList"></div>
 
-      <div class="muted" style="margin-top:16px;">想新增、編輯或封存習慣？到左側「🛠️ 後台管理 → 🔥 習慣管理」。 <button type="button" class="secondary" style="margin-left:8px;" onclick="switchPanel('habit-admin')">前往習慣管理</button></div>
+      <div class="muted" style="margin-top:16px;">想新增、編輯或封存習慣？到左側「<i class="bi bi-tools"></i> 後台管理 → <i class="bi bi-fire"></i> 習慣管理」。 <button type="button" class="secondary btn btn-outline-secondary btn-sm" style="margin-left:8px;" onclick="switchPanel('habit-admin')">前往習慣管理</button></div>
     </div>
 
     <!-- ========== 習慣管理 ========== -->
     <div class="panel" id="panel-habit-admin">
       <div class="page-title-row">
         <h1>習慣管理</h1>
-        <button type="button" class="secondary page-refresh-btn" onclick="reloadHabits()">🔄 重新整理本頁</button>
+        <button type="button" class="secondary page-refresh-btn btn btn-outline-secondary btn-sm" onclick="reloadHabits()"><i class="bi bi-arrow-clockwise"></i> 重新整理本頁</button>
       </div>
       <div class="muted" style="margin-bottom:16px;">新增、編輯、搜尋、封存習慣。設定好之後，回到左側「習慣」頁面做每日打卡就好。</div>
-      <div class="toolbar-row"><button onclick="openHabitForm(null)">+ 新增習慣</button></div>
+      <div class="toolbar-row"><button class="btn btn-primary" onclick="openHabitForm(null)"><i class="bi bi-plus-lg"></i> 新增習慣</button></div>
       <div class="filters">
-        <input type="text" id="habitSearch" placeholder="搜尋習慣名稱..." oninput="renderHabitList()">
-        <select id="habitFilterCategory" onchange="renderHabitList()"><option value="">全部分類</option></select>
-        <select id="habitFilterState" onchange="renderHabitList()">
+        <input type="text" id="habitSearch" class="form-control" placeholder="搜尋習慣名稱..." oninput="renderHabitList()">
+        <select id="habitFilterCategory" class="form-select" onchange="renderHabitList()"><option value="">全部分類</option></select>
+        <select id="habitFilterState" class="form-select" onchange="renderHabitList()">
           <option value="">全部（含封存）</option>
           <option value="active">僅啟用</option>
           <option value="archived">僅封存</option>
@@ -749,7 +788,7 @@
     <div class="panel" id="panel-diary">
       <div class="page-title-row">
         <h1 id="diaryPageTitle">日記</h1>
-        <button type="button" class="secondary page-refresh-btn" onclick="reloadDiaries()">🔄 重新整理本頁</button>
+        <button type="button" class="secondary page-refresh-btn btn btn-outline-secondary btn-sm" onclick="reloadDiaries()"><i class="bi bi-arrow-clockwise"></i> 重新整理本頁</button>
       </div>
       <h2>日記總覽</h2>
       <div class="cards" id="diaryCards"></div>
@@ -767,33 +806,33 @@
       <div class="muted" style="margin-bottom:16px;">管理課程/訂閱/任務用到的各種下拉選項。改名字會自動同步更新所有已經用到這個選項的資料；刪除選項只是讓它以後不會出現在下拉選單，不會動到既有資料。</div>
 
       <div class="home-section">
-        <h2>🧭 選單項目</h2>
+        <h2><i class="bi bi-compass"></i> 選單項目</h2>
         <div class="muted" style="margin-bottom:10px;">改這裡的圖示（emoji）跟名稱，左側選單、頁面標題會跟著變，不會動到底下的資料結構。</div>
         <div class="option-grid" id="adminSystemFields"></div>
       </div>
 
       <div class="home-section">
-        <h2>📚 課程相關</h2>
+        <h2><i class="bi bi-book"></i> 課程相關</h2>
         <div class="option-grid" id="adminCourseFields"></div>
       </div>
 
       <div class="home-section">
-        <h2>💰 訂閱相關</h2>
+        <h2><i class="bi bi-cash-coin"></i> 訂閱相關</h2>
         <div class="option-grid" id="adminSubFields"></div>
       </div>
 
       <div class="home-section">
-        <h2>✅ 任務相關</h2>
+        <h2><i class="bi bi-check2-square"></i> 任務相關</h2>
         <div class="option-grid" id="adminTaskFields"></div>
       </div>
 
       <div class="home-section">
-        <h2>📁 專案相關</h2>
+        <h2><i class="bi bi-folder"></i> 專案相關</h2>
         <div class="option-grid" id="adminProjectFields"></div>
       </div>
 
       <div class="home-section">
-        <h2>🔥 習慣相關</h2>
+        <h2><i class="bi bi-fire"></i> 習慣相關</h2>
         <div class="option-grid" id="adminHabitFields"></div>
       </div>
     </div>
@@ -803,17 +842,17 @@
       <h1>設定</h1>
       <div class="muted" style="margin-bottom:14px;">這個網址跟 token 只會存在你的瀏覽器本機（localStorage），不會傳到別的地方。</div>
       <div class="settings-form">
-        <div>
-          <label for="apiBase">Apps Script 網址</label><br>
-          <input type="text" id="apiBase" placeholder="/dev 或 /exec，結尾不用加 ?action=...">
+        <div class="mb-3">
+          <label for="apiBase" class="form-label">Apps Script 網址</label>
+          <input type="text" id="apiBase" class="form-control" placeholder="/dev 或 /exec，結尾不用加 ?action=...">
         </div>
-        <div>
-          <label for="apiToken">API_TOKEN</label><br>
-          <input type="text" id="apiToken" placeholder="跟 Apps Script 指令碼屬性設的要一樣">
+        <div class="mb-3">
+          <label for="apiToken" class="form-label">API_TOKEN</label>
+          <input type="text" id="apiToken" class="form-control" placeholder="跟 Apps Script 指令碼屬性設的要一樣">
         </div>
         <div class="btn-row">
-          <button onclick="saveAndLoad()">套用並載入</button>
-          <button class="secondary" onclick="loadAll()">重新整理</button>
+          <button class="btn btn-primary" onclick="saveAndLoad()">套用並載入</button>
+          <button class="secondary btn btn-outline-secondary" onclick="loadAll()">重新整理</button>
           <span id="status"></span>
         </div>
       </div>
@@ -822,10 +861,15 @@
   </main>
 </div>
 
-<div class="modal-overlay hidden" id="modalOverlay">
-  <div class="modal-box" id="modalBody"></div>
+<div class="modal fade" id="appModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content modal-box">
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 /* ---------------- PWA：加入主畫面 / 全螢幕模式 ---------------- */
 (function setupPwaManifest() {
@@ -886,9 +930,9 @@ const FIND_TYPE_OPTIONS = ["文章", "Podcast", "書", "YouTube影片", "實體�
 // 發現有趣的東西：整理狀態三態循環 ""(待整理) -> "已整理" -> "不需整理" -> ""
 const FIND_STATUS_CYCLE = ["", "已整理", "不需整理"];
 function diaryFindStatusIcon(s) {
-  if (s === "已整理") return "✅";
-  if (s === "不需整理") return "➖";
-  return "◯";
+  if (s === "已整理") return '<i class="bi bi-check-circle-fill"></i>';
+  if (s === "不需整理") return '<i class="bi bi-dash-circle"></i>';
+  return '<i class="bi bi-circle"></i>';
 }
 function diaryFindStatusLabel(s) {
   if (s === "已整理") return "已整理（點一下切換）";
@@ -899,7 +943,7 @@ function cycleDiaryFindStatus(btn) {
   const cur = btn.dataset.status || "";
   const next = FIND_STATUS_CYCLE[(FIND_STATUS_CYCLE.indexOf(cur) + 1) % FIND_STATUS_CYCLE.length];
   btn.dataset.status = next;
-  btn.textContent = diaryFindStatusIcon(next);
+  btn.innerHTML = diaryFindStatusIcon(next);
   btn.title = diaryFindStatusLabel(next);
 }
 
@@ -1089,7 +1133,7 @@ async function postAction(action, payload) {
         await new Promise(r => setTimeout(r, 500 * attempt));
         continue;
       }
-      throw new Error("伺服器暫時沒有正確回應，請按這個模組畫面上的「🔄 重新整理本頁」確認資料有沒有存進去，再決定要不要重新送出");
+      throw new Error("伺服器暫時沒有正確回應，請按這個模組畫面上的「重新整理本頁」確認資料有沒有存進去，再決定要不要重新送出");
     }
     if (json && json.error) throw new Error(json.error);
     return json;
@@ -1289,19 +1333,21 @@ function switchPanel(name) {
   }
   const activeLabel = document.querySelector(`.nav-item[data-panel="${name}"] .label`);
   const titleEl = document.getElementById("mobileTopbarTitle");
-  if (titleEl) titleEl.textContent = activeLabel ? activeLabel.textContent : "📋 個人工作台";
+  if (titleEl) titleEl.textContent = activeLabel ? activeLabel.textContent : "個人工作台";
   closeMobileNav();
 }
 document.querySelectorAll(".nav-item").forEach(item => {
   item.addEventListener("click", () => switchPanel(item.dataset.panel));
 });
+// 手機版側邊選單：改用 Bootstrap 的 Offcanvas 元件（含它自己的 backdrop／ESC 關閉），
+// 桌機版寬度則用 .offcanvas-md 讓同一份 DOM 變成一直顯示的普通側欄，不會走 offcanvas 的顯示/隱藏邏輯。
 function toggleMobileNav() {
-  document.getElementById("sidebarEl").classList.toggle("open");
-  document.getElementById("sidebarBackdrop").classList.toggle("open");
+  const el = document.getElementById("sidebarEl");
+  bootstrap.Offcanvas.getOrCreateInstance(el).toggle();
 }
 function closeMobileNav() {
-  document.getElementById("sidebarEl").classList.remove("open");
-  document.getElementById("sidebarBackdrop").classList.remove("open");
+  const el = document.getElementById("sidebarEl");
+  bootstrap.Offcanvas.getInstance(el)?.hide();
 }
 function toggleAdminGroup() {
   const el = document.getElementById("navGroupAdminItems");
@@ -1310,17 +1356,31 @@ function toggleAdminGroup() {
   caret.textContent = isOpen ? "▾" : "▸";
 }
 
-/* ---------------- 深色模式 ---------------- */
+/* ---------------- 深色模式 ----------------
+   Bootstrap 的深色模式只認 <html data-bs-theme="light"|"dark">，本身不會跟著系統設定自動變，
+   所以「跟隨系統」這個選項要靠 matchMedia 自己判斷系統偏好、換算成 light/dark 寫進屬性，
+   並監聽 change 事件，系統設定中途切換時（選的是「跟隨系統」時）也要跟著即時更新。 */
 
 const THEME_KEY = "workbench_theme";
+const themeMediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+function systemPrefersDark() {
+  return !!(themeMediaQuery && themeMediaQuery.matches);
+}
+
+function currentThemeChoice() {
+  // 回傳使用者「明確選擇」的 light/dark，或 "system"（沒存值＝跟隨系統）
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark") return stored;
+  } catch (e) { /* localStorage 不可用時當作跟隨系統 */ }
+  return "system";
+}
 
 function applyTheme(mode) {
   // mode: "system" | "light" | "dark"
-  if (mode === "light" || mode === "dark") {
-    document.documentElement.setAttribute("data-theme", mode);
-  } else {
-    document.documentElement.removeAttribute("data-theme");
-  }
+  const resolved = (mode === "light" || mode === "dark") ? mode : (systemPrefersDark() ? "dark" : "light");
+  document.documentElement.setAttribute("data-bs-theme", resolved);
   try {
     if (mode === "light" || mode === "dark") localStorage.setItem(THEME_KEY, mode);
     else localStorage.removeItem(THEME_KEY);
@@ -1329,26 +1389,25 @@ function applyTheme(mode) {
   const icon = document.getElementById("themeToggleIcon");
   const label = document.getElementById("themeToggleLabel");
   if (icon && label) {
-    if (mode === "light") { icon.textContent = "☀️"; label.textContent = "淺色模式"; }
-    else if (mode === "dark") { icon.textContent = "🌙"; label.textContent = "深色模式"; }
-    else { icon.textContent = "🌗"; label.textContent = "跟隨系統"; }
+    if (mode === "light") { icon.innerHTML = '<i class="bi bi-sun"></i>'; label.textContent = "淺色模式"; }
+    else if (mode === "dark") { icon.innerHTML = '<i class="bi bi-moon-stars"></i>'; label.textContent = "深色模式"; }
+    else { icon.innerHTML = '<i class="bi bi-circle-half"></i>'; label.textContent = "跟隨系統"; }
   }
 }
 
 function cycleTheme() {
-  let current = "system";
-  try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === "light" || stored === "dark") current = stored;
-  } catch (e) {}
+  const current = currentThemeChoice();
   const next = current === "system" ? "light" : current === "light" ? "dark" : "system";
   applyTheme(next);
 }
 
 function initTheme() {
-  let stored = null;
-  try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}
-  applyTheme(stored === "light" || stored === "dark" ? stored : "system");
+  applyTheme(currentThemeChoice());
+  if (themeMediaQuery) {
+    themeMediaQuery.addEventListener("change", () => {
+      if (currentThemeChoice() === "system") applyTheme("system");
+    });
+  }
 }
 
 /* ---------------- 總覽（首頁） ---------------- */
@@ -1397,7 +1456,7 @@ function renderHomeOverview() {
   `;
   document.getElementById("homeDiaryToday").innerHTML = ds.hasToday
     ? `<div class="muted">今天寫過日記了 📔</div>`
-    : `<div class="diary-empty-prompt">今天還沒寫日記<div style="margin-top:8px;"><button onclick="switchPanel('diary'); openDiaryForm(todayDateStr(0))">+ 寫今天的日記</button></div></div>`;
+    : `<div class="diary-empty-prompt">今天還沒寫日記<div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="switchPanel('diary'); openDiaryForm(todayDateStr(0))"><i class="bi bi-plus-lg"></i> 寫今天的日記</button></div></div>`;
 }
 
 /* ---------------- 課程總覽 ---------------- */
@@ -1451,8 +1510,8 @@ function renderCourseTable() {
       <td data-label="進度"><div class="progress-cell"><div class="bar-bg"><div class="bar-fg" style="width:${pct}%"></div></div>${pct}%</div></td>
       <td data-label="優先">${escapeHtml(c["優先順序"] || "")}</td>
       <td data-label="操作"><div class="actions">
-        <button class="btn-sm btn-edit" onclick="openCourseForm('${id}')">編輯</button>
-        <button class="btn-sm btn-delete" onclick="deleteCourseRow('${id}')">刪除</button>
+        <button class="btn-sm btn-edit btn btn-outline-secondary" onclick="openCourseForm('${id}')">編輯</button>
+        <button class="btn-sm btn-delete btn btn-outline-danger" onclick="deleteCourseRow('${id}')">刪除</button>
       </div></td>
     </tr>`;
   }).join("");
@@ -1533,8 +1592,8 @@ function renderSubTable() {
       <td data-label="總計花費">$${(Number(s["總計花費"]) || 0).toLocaleString()}</td>
       <td class="wrap" data-label="標籤">${escapeHtml((s["分類標籤"] || []).join("、"))}</td>
       <td data-label="操作"><div class="actions">
-        <button class="btn-sm btn-edit" onclick="openSubForm('${id}')">編輯</button>
-        <button class="btn-sm btn-delete" onclick="deleteSubRow('${id}')">刪除</button>
+        <button class="btn-sm btn-edit btn btn-outline-secondary" onclick="openSubForm('${id}')">編輯</button>
+        <button class="btn-sm btn-delete btn btn-outline-danger" onclick="deleteSubRow('${id}')">刪除</button>
       </div></td>
     </tr>`;
   }).join("");
@@ -1572,8 +1631,8 @@ function renderTaskCategoryChips() {
   const container = document.getElementById("taskFilterCategoryChips");
   const allActive = taskCategoryFilterState.size === 0;
   container.innerHTML = `
-    <button type="button" class="filter-chip ${allActive ? "active" : ""}" onclick="clearTaskCategoryFilter()">全部分類</button>
-    ${cats.map(c => `<button type="button" class="filter-chip ${taskCategoryFilterState.has(c) ? "active" : ""}" onclick="toggleTaskCategoryFilter('${escapeAttr(c)}')">${escapeHtml(c)}</button>`).join("")}
+    <button type="button" class="filter-chip btn btn-sm btn-outline-secondary ${allActive ? "active" : ""}" onclick="clearTaskCategoryFilter()">全部分類</button>
+    ${cats.map(c => `<button type="button" class="filter-chip btn btn-sm btn-outline-secondary ${taskCategoryFilterState.has(c) ? "active" : ""}" onclick="toggleTaskCategoryFilter('${escapeAttr(c)}')">${escapeHtml(c)}</button>`).join("")}
   `;
 }
 
@@ -1684,7 +1743,7 @@ function renderTaskRow(t, groupKey) {
   if (t["到期日"]) metaParts.push(`<span class="due ${isOverdue ? "overdue" : ""}">${escapeHtml(t["到期日"])}</span>`);
   if (t["優先順序"]) metaParts.push(escapeHtml(t["優先順序"]));
   if ((t["分類"] || []).length) metaParts.push(escapeHtml(t["分類"].join("、")));
-  if (t["所屬專案"]) { const pname = projectNameById(t["所屬專案"]); if (pname) metaParts.push("📁" + escapeHtml(pname)); }
+  if (t["所屬專案"]) { const pname = projectNameById(t["所屬專案"]); if (pname) metaParts.push('<i class="bi bi-folder"></i> ' + escapeHtml(pname)); }
   if (subs.length) metaParts.push(`子任務 ${subDone}/${subs.length}`);
   if (status && status !== "已完成" && status !== "待辦") metaParts.push(escapeHtml(status));
 
@@ -1692,15 +1751,15 @@ function renderTaskRow(t, groupKey) {
     <input type="checkbox" class="task-check" ${isDone ? "checked" : ""} onchange="toggleTaskDone('${id}', this.checked)">
     <div class="task-main" onclick="openTaskForm('${id}')">
       <div class="task-title">
-        ${t["星標"] ? "⭐" : ""}${escapeHtml(t["任務名稱"] || "")}
-        ${t["重複規則"] ? `<span class="task-repeat-icon" title="重複：${escapeHtml(repeatRuleLabel(t["重複規則"]))}">↻</span>` : ""}
+        ${t["星標"] ? '<i class="bi bi-star-fill text-warning"></i> ' : ""}${escapeHtml(t["任務名稱"] || "")}
+        ${t["重複規則"] ? `<span class="task-repeat-icon" title="重複：${escapeHtml(repeatRuleLabel(t["重複規則"]))}"><i class="bi bi-arrow-repeat"></i></span>` : ""}
       </div>
       <div class="task-meta">${metaParts.join(" · ")}</div>
     </div>
     <div class="actions">
-      ${canSkipTask(t) ? `<button class="btn-sm btn-edit" onclick="event.stopPropagation(); skipTaskRow('${id}')">跳過本次</button>` : ""}
-      <button class="btn-sm btn-edit" onclick="event.stopPropagation(); openTaskForm('${id}')">編輯</button>
-      <button class="btn-sm btn-delete" onclick="event.stopPropagation(); deleteTaskRow('${id}')">刪除</button>
+      ${canSkipTask(t) ? `<button class="btn-sm btn-edit btn btn-outline-secondary" onclick="event.stopPropagation(); skipTaskRow('${id}')">跳過本次</button>` : ""}
+      <button class="btn-sm btn-edit btn btn-outline-secondary" onclick="event.stopPropagation(); openTaskForm('${id}')">編輯</button>
+      <button class="btn-sm btn-delete btn btn-outline-danger" onclick="event.stopPropagation(); deleteTaskRow('${id}')">刪除</button>
     </div>
   </div>`;
 }
@@ -1772,8 +1831,8 @@ function renderProjectTable() {
       <td data-label="優先級">${escapeHtml(p["優先級"] || "")}</td>
       <td data-label="任務完成度"><div class="progress-cell"><div class="bar-bg"><div class="bar-fg" style="width:${pct}%"></div></div>${pct}%<small style="margin-left:4px; color:var(--sub);">(${doneLabel})</small></div></td>
       <td data-label="操作"><div class="actions">
-        <button class="btn-sm btn-edit" onclick="openProjectForm('${id}')">編輯</button>
-        <button class="btn-sm btn-delete" onclick="deleteProjectRow('${id}')">刪除</button>
+        <button class="btn-sm btn-edit btn btn-outline-secondary" onclick="openProjectForm('${id}')">編輯</button>
+        <button class="btn-sm btn-delete btn btn-outline-danger" onclick="deleteProjectRow('${id}')">刪除</button>
       </div></td>
     </tr>`;
   }).join("");
@@ -1795,9 +1854,9 @@ function habitFreqLabel(h) {
 
 // 超標/達標/基礎徽章的樣式跟文字
 function habitTierBadgeHtml(tier) {
-  if (tier === "超標") return `<span class="badge warn">🥇超標</span>`;
-  if (tier === "達標") return `<span class="badge good">🥈達標</span>`;
-  if (tier === "基礎") return `<span class="badge bronze">🥉基礎</span>`;
+  if (tier === "超標") return `<span class="badge warn"><i class="bi bi-trophy-fill"></i> 超標</span>`;
+  if (tier === "達標") return `<span class="badge good"><i class="bi bi-award-fill"></i> 達標</span>`;
+  if (tier === "基礎") return `<span class="badge bronze"><i class="bi bi-award"></i> 基礎</span>`;
   return "";
 }
 
@@ -1823,14 +1882,14 @@ function habitRowHtml(h, opts) {
   metaParts.push(habitFreqLabel(h));
   if (isCount) metaParts.push(`今日 ${todayVal}/${target}${escapeHtml(h["單位"] || "")}`);
   if (h["今日等級"]) metaParts.push(habitTierBadgeHtml(h["今日等級"]));
-  metaParts.push(`<span class="habit-streak">🔥連續 ${h["連續天數"]} ${streakUnit}</span>`);
+  metaParts.push(`<span class="habit-streak"><i class="bi bi-fire"></i> 連續 ${h["連續天數"]} ${streakUnit}</span>`);
   metaParts.push(`最長 ${h["最長連續"]} ${streakUnit}`);
   metaParts.push(`近7天 ${h["近7天完成率"]}%`);
 
   const actions = opts.showActions === false ? "" : `
     <div class="actions">
-      <button class="btn-sm btn-edit" onclick="openHabitForm('${id}')">編輯</button>
-      <button class="btn-sm btn-delete" onclick="deleteHabitRow('${id}')">刪除</button>
+      <button class="btn-sm btn-edit btn btn-outline-secondary" onclick="openHabitForm('${id}')">編輯</button>
+      <button class="btn-sm btn-delete btn btn-outline-danger" onclick="deleteHabitRow('${id}')">刪除</button>
     </div>`;
 
   return `<div class="habit-row ${done ? "done" : ""}">
@@ -1922,7 +1981,7 @@ function renderDiaryToday() {
   const entry = diaryData.find(d => d["日期"] === todayStr);
   const container = document.getElementById("diaryTodayBlock");
   if (!entry) {
-    container.innerHTML = `<div class="diary-empty-prompt">今天還沒寫日記<div style="margin-top:8px;"><button onclick="openDiaryForm('${todayStr}')">+ 寫今天的日記</button></div></div>`;
+    container.innerHTML = `<div class="diary-empty-prompt">今天還沒寫日記<div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="openDiaryForm('${todayStr}')"><i class="bi bi-plus-lg"></i> 寫今天的日記</button></div></div>`;
     return;
   }
   container.innerHTML = diaryEntryCardHtml(entry);
@@ -1945,7 +2004,7 @@ function diaryEntryCardHtml(d) {
   const starredThatDay = taskData.filter(t => t["到期日"] === d["日期"] && t["星標"] === true);
   const snippetParts = [];
   if (starredThatDay.length) {
-    snippetParts.push(`<b>⭐ 重要任務</b>　${starredThatDay.map(t => `${t["狀態"] === "已完成" ? "✅" : "◯"} ${escapeHtml(t["任務名稱"] || "")}`).join("　")}`);
+    snippetParts.push(`<b><i class="bi bi-star-fill text-warning"></i> 重要任務</b>　${starredThatDay.map(t => `${t["狀態"] === "已完成" ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-circle"></i>'} ${escapeHtml(t["任務名稱"] || "")}`).join("　")}`);
   }
   if (d["感恩"]) snippetParts.push(`<b>感恩</b>　${escapeHtml(d["感恩"])}`);
   if (d["放手"]) snippetParts.push(`<b>放手</b>　${escapeHtml(d["放手"])}`);
@@ -1958,8 +2017,8 @@ function diaryEntryCardHtml(d) {
         ${d["心情"] ? `<span class="diary-mood">${escapeHtml(d["心情"])}</span>` : ""}
       </div>
       <div class="actions">
-        <button class="btn-sm btn-edit" onclick="openDiaryForm('${d["日期"]}')">編輯</button>
-        <button class="btn-sm btn-delete" onclick="deleteDiaryRow('${id}')">刪除</button>
+        <button class="btn-sm btn-edit btn btn-outline-secondary" onclick="openDiaryForm('${d["日期"]}')">編輯</button>
+        <button class="btn-sm btn-delete btn btn-outline-danger" onclick="deleteDiaryRow('${id}')">刪除</button>
       </div>
     </div>
     ${snippetParts.length ? `<div class="diary-snippet">${snippetParts.join("<br>")}</div>` : `<div class="diary-snippet muted">（這篇還沒寫內容）</div>`}
@@ -2050,22 +2109,27 @@ function selectOptions(list, current) {
 function checkboxList(list, current) {
   const cur = current || [];
   return (list || []).map(v =>
-    `<label><input type="checkbox" value="${escapeAttr(v)}" ${cur.includes(v) ? "checked" : ""}> ${escapeHtml(v)}</label>`
+    `<div class="form-check"><input type="checkbox" class="form-check-input" value="${escapeAttr(v)}" ${cur.includes(v) ? "checked" : ""}><label class="form-check-label"> ${escapeHtml(v)}</label></div>`
   ).join("");
 }
 
+// 彈窗殼子交給 Bootstrap 的 Modal 元件處理（背景遮罩、淡入淡出、Esc/點背景關閉、
+// 焦點鎖定都是它內建的行為），這裡只留 openModal()/closeModal() 這兩個小包裝，
+// 呼叫端（openXxxForm 等）不用管底層是不是 Bootstrap。
+function openModal() {
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("appModal")).show();
+}
 function closeModal() {
-  document.getElementById("modalOverlay").classList.add("hidden");
-  document.getElementById("modalBody").innerHTML = "";
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("appModal")).hide();
 }
 
-// 點背景關閉：如果目前開的是 showConfirmModal/showPromptModal，要順便把
-// Promise resolve 掉（當作取消），不然呼叫端會卡住等不到結果
+// 不管彈窗是被「取消/確定」按鈕關掉，還是使用者自己點背景／按 Esc 關掉（Bootstrap Modal
+// 內建行為），關閉後都統一在這裡收尾：清空內容；如果目前開的是 showConfirmModal/
+// showPromptModal，要順便把 Promise resolve 掉（當作取消），不然呼叫端會卡住等不到結果
 let _modalCancel = null;
-document.getElementById("modalOverlay").addEventListener("click", e => {
-  if (e.target.id !== "modalOverlay") return;
+document.getElementById("appModal").addEventListener("hidden.bs.modal", () => {
+  document.getElementById("modalBody").innerHTML = "";
   if (_modalCancel) { const fn = _modalCancel; _modalCancel = null; fn(); }
-  else closeModal();
 });
 
 // 取代 confirm()：回傳 Promise<boolean>，樣式跟其他彈窗一致
@@ -2075,11 +2139,11 @@ function showConfirmModal({ title = "確認", message = "", confirmLabel = "確�
       <h2>${escapeHtml(title)}</h2>
       <div class="modal-message">${escapeHtml(message)}</div>
       <div class="modal-actions">
-        <button class="secondary" id="cfmCancel">取消</button>
-        <button id="cfmOk" class="${danger ? "btn-danger-solid" : ""}">${escapeHtml(confirmLabel)}</button>
+        <button class="secondary btn btn-outline-secondary" id="cfmCancel">取消</button>
+        <button id="cfmOk" class="btn ${danger ? "btn-danger btn-danger-solid" : "btn-primary"}">${escapeHtml(confirmLabel)}</button>
       </div>
     `;
-    document.getElementById("modalOverlay").classList.remove("hidden");
+    openModal();
     const finish = result => { _modalCancel = null; closeModal(); resolve(result); };
     document.getElementById("cfmOk").addEventListener("click", () => finish(true));
     document.getElementById("cfmCancel").addEventListener("click", () => finish(false));
@@ -2092,13 +2156,13 @@ function showPromptModal({ title = "輸入", label = "", value = "" } = {}) {
   return new Promise(resolve => {
     document.getElementById("modalBody").innerHTML = `
       <h2>${escapeHtml(title)}</h2>
-      <div class="form-field"><label>${escapeHtml(label)}</label><input type="text" id="pmInput" value="${escapeAttr(value)}"></div>
+      <div class="form-field mb-3"><label class="form-label">${escapeHtml(label)}</label><input type="text" class="form-control" id="pmInput" value="${escapeAttr(value)}"></div>
       <div class="modal-actions">
-        <button class="secondary" id="pmCancel">取消</button>
-        <button id="pmOk">確定</button>
+        <button class="secondary btn btn-outline-secondary" id="pmCancel">取消</button>
+        <button id="pmOk" class="btn btn-primary">確定</button>
       </div>
     `;
-    document.getElementById("modalOverlay").classList.remove("hidden");
+    openModal();
     const input = document.getElementById("pmInput");
     input.focus();
     input.select();
@@ -2119,22 +2183,22 @@ function openCourseForm(id) {
   const c = id ? courseData.find(x => x["課程ID"] === id) : null;
   document.getElementById("modalBody").innerHTML = `
     <h2>${c ? "編輯課程" : "新增課程"}</h2>
-    <div class="form-field"><label>課程名稱</label><input type="text" id="f_courseName" value="${c ? escapeAttr(c["課程名稱"]) : ""}"></div>
-    <div class="form-field"><label>平台</label><select id="f_platform"><option value="">（未選）</option>${selectOptions(API_OPTIONS["平台"], c ? c["平台"] : "")}</select></div>
-    <div class="form-field"><label>講師</label><input type="text" id="f_teacher" value="${c ? escapeAttr(c["講師"]) : ""}"></div>
-    <div class="form-field"><label>進度（%）</label><input type="number" id="f_progress" min="0" max="100" value="${c ? Math.round((Number(c["進度"]) || 0) * 100) : 0}"></div>
-    <div class="form-field"><label>狀態</label><select id="f_status"><option value="">（未選）</option>${selectOptions(API_OPTIONS["狀態"], c ? c["狀態"] : "")}</select></div>
-    <div class="form-field"><label>優先順序</label><select id="f_priority"><option value="">（未選）</option>${selectOptions(API_OPTIONS["優先順序"], c ? c["優先順序"] : "")}</select></div>
-    <div class="form-field"><label>課程連結</label><input type="text" id="f_link" value="${c ? escapeAttr(c["課程連結"]) : ""}"></div>
-    <div class="form-field"><label>開始日期</label><input type="date" id="f_startDate" value="${c && c["開始日期"] ? c["開始日期"] : ""}"></div>
-    <div class="form-field"><label>心得筆記</label><textarea id="f_notes" rows="3">${c ? escapeHtml(c["心得筆記"] || "") : ""}</textarea></div>
-    <div class="form-field"><label>分類</label><div class="chk-list">${checkboxList(API_OPTIONS["分類"], c ? c["分類"] : [])}</div></div>
+    <div class="form-field mb-3"><label class="form-label">課程名稱</label><input type="text" class="form-control" id="f_courseName" value="${c ? escapeAttr(c["課程名稱"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">平台</label><select id="f_platform" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["平台"], c ? c["平台"] : "")}</select></div>
+    <div class="form-field mb-3"><label class="form-label">講師</label><input type="text" class="form-control" id="f_teacher" value="${c ? escapeAttr(c["講師"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">進度（%）</label><input type="number" class="form-control" id="f_progress" min="0" max="100" value="${c ? Math.round((Number(c["進度"]) || 0) * 100) : 0}"></div>
+    <div class="form-field mb-3"><label class="form-label">狀態</label><select id="f_status" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["狀態"], c ? c["狀態"] : "")}</select></div>
+    <div class="form-field mb-3"><label class="form-label">優先順序</label><select id="f_priority" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["優先順序"], c ? c["優先順序"] : "")}</select></div>
+    <div class="form-field mb-3"><label class="form-label">課程連結</label><input type="text" class="form-control" id="f_link" value="${c ? escapeAttr(c["課程連結"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">開始日期</label><input type="date" class="form-control" id="f_startDate" value="${c && c["開始日期"] ? c["開始日期"] : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">心得筆記</label><textarea class="form-control" id="f_notes" rows="3">${c ? escapeHtml(c["心得筆記"] || "") : ""}</textarea></div>
+    <div class="form-field mb-3"><label class="form-label">分類</label><div class="chk-list">${checkboxList(API_OPTIONS["分類"], c ? c["分類"] : [])}</div></div>
     <div class="modal-actions">
-      <button class="secondary" onclick="closeModal()">取消</button>
-      <button onclick="saveCourseForm(${c ? `'${id}'` : "null"})">儲存</button>
+      <button class="secondary btn btn-outline-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveCourseForm(${c ? `'${id}'` : "null"})">儲存</button>
     </div>
   `;
-  document.getElementById("modalOverlay").classList.remove("hidden");
+  openModal();
 }
 
 async function saveCourseForm(id) {
@@ -2181,22 +2245,22 @@ function openSubForm(id) {
   const s = id ? subData.find(x => x["訂閱ID"] === id) : null;
   document.getElementById("modalBody").innerHTML = `
     <h2>${s ? "編輯訂閱" : "新增訂閱"}</h2>
-    <div class="form-field"><label>產品</label><input type="text" id="f_product" value="${s ? escapeAttr(s["產品"]) : ""}"></div>
-    <div class="form-field"><label>訂閱費</label><input type="number" id="f_fee" value="${s && s["訂閱費"] != null ? s["訂閱費"] : ""}"></div>
-    <div class="form-field"><label>訂閱週期</label><select id="f_cycle"><option value="">（未選）</option>${selectOptions(API_OPTIONS["訂閱週期"], s ? s["訂閱週期"] : "")}</select></div>
-    <div class="form-field"><label>訂閱開始日</label><input type="date" id="f_subStart" value="${s && s["訂閱開始日"] ? s["訂閱開始日"] : ""}"></div>
-    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_canceled" onchange="onSubCanceledChange()" ${s && s["取消訂閱"] ? "checked" : ""}> 已取消訂閱</label></div>
-    <div class="form-field" id="f_cancelDateRow" ${s && s["取消訂閱"] ? "" : "hidden"}><label>取消訂閱日</label><input type="date" id="f_cancelDate" value="${s && s["取消訂閱日"] ? s["取消訂閱日"] : ""}"></div>
-    <div class="form-field"><label>重要性</label><select id="f_importance"><option value="">（未選）</option>${selectOptions(API_OPTIONS["重要性"], s ? s["重要性"] : "")}</select></div>
-    <div class="form-field"><label>備註</label><textarea id="f_memo" rows="2">${s ? escapeHtml(s["備註"] || "") : ""}</textarea></div>
-    <div class="form-field"><label>付款URL</label><input type="text" id="f_payUrl" value="${s ? escapeAttr(s["付款URL"]) : ""}"></div>
-    <div class="form-field"><label>分類標籤</label><div class="chk-list">${checkboxList(API_OPTIONS["分類標籤"], s ? s["分類標籤"] : [])}</div></div>
+    <div class="form-field mb-3"><label class="form-label">產品</label><input type="text" class="form-control" id="f_product" value="${s ? escapeAttr(s["產品"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">訂閱費</label><input type="number" class="form-control" id="f_fee" value="${s && s["訂閱費"] != null ? s["訂閱費"] : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">訂閱週期</label><select id="f_cycle" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["訂閱週期"], s ? s["訂閱週期"] : "")}</select></div>
+    <div class="form-field mb-3"><label class="form-label">訂閱開始日</label><input type="date" class="form-control" id="f_subStart" value="${s && s["訂閱開始日"] ? s["訂閱開始日"] : ""}"></div>
+    <div class="form-field checkbox-field mb-3 form-check"><input type="checkbox" class="form-check-input" id="f_canceled" onchange="onSubCanceledChange()" ${s && s["取消訂閱"] ? "checked" : ""}><label class="form-check-label" for="f_canceled"> 已取消訂閱</label></div>
+    <div class="form-field mb-3" id="f_cancelDateRow" ${s && s["取消訂閱"] ? "" : "hidden"}><label class="form-label">取消訂閱日</label><input type="date" class="form-control" id="f_cancelDate" value="${s && s["取消訂閱日"] ? s["取消訂閱日"] : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">重要性</label><select id="f_importance" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["重要性"], s ? s["重要性"] : "")}</select></div>
+    <div class="form-field mb-3"><label class="form-label">備註</label><textarea class="form-control" id="f_memo" rows="2">${s ? escapeHtml(s["備註"] || "") : ""}</textarea></div>
+    <div class="form-field mb-3"><label class="form-label">付款URL</label><input type="text" class="form-control" id="f_payUrl" value="${s ? escapeAttr(s["付款URL"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">分類標籤</label><div class="chk-list">${checkboxList(API_OPTIONS["分類標籤"], s ? s["分類標籤"] : [])}</div></div>
     <div class="modal-actions">
-      <button class="secondary" onclick="closeModal()">取消</button>
-      <button onclick="saveSubForm(${s ? `'${id}'` : "null"})">儲存</button>
+      <button class="secondary btn btn-outline-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveSubForm(${s ? `'${id}'` : "null"})">儲存</button>
     </div>
   `;
-  document.getElementById("modalOverlay").classList.remove("hidden");
+  openModal();
 }
 
 function onSubCanceledChange() {
@@ -2245,9 +2309,9 @@ async function deleteSubRow(id) {
 
 function subtaskRowHtml(content, done) {
   return `<div class="subtask-row">
-    <input type="checkbox" class="st-done" ${done ? "checked" : ""}>
-    <input type="text" class="st-content" value="${escapeAttr(content || "")}" placeholder="子任務內容">
-    <button type="button" class="icon-btn" onclick="this.closest('.subtask-row').remove()">🗑️</button>
+    <input type="checkbox" class="st-done form-check-input" ${done ? "checked" : ""}>
+    <input type="text" class="st-content form-control" value="${escapeAttr(content || "")}" placeholder="子任務內容">
+    <button type="button" class="icon-btn btn btn-sm btn-outline-danger" onclick="this.closest('.subtask-row').remove()" aria-label="刪除子任務"><i class="bi bi-trash"></i></button>
   </div>`;
 }
 
@@ -2276,25 +2340,25 @@ function openTaskForm(id) {
 
   document.getElementById("modalBody").innerHTML = `
     <h2>${t ? "編輯任務" : "新增任務"}</h2>
-    <div class="form-field"><label>任務名稱</label><input type="text" id="f_taskName" value="${t ? escapeAttr(t["任務名稱"]) : ""}"></div>
-    <div class="form-field"><label>分類</label><div class="chk-list">${checkboxList(API_OPTIONS["任務分類"], t ? t["分類"] : [])}</div></div>
-    <div class="form-field"><label>所屬專案</label><select id="f_taskProject"><option value="">（無）</option>${projectData.map(p => `<option value="${escapeAttr(p["專案ID"])}" ${t && t["所屬專案"] === p["專案ID"] ? "selected" : ""}>${escapeHtml(p["專案名稱"] || "")}</option>`).join("")}</select></div>
-    <div class="form-field">
-      <label>到期日</label>
-      <input type="date" id="f_taskDue" value="${t && t["到期日"] ? t["到期日"] : ""}">
+    <div class="form-field mb-3"><label class="form-label">任務名稱</label><input type="text" class="form-control" id="f_taskName" value="${t ? escapeAttr(t["任務名稱"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">分類</label><div class="chk-list">${checkboxList(API_OPTIONS["任務分類"], t ? t["分類"] : [])}</div></div>
+    <div class="form-field mb-3"><label class="form-label">所屬專案</label><select id="f_taskProject" class="form-select"><option value="">（無）</option>${projectData.map(p => `<option value="${escapeAttr(p["專案ID"])}" ${t && t["所屬專案"] === p["專案ID"] ? "selected" : ""}>${escapeHtml(p["專案名稱"] || "")}</option>`).join("")}</select></div>
+    <div class="form-field mb-3">
+      <label class="form-label">到期日</label>
+      <input type="date" class="form-control" id="f_taskDue" value="${t && t["到期日"] ? t["到期日"] : ""}">
       <div class="quick-date-row">
-        <button type="button" class="quick-date-btn" onclick="setQuickDate(0)">今天</button>
-        <button type="button" class="quick-date-btn" onclick="setQuickDate(1)">明天</button>
-        <button type="button" class="quick-date-btn" onclick="setQuickDate(3)">3天後</button>
-        <button type="button" class="quick-date-btn" onclick="setQuickDateThisSunday()">這週日</button>
-        <button type="button" class="quick-date-btn" onclick="clearTaskDue()">無日期</button>
+        <button type="button" class="quick-date-btn btn btn-sm btn-outline-secondary" onclick="setQuickDate(0)">今天</button>
+        <button type="button" class="quick-date-btn btn btn-sm btn-outline-secondary" onclick="setQuickDate(1)">明天</button>
+        <button type="button" class="quick-date-btn btn btn-sm btn-outline-secondary" onclick="setQuickDate(3)">3天後</button>
+        <button type="button" class="quick-date-btn btn btn-sm btn-outline-secondary" onclick="setQuickDateThisSunday()">這週日</button>
+        <button type="button" class="quick-date-btn btn btn-sm btn-outline-secondary" onclick="clearTaskDue()">無日期</button>
       </div>
     </div>
-    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_taskStar" ${t && t["星標"] ? "checked" : ""}> 星標</label></div>
-    <div class="form-field">
-      <label>重複（完成時會自動幫你產生下一筆；自訂文字只是記錄用，不會自動產生）</label>
+    <div class="form-field checkbox-field mb-3 form-check"><input type="checkbox" class="form-check-input" id="f_taskStar" ${t && t["星標"] ? "checked" : ""}><label class="form-check-label" for="f_taskStar"> <i class="bi bi-star-fill"></i> 星標</label></div>
+    <div class="form-field mb-3">
+      <label class="form-label">重複（完成時會自動幫你產生下一筆；自訂文字只是記錄用，不會自動產生）</label>
       <div class="repeat-picker">
-        <select id="f_repeatFreq" onchange="onRepeatFreqChange()">
+        <select id="f_repeatFreq" class="form-select" onchange="onRepeatFreqChange()">
           <option value="none" ${repeat.freq === "none" ? "selected" : ""}>不重複</option>
           <option value="day" ${repeat.freq === "day" ? "selected" : ""}>每天</option>
           <option value="week" ${repeat.freq === "week" ? "selected" : ""}>每週</option>
@@ -2304,47 +2368,48 @@ function openTaskForm(id) {
         </select>
         <div id="repeatIntervalRow" class="repeat-sub" hidden>
           <span>每</span>
-          <input type="number" id="f_repeatInterval" min="1" value="${repeat.interval || 1}" style="width:56px;">
+          <input type="number" id="f_repeatInterval" class="form-control d-inline-block" min="1" value="${repeat.interval || 1}" style="width:56px;">
           <span id="repeatUnitLabel"></span>
         </div>
         <div id="repeatWeekdaysRow" class="repeat-weekdays" hidden>
-          ${[0, 1, 2, 3, 4, 5, 6].map(w => `<button type="button" class="wd-btn" data-wd="${w}" onclick="toggleRepeatWeekday(${w})">週${WEEKDAY_LABELS[w]}</button>`).join("")}
+          ${[0, 1, 2, 3, 4, 5, 6].map(w => `<button type="button" class="wd-btn btn btn-sm btn-outline-secondary" data-wd="${w}" onclick="toggleRepeatWeekday(${w})">週${WEEKDAY_LABELS[w]}</button>`).join("")}
         </div>
-        <div id="repeatLastDayRow" class="repeat-sub" hidden>
-          <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text);">
-            <input type="checkbox" id="f_repeatLastDay" ${repeat.lastDayOfMonth ? "checked" : ""}> 每月最後一天（不管大月小月，都算到那個月最後一天）
+        <div id="repeatLastDayRow" class="repeat-sub form-check" hidden>
+          <input type="checkbox" class="form-check-input" id="f_repeatLastDay" ${repeat.lastDayOfMonth ? "checked" : ""}>
+          <label class="form-check-label" for="f_repeatLastDay" style="font-size:13px; color:var(--text);">
+            每月最後一天（不管大月小月，都算到那個月最後一天）
           </label>
         </div>
         <div id="repeatCustomRow" class="repeat-sub" hidden>
-          <input type="text" id="f_repeatCustomLabel" placeholder="例如：牌照稅" value="${repeat.freq === "custom" ? escapeAttr(repeat.label || "") : ""}">
+          <input type="text" class="form-control" id="f_repeatCustomLabel" placeholder="例如：牌照稅" value="${repeat.freq === "custom" ? escapeAttr(repeat.label || "") : ""}">
         </div>
         <div id="repeatEndRow" class="repeat-end" hidden>
           <div class="repeat-end-label">重複截止</div>
-          <label class="repeat-end-option"><input type="radio" name="f_repeatEndType" value="never" ${repeat.end.type === "never" ? "checked" : ""} onchange="onRepeatEndTypeChange()"> 一直重複</label>
-          <label class="repeat-end-option"><input type="radio" name="f_repeatEndType" value="date" ${repeat.end.type === "date" ? "checked" : ""} onchange="onRepeatEndTypeChange()"> 到日期
-            <input type="date" id="f_repeatEndDate" value="${repeat.end.type === "date" ? repeat.end.date : ""}" ${repeat.end.type !== "date" ? "disabled" : ""}>
-          </label>
-          <label class="repeat-end-option"><input type="radio" name="f_repeatEndType" value="count" ${repeat.end.type === "count" ? "checked" : ""} onchange="onRepeatEndTypeChange()"> 重複次數
-            <input type="number" id="f_repeatEndCount" min="1" value="${repeat.end.type === "count" ? repeat.end.count : 5}" style="width:56px;" ${repeat.end.type !== "count" ? "disabled" : ""}> 次
-          </label>
+          <div class="repeat-end-option form-check"><input type="radio" class="form-check-input" name="f_repeatEndType" id="f_repeatEndNever" value="never" ${repeat.end.type === "never" ? "checked" : ""} onchange="onRepeatEndTypeChange()"><label class="form-check-label" for="f_repeatEndNever"> 一直重複</label></div>
+          <div class="repeat-end-option form-check"><input type="radio" class="form-check-input" name="f_repeatEndType" id="f_repeatEndDateRadio" value="date" ${repeat.end.type === "date" ? "checked" : ""} onchange="onRepeatEndTypeChange()"><label class="form-check-label" for="f_repeatEndDateRadio"> 到日期</label>
+            <input type="date" class="form-control d-inline-block" id="f_repeatEndDate" value="${repeat.end.type === "date" ? repeat.end.date : ""}" ${repeat.end.type !== "date" ? "disabled" : ""}>
+          </div>
+          <div class="repeat-end-option form-check"><input type="radio" class="form-check-input" name="f_repeatEndType" id="f_repeatEndCountRadio" value="count" ${repeat.end.type === "count" ? "checked" : ""} onchange="onRepeatEndTypeChange()"><label class="form-check-label" for="f_repeatEndCountRadio"> 重複次數</label>
+            <input type="number" class="form-control d-inline-block" id="f_repeatEndCount" min="1" value="${repeat.end.type === "count" ? repeat.end.count : 5}" style="width:56px;" ${repeat.end.type !== "count" ? "disabled" : ""}> 次
+          </div>
         </div>
       </div>
     </div>
-    <div class="form-field"><label>備註</label><textarea id="f_taskNotes" rows="2">${t ? escapeHtml(t["備註"] || "") : ""}</textarea></div>
-    <div class="form-field">
-      <label>子任務</label>
+    <div class="form-field mb-3"><label class="form-label">備註</label><textarea class="form-control" id="f_taskNotes" rows="2">${t ? escapeHtml(t["備註"] || "") : ""}</textarea></div>
+    <div class="form-field mb-3">
+      <label class="form-label">子任務</label>
       <div id="subtaskEditor">${renderSubtaskEditorRows(t ? t["子任務"] : [])}</div>
-      <button type="button" class="secondary" style="margin-top:6px; padding:6px 12px; font-size:12px;" onclick="addSubtaskRow()">+ 新增子任務</button>
+      <button type="button" class="secondary btn btn-outline-secondary btn-sm" style="margin-top:6px;" onclick="addSubtaskRow()"><i class="bi bi-plus-lg"></i> 新增子任務</button>
     </div>
     <div class="modal-actions">
-      ${canSkipTask(t) ? `<button class="secondary" onclick="skipTaskRow('${id}')">跳過本次</button>` : ""}
-      <button class="secondary" onclick="closeModal()">取消</button>
-      <button onclick="saveTaskForm(${t ? `'${id}'` : "null"})">儲存</button>
+      ${canSkipTask(t) ? `<button class="secondary btn btn-outline-secondary" onclick="skipTaskRow('${id}')">跳過本次</button>` : ""}
+      <button class="secondary btn btn-outline-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveTaskForm(${t ? `'${id}'` : "null"})">儲存</button>
     </div>
   `;
   onRepeatFreqChange();
   updateWeekdayButtonStyles();
-  document.getElementById("modalOverlay").classList.remove("hidden");
+  openModal();
 }
 
 function onRepeatFreqChange() {
@@ -2481,18 +2546,18 @@ function openProjectForm(id) {
   const p = id ? projectData.find(x => x["專案ID"] === id) : null;
   document.getElementById("modalBody").innerHTML = `
     <h2>${p ? "編輯專案" : "新增專案"}</h2>
-    <div class="form-field"><label>專案名稱</label><input type="text" id="f_projectName" value="${p ? escapeAttr(p["專案名稱"]) : ""}"></div>
-    <div class="form-field"><label>開始日</label><input type="date" id="f_projectStart" value="${p && p["開始日"] ? p["開始日"] : ""}"></div>
-    <div class="form-field"><label>結束日</label><input type="date" id="f_projectEnd" value="${p && p["結束日"] ? p["結束日"] : ""}"></div>
-    <div class="form-field"><label>狀態</label><select id="f_projectStatus"><option value="">（未選）</option>${selectOptions(API_OPTIONS["專案狀態"], p ? p["狀態"] : "")}</select></div>
-    <div class="form-field"><label>優先級</label><select id="f_projectPriority"><option value="">（未選）</option>${selectOptions(API_OPTIONS["專案優先級"], p ? p["優先級"] : "")}</select></div>
-    <div class="form-field"><label>備註</label><textarea id="f_projectNotes" rows="3">${p ? escapeHtml(p["備註"] || "") : ""}</textarea></div>
+    <div class="form-field mb-3"><label class="form-label">專案名稱</label><input type="text" class="form-control" id="f_projectName" value="${p ? escapeAttr(p["專案名稱"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">開始日</label><input type="date" class="form-control" id="f_projectStart" value="${p && p["開始日"] ? p["開始日"] : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">結束日</label><input type="date" class="form-control" id="f_projectEnd" value="${p && p["結束日"] ? p["結束日"] : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">狀態</label><select id="f_projectStatus" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["專案狀態"], p ? p["狀態"] : "")}</select></div>
+    <div class="form-field mb-3"><label class="form-label">優先級</label><select id="f_projectPriority" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["專案優先級"], p ? p["優先級"] : "")}</select></div>
+    <div class="form-field mb-3"><label class="form-label">備註</label><textarea class="form-control" id="f_projectNotes" rows="3">${p ? escapeHtml(p["備註"] || "") : ""}</textarea></div>
     <div class="modal-actions">
-      <button class="secondary" onclick="closeModal()">取消</button>
-      <button onclick="saveProjectForm(${p ? `'${id}'` : "null"})">儲存</button>
+      <button class="secondary btn btn-outline-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveProjectForm(${p ? `'${id}'` : "null"})">儲存</button>
     </div>
   `;
-  document.getElementById("modalOverlay").classList.remove("hidden");
+  openModal();
 }
 
 async function saveProjectForm(id) {
@@ -2539,59 +2604,59 @@ function openHabitForm(id) {
 
   document.getElementById("modalBody").innerHTML = `
     <h2>${h ? "編輯習慣" : "新增習慣"}</h2>
-    <div class="form-field"><label>習慣名稱</label><input type="text" id="f_habitName" value="${h ? escapeAttr(h["習慣名稱"]) : ""}"></div>
-    <div class="form-field"><label>分類</label><select id="f_habitCategory"><option value="">（未選）</option>${selectOptions(API_OPTIONS["習慣分類"], h ? h["分類"] : "")}</select></div>
-    <div class="form-field">
-      <label>時段</label>
-      <select id="f_habitTime">
+    <div class="form-field mb-3"><label class="form-label">習慣名稱</label><input type="text" class="form-control" id="f_habitName" value="${h ? escapeAttr(h["習慣名稱"]) : ""}"></div>
+    <div class="form-field mb-3"><label class="form-label">分類</label><select id="f_habitCategory" class="form-select"><option value="">（未選）</option>${selectOptions(API_OPTIONS["習慣分類"], h ? h["分類"] : "")}</select></div>
+    <div class="form-field mb-3">
+      <label class="form-label">時段</label>
+      <select id="f_habitTime" class="form-select">
         ${HABIT_TIME_OPTIONS.map(t => `<option value="${t}" ${(h ? (h["時段"] || "不限") : "不限") === t ? "selected" : ""}>${HABIT_TIME_ICON[t]} ${t}</option>`).join("")}
       </select>
     </div>
-    <div class="form-field">
-      <label>打卡方式</label>
-      <select id="f_habitType" onchange="onHabitTypeChange()">
+    <div class="form-field mb-3">
+      <label class="form-label">打卡方式</label>
+      <select id="f_habitType" class="form-select" onchange="onHabitTypeChange()">
         <option value="打勾" ${!h || h["類型"] !== "計數" ? "selected" : ""}>打勾（有做/沒做）</option>
         <option value="計數" ${h && h["類型"] === "計數" ? "selected" : ""}>計數（例如喝水杯數、閱讀頁數）</option>
       </select>
     </div>
     <div id="habitCountFieldsRow">
-      <div class="form-field"><label>目標值（達標門檻）</label><input type="number" id="f_habitTarget" min="1" value="${h && h["目標值"] ? h["目標值"] : ""}"></div>
-      <div class="form-field"><label>單位</label><input type="text" id="f_habitUnit" placeholder="例如：杯、頁" value="${h ? escapeAttr(h["單位"]) : ""}"></div>
-      <div class="form-field checkbox-field"><label><input type="checkbox" id="f_habitTiered" ${h && h["啟用分級"] === true ? "checked" : ""} onchange="onHabitTierChange()"> 開啟三級制（基礎／達標／超標）</label></div>
+      <div class="form-field mb-3"><label class="form-label">目標值（達標門檻）</label><input type="number" class="form-control" id="f_habitTarget" min="1" value="${h && h["目標值"] ? h["目標值"] : ""}"></div>
+      <div class="form-field mb-3"><label class="form-label">單位</label><input type="text" class="form-control" id="f_habitUnit" placeholder="例如：杯、頁" value="${h ? escapeAttr(h["單位"]) : ""}"></div>
+      <div class="form-field checkbox-field mb-3 form-check"><input type="checkbox" class="form-check-input" id="f_habitTiered" ${h && h["啟用分級"] === true ? "checked" : ""} onchange="onHabitTierChange()"><label class="form-check-label" for="f_habitTiered"> 開啟三級制（基礎／達標／超標）</label></div>
       <div id="habitTierFieldsRow" class="muted" style="margin-left:2px;">
-        <div class="form-field"><label>基礎值（做到這個數字以上，就算今天有達成、連續天數不會斷）</label><input type="number" id="f_habitBase" min="0" value="${h && h["基礎值"] ? h["基礎值"] : ""}"></div>
-        <div class="form-field"><label>超標值（做到這個數字以上，會特別標示🥇超標）</label><input type="number" id="f_habitOver" min="0" value="${h && h["超標值"] ? h["超標值"] : ""}"></div>
+        <div class="form-field mb-3"><label class="form-label">基礎值（做到這個數字以上，就算今天有達成、連續天數不會斷）</label><input type="number" class="form-control" id="f_habitBase" min="0" value="${h && h["基礎值"] ? h["基礎值"] : ""}"></div>
+        <div class="form-field mb-3"><label class="form-label">超標值（做到這個數字以上，會特別標示 <i class="bi bi-trophy-fill"></i> 超標）</label><input type="number" class="form-control" id="f_habitOver" min="0" value="${h && h["超標值"] ? h["超標值"] : ""}"></div>
       </div>
     </div>
-    <div class="form-field">
-      <label>頻率</label>
+    <div class="form-field mb-3">
+      <label class="form-label">頻率</label>
       <div class="repeat-picker">
-        <select id="f_habitFreq" onchange="onHabitFreqChange()">
+        <select id="f_habitFreq" class="form-select" onchange="onHabitFreqChange()">
           <option value="daily" ${!h || (h["頻率類型"] !== "weekday" && h["頻率類型"] !== "weeklyCount") ? "selected" : ""}>每天</option>
           <option value="weekday" ${h && h["頻率類型"] === "weekday" ? "selected" : ""}>指定星期幾</option>
           <option value="weeklyCount" ${h && h["頻率類型"] === "weeklyCount" ? "selected" : ""}>每週N次（不指定星期幾）</option>
         </select>
         <div id="habitWeekdaysRow" class="repeat-weekdays" hidden>
-          ${[0, 1, 2, 3, 4, 5, 6].map(w => `<button type="button" class="wd-btn" data-wd="${w}" onclick="toggleHabitWeekday(${w})">週${WEEKDAY_LABELS[w]}</button>`).join("")}
+          ${[0, 1, 2, 3, 4, 5, 6].map(w => `<button type="button" class="wd-btn btn btn-sm btn-outline-secondary" data-wd="${w}" onclick="toggleHabitWeekday(${w})">週${WEEKDAY_LABELS[w]}</button>`).join("")}
         </div>
         <div id="habitWeeklyCountRow" class="repeat-sub" hidden>
           <span>每週</span>
-          <input type="number" id="f_habitWeeklyCount" min="1" value="${h && h["每週次數"] ? h["每週次數"] : 3}" style="width:56px;">
+          <input type="number" class="form-control d-inline-block" id="f_habitWeeklyCount" min="1" value="${h && h["每週次數"] ? h["每週次數"] : 3}" style="width:56px;">
           <span>次，哪幾天做都可以</span>
         </div>
       </div>
     </div>
-    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_habitArchived" ${h && h["狀態"] === "封存" ? "checked" : ""}> 封存（先不追蹤，但保留歷史紀錄跟連續天數）</label></div>
+    <div class="form-field checkbox-field mb-3 form-check"><input type="checkbox" class="form-check-input" id="f_habitArchived" ${h && h["狀態"] === "封存" ? "checked" : ""}><label class="form-check-label" for="f_habitArchived"> 封存（先不追蹤，但保留歷史紀錄跟連續天數）</label></div>
     <div class="modal-actions">
-      <button class="secondary" onclick="closeModal()">取消</button>
-      <button onclick="saveHabitForm(${h ? `'${id}'` : "null"})">儲存</button>
+      <button class="secondary btn btn-outline-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveHabitForm(${h ? `'${id}'` : "null"})">儲存</button>
     </div>
   `;
   onHabitTypeChange();
   onHabitTierChange();
   onHabitFreqChange();
   updateHabitWeekdayButtonStyles();
-  document.getElementById("modalOverlay").classList.remove("hidden");
+  openModal();
 }
 
 function onHabitTypeChange() {
@@ -2729,15 +2794,15 @@ function diaryRefTasksHtml(dateStr) {
   const dueStarred = taskData.filter(t => t["到期日"] === dateStr && t["星標"] === true);
   if (!dueStarred.length) {
     return `<div class="diary-ref-tasks">
-      <div>今天沒有打星標的重要任務。想在這裡追蹤，可以先到「任務」把該做的事打上星標 ⭐。</div>
+      <div>今天沒有打星標的重要任務。想在這裡追蹤，可以先到「任務」把該做的事打上星標 <i class="bi bi-star-fill text-warning"></i>。</div>
     </div>`;
   }
   return `<div class="diary-ref-tasks" id="diaryRefTasks">
     <div>今天最重要的任務（打星標的任務，勾選會直接把任務標記為完成）：</div>
     ${dueStarred.map(t => `
       <label class="item-line diary-ref-task-item">
-        <input type="checkbox" ${t["狀態"] === "已完成" ? "checked" : ""} onchange="toggleDiaryRefTask('${t["任務ID"]}', this.checked, '${dateStr}')">
-        ⭐ ${escapeHtml(t["任務名稱"] || "")}
+        <input type="checkbox" class="form-check-input me-1" ${t["狀態"] === "已完成" ? "checked" : ""} onchange="toggleDiaryRefTask('${t["任務ID"]}', this.checked, '${dateStr}')">
+        <i class="bi bi-star-fill text-warning"></i> ${escapeHtml(t["任務名稱"] || "")}
       </label>`).join("")}
   </div>`;
 }
@@ -2776,29 +2841,29 @@ function openDiaryForm(dateStr) {
   diaryDateState = dateStr;
   document.getElementById("modalBody").innerHTML = `
     <h2>${d ? "編輯" : "新增"}日記：${escapeHtml(dateStr)}</h2>
-    <div class="form-field">
-      <label>心情</label>
+    <div class="form-field mb-3">
+      <label class="form-label">心情</label>
       <div class="mood-picker" id="diaryMoodPicker">
-        ${MOOD_OPTIONS.map(m => `<button type="button" class="mood-btn" data-mood="${m}" onclick="setDiaryMood('${m}')">${m}</button>`).join("")}
+        ${MOOD_OPTIONS.map(m => `<button type="button" class="mood-btn btn btn-outline-secondary" data-mood="${m}" onclick="setDiaryMood('${m}')">${m}</button>`).join("")}
       </div>
     </div>
     ${diaryRefTasksHtml(dateStr)}
-    <div class="form-field"><label>感恩</label><textarea id="f_diaryGratitude" rows="2" placeholder="今天有什麼值得感謝的事？">${d ? escapeHtml(d["感恩"] || "") : ""}</textarea></div>
-    <div class="form-field"><label>放手</label><textarea id="f_diaryLetGo" rows="2" placeholder="有什麼想放下、原諒自己的事？">${d ? escapeHtml(d["放手"] || "") : ""}</textarea></div>
-    <div class="form-field"><label>值得紀錄的小故事</label><textarea id="f_diaryStory" rows="3" placeholder="今天的第一次、最後一次、最開心、最難過...">${d ? escapeHtml(d["小故事"] || "") : ""}</textarea></div>
-    <div class="form-field">
-      <label>發現有趣的東西</label>
+    <div class="form-field mb-3"><label class="form-label">感恩</label><textarea class="form-control" id="f_diaryGratitude" rows="2" placeholder="今天有什麼值得感謝的事？">${d ? escapeHtml(d["感恩"] || "") : ""}</textarea></div>
+    <div class="form-field mb-3"><label class="form-label">放手</label><textarea class="form-control" id="f_diaryLetGo" rows="2" placeholder="有什麼想放下、原諒自己的事？">${d ? escapeHtml(d["放手"] || "") : ""}</textarea></div>
+    <div class="form-field mb-3"><label class="form-label">值得紀錄的小故事</label><textarea class="form-control" id="f_diaryStory" rows="3" placeholder="今天的第一次、最後一次、最開心、最難過...">${d ? escapeHtml(d["小故事"] || "") : ""}</textarea></div>
+    <div class="form-field mb-3">
+      <label class="form-label">發現有趣的東西</label>
       <div id="diaryFindEditor">${renderDiaryFindEditorRows(d ? d["發現清單"] : [])}</div>
-      <button type="button" class="secondary" style="margin-top:6px; padding:6px 12px; font-size:12px;" onclick="addDiaryFindRow()">+ 新增項目</button>
+      <button type="button" class="secondary btn btn-outline-secondary btn-sm" style="margin-top:6px;" onclick="addDiaryFindRow()"><i class="bi bi-plus-lg"></i> 新增項目</button>
     </div>
     <div class="modal-actions">
-      ${d ? `<button class="secondary" style="border-color:var(--bad); color:var(--bad);" onclick="deleteDiaryRow('${d["日記ID"]}')">刪除</button>` : ""}
-      <button class="secondary" onclick="closeModal()">取消</button>
-      <button onclick="saveDiaryForm()">儲存</button>
+      ${d ? `<button class="btn btn-outline-danger" onclick="deleteDiaryRow('${d["日記ID"]}')">刪除</button>` : ""}
+      <button class="secondary btn btn-outline-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveDiaryForm()">儲存</button>
     </div>
   `;
   updateDiaryMoodButtonStyles();
-  document.getElementById("modalOverlay").classList.remove("hidden");
+  openModal();
 }
 
 function setDiaryMood(m) {
@@ -2817,12 +2882,12 @@ function diaryFindRowHtml(f) {
   const status = f["狀態"] || "";
   return `<div class="find-row">
     <div class="find-row-top">
-      <select class="find-type">${FIND_TYPE_OPTIONS.map(t => `<option value="${escapeAttr(t)}" ${f["類型"] === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select>
-      <input type="text" class="find-content" placeholder="內容/標題，例如：原子習慣、how to say no podcast" value="${escapeAttr(f["內容"] || "")}">
-      <button type="button" class="icon-btn find-status-btn" data-status="${escapeAttr(status)}" title="${escapeAttr(diaryFindStatusLabel(status))}" onclick="cycleDiaryFindStatus(this)">${diaryFindStatusIcon(status)}</button>
-      <button type="button" class="icon-btn" onclick="this.closest('.find-row').remove()">🗑️</button>
+      <select class="find-type form-select">${FIND_TYPE_OPTIONS.map(t => `<option value="${escapeAttr(t)}" ${f["類型"] === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select>
+      <input type="text" class="find-content form-control" placeholder="內容/標題，例如：原子習慣、how to say no podcast" value="${escapeAttr(f["內容"] || "")}">
+      <button type="button" class="icon-btn find-status-btn btn btn-sm btn-outline-secondary" data-status="${escapeAttr(status)}" title="${escapeAttr(diaryFindStatusLabel(status))}" aria-label="${escapeAttr(diaryFindStatusLabel(status))}" onclick="cycleDiaryFindStatus(this)">${diaryFindStatusIcon(status)}</button>
+      <button type="button" class="icon-btn btn btn-sm btn-outline-danger" onclick="this.closest('.find-row').remove()" aria-label="刪除項目"><i class="bi bi-trash"></i></button>
     </div>
-    <textarea class="find-note" rows="2" placeholder="備註（選填）：為什麼覺得有趣、學到什麼、連結、想法...">${escapeHtml(f["備註"] || "")}</textarea>
+    <textarea class="find-note form-control" rows="2" placeholder="備註（選填）：為什麼覺得有趣、學到什麼、連結、想法...">${escapeHtml(f["備註"] || "")}</textarea>
   </div>`;
 }
 
@@ -2969,9 +3034,9 @@ function systemCardHtml(s) {
   return `
     <div class="option-card">
       <h3>${escapeHtml(s["系統名稱"])} <span class="muted">(${escapeHtml(key)})</span></h3>
-      <div class="form-field"><label>圖示（emoji）</label><input type="text" class="sys-icon-input" maxlength="4" value="${escapeAttr(s["icon"])}"></div>
-      <div class="form-field"><label>名稱</label><input type="text" class="sys-name-input" value="${escapeAttr(s["系統名稱"])}"></div>
-      <button class="btn-sm btn-edit sys-save-btn" data-key="${escapeAttr(key)}">儲存</button>
+      <div class="form-field mb-3"><label class="form-label">圖示（emoji）</label><input type="text" class="sys-icon-input form-control" maxlength="4" value="${escapeAttr(s["icon"])}"></div>
+      <div class="form-field mb-3"><label class="form-label">名稱</label><input type="text" class="sys-name-input form-control" value="${escapeAttr(s["系統名稱"])}"></div>
+      <button class="btn-sm btn-edit btn btn-outline-secondary sys-save-btn" data-key="${escapeAttr(key)}">儲存</button>
     </div>`;
 }
 
@@ -2983,8 +3048,8 @@ function optionCardHtml(field) {
       <span class="opt-name" title="${escapeHtml(v)}">${escapeHtml(v)}</span>
       <span class="opt-count">${usage[v] || 0} 筆</span>
       <span class="opt-actions">
-        <button class="icon-btn" data-action="rename" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}" title="重新命名">✏️</button>
-        <button class="icon-btn" data-action="delete-option" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}" data-count="${usage[v] || 0}" title="刪除">🗑️</button>
+        <button class="icon-btn btn btn-sm btn-outline-secondary" data-action="rename" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}" title="重新命名" aria-label="重新命名"><i class="bi bi-pencil"></i></button>
+        <button class="icon-btn btn btn-sm btn-outline-danger" data-action="delete-option" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}" data-count="${usage[v] || 0}" title="刪除" aria-label="刪除"><i class="bi bi-trash"></i></button>
       </span>
     </div>`).join("");
   return `
@@ -2992,8 +3057,8 @@ function optionCardHtml(field) {
       <h3>${escapeHtml(field)}</h3>
       ${rows || `<div class="muted">目前沒有選項</div>`}
       <div class="option-add-row">
-        <input type="text" class="add-option-input" placeholder="新增選項...">
-        <button class="btn-sm btn-edit add-option-btn" data-field="${escapeAttr(field)}">新增</button>
+        <input type="text" class="add-option-input form-control" placeholder="新增選項...">
+        <button class="btn-sm btn-edit btn btn-outline-secondary add-option-btn" data-field="${escapeAttr(field)}">新增</button>
       </div>
     </div>`;
 }
