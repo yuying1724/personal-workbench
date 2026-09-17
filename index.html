@@ -312,13 +312,19 @@
   .list-block .item .name{ font-weight:600; }
   .list-block .item .meta{ color:var(--sub); font-size:12px; margin-top:2px; }
 
-  /* ---- 篩選列 ---- */
-  .filters{ display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+  /* ---- 篩選列 ----
+     Bootstrap 的 .form-select/.form-control 預設是 display:block;width:100%，
+     這份篩選列原本沒有另外設定 width，套上 Bootstrap class 後每個下拉選單會
+     整條占滿一整行、把 .filters 的 flex 橫排擠成直排。這裡明確把寬度改回
+     「依內容縮放」，讓下拉選單維持小巧、排成一整排的樣子；搜尋框則維持原本
+     flex:1（用 flex-basis 蓋掉 width:100%）撐滿剩餘空間的效果不變。 */
+  .filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:14px 0; }
   .filters input[type=text], .filters select{
     padding:7px 10px; border:1px solid var(--line); border-radius:6px;
     background:var(--card); color:var(--text); font-size:13px;
   }
   .filters input[type=text]{ min-width:180px; flex:1; }
+  .filters select, .filters .form-select{ width:auto; flex:0 0 auto; }
   .filters .count{ align-self:center; color:var(--sub); font-size:12px; }
 
   /* ---- 表格 ---- */
@@ -401,7 +407,8 @@
   .find-row-top{ display:flex; gap:6px; flex-wrap:wrap; }
   .find-row select.find-type{
     padding:6px 8px; border:1px solid var(--line); border-radius:6px;
-    background:var(--bg); color:var(--text); font-size:13px; font-family:inherit; flex-shrink:0;
+    background:var(--bg); color:var(--text); font-size:13px; font-family:inherit;
+    width:auto; flex:0 0 auto;
   }
   .find-row input.find-content{ flex:1; min-width:110px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font-size:13px; font-family:inherit; }
   .find-row textarea.find-note{
@@ -554,12 +561,12 @@
     <div class="brand" id="sidebarElLabel"><i class="bi bi-clipboard-check"></i> <span>個人工作台</span></div>
     <nav>
       <div class="nav-item active" data-panel="home"><span class="icon"><i class="bi bi-house"></i></span><span class="label">總覽</span></div>
-      <div class="nav-item" data-panel="tasks"><span class="icon" id="navIconTasks">✅</span><span class="label" id="navLabelTasks">任務</span></div>
-      <div class="nav-item" data-panel="habits"><span class="icon" id="navIconHabits">🔥</span><span class="label" id="navLabelHabits">習慣</span></div>
-      <div class="nav-item" data-panel="diary"><span class="icon" id="navIconDiary">📔</span><span class="label" id="navLabelDiary">日記</span></div>
-      <div class="nav-item" data-panel="projects"><span class="icon" id="navIconProjects">📁</span><span class="label" id="navLabelProjects">專案</span></div>
-      <div class="nav-item" data-panel="subs"><span class="icon" id="navIconSubs">💰</span><span class="label" id="navLabelSubs">訂閱</span></div>
-      <div class="nav-item" data-panel="courses"><span class="icon" id="navIconCourses">📚</span><span class="label" id="navLabelCourses">課程</span></div>
+      <div class="nav-item" data-panel="tasks"><span class="icon" id="navIconTasks"><i class="bi bi-check2-square"></i></span><span class="label" id="navLabelTasks">任務</span></div>
+      <div class="nav-item" data-panel="habits"><span class="icon" id="navIconHabits"><i class="bi bi-fire"></i></span><span class="label" id="navLabelHabits">習慣</span></div>
+      <div class="nav-item" data-panel="diary"><span class="icon" id="navIconDiary"><i class="bi bi-journal-text"></i></span><span class="label" id="navLabelDiary">日記</span></div>
+      <div class="nav-item" data-panel="projects"><span class="icon" id="navIconProjects"><i class="bi bi-folder"></i></span><span class="label" id="navLabelProjects">專案</span></div>
+      <div class="nav-item" data-panel="subs"><span class="icon" id="navIconSubs"><i class="bi bi-cash-coin"></i></span><span class="label" id="navLabelSubs">訂閱</span></div>
+      <div class="nav-item" data-panel="courses"><span class="icon" id="navIconCourses"><i class="bi bi-book"></i></span><span class="label" id="navLabelCourses">課程</span></div>
 
       <div class="nav-group">
         <div class="nav-group-header" onclick="toggleAdminGroup()">
@@ -587,34 +594,34 @@
       <div class="muted" id="homeSubtitle" style="margin-bottom:20px;">先到「設定」貼上 API 網址與 token</div>
 
       <div class="home-section">
-        <h2 id="homeTaskSectionTitle">✅ 任務</h2>
+        <h2 id="homeTaskSectionTitle"><i class="bi bi-check2-square"></i> <span class="section-title-text">任務</span></h2>
         <div class="cards" id="homeTaskCards"></div>
       </div>
 
       <div class="home-section">
-        <h2 id="homeHabitSectionTitle">🔥 習慣</h2>
+        <h2 id="homeHabitSectionTitle"><i class="bi bi-fire"></i> <span class="section-title-text">習慣</span></h2>
         <div class="cards" id="homeHabitCards"></div>
         <div id="homeHabitDueList" style="margin-top:10px;"></div>
       </div>
 
       <div class="home-section">
-        <h2 id="homeDiarySectionTitle">📔 日記</h2>
+        <h2 id="homeDiarySectionTitle"><i class="bi bi-journal-text"></i> <span class="section-title-text">日記</span></h2>
         <div class="cards" id="homeDiaryCards"></div>
         <div id="homeDiaryToday" style="margin-top:10px;"></div>
       </div>
 
       <div class="home-section">
-        <h2 id="homeProjectSectionTitle">📁 專案</h2>
+        <h2 id="homeProjectSectionTitle"><i class="bi bi-folder"></i> <span class="section-title-text">專案</span></h2>
         <div class="cards" id="homeProjectCards"></div>
       </div>
 
       <div class="home-section">
-        <h2 id="homeSubSectionTitle">💰 訂閱</h2>
+        <h2 id="homeSubSectionTitle"><i class="bi bi-cash-coin"></i> <span class="section-title-text">訂閱</span></h2>
         <div class="cards" id="homeSubCards"></div>
       </div>
 
       <div class="home-section">
-        <h2 id="homeCourseSectionTitle">📚 課程</h2>
+        <h2 id="homeCourseSectionTitle"><i class="bi bi-book"></i> <span class="section-title-text">課程</span></h2>
         <div class="cards" id="homeCourseCards"></div>
       </div>
     </div>
@@ -631,10 +638,10 @@
       <h2>全部課程清單</h2>
       <div class="toolbar-row"><button class="btn btn-primary" onclick="openCourseForm(null)"><i class="bi bi-plus-lg"></i> 新增課程</button></div>
       <div class="filters">
-        <input type="text" id="courseSearch" class="form-control" placeholder="搜尋課程名稱 / 講師..." oninput="renderCourseTable()">
-        <select id="courseFilterStatus" class="form-select" onchange="renderCourseTable()"><option value="">全部狀態</option></select>
-        <select id="courseFilterCategory" class="form-select" onchange="renderCourseTable()"><option value="">全部分類</option></select>
-        <select id="courseFilterPlatform" class="form-select" onchange="renderCourseTable()"><option value="">全部平台</option></select>
+        <input type="text" id="courseSearch" class="form-control form-control-sm" placeholder="搜尋課程名稱 / 講師..." oninput="renderCourseTable()">
+        <select id="courseFilterStatus" class="form-select form-select-sm" onchange="renderCourseTable()"><option value="">全部狀態</option></select>
+        <select id="courseFilterCategory" class="form-select form-select-sm" onchange="renderCourseTable()"><option value="">全部分類</option></select>
+        <select id="courseFilterPlatform" class="form-select form-select-sm" onchange="renderCourseTable()"><option value="">全部平台</option></select>
         <span class="count" id="courseCount"></span>
       </div>
       <div class="table-wrap table-responsive">
@@ -666,9 +673,9 @@
       <h2>全部訂閱清單</h2>
       <div class="toolbar-row"><button class="btn btn-primary" onclick="openSubForm(null)"><i class="bi bi-plus-lg"></i> 新增訂閱</button></div>
       <div class="filters">
-        <input type="text" id="subSearch" class="form-control" placeholder="搜尋產品名稱..." oninput="renderSubTable()">
-        <select id="subFilterTag" class="form-select" onchange="renderSubTable()"><option value="">全部標籤</option></select>
-        <select id="subFilterStatus" class="form-select" onchange="renderSubTable()">
+        <input type="text" id="subSearch" class="form-control form-control-sm" placeholder="搜尋產品名稱..." oninput="renderSubTable()">
+        <select id="subFilterTag" class="form-select form-select-sm" onchange="renderSubTable()"><option value="">全部標籤</option></select>
+        <select id="subFilterStatus" class="form-select form-select-sm" onchange="renderSubTable()">
           <option value="">全部（含已取消）</option>
           <option value="active">僅使用中</option>
           <option value="canceled">僅已取消</option>
@@ -705,10 +712,10 @@
       <h2>全部任務清單</h2>
       <div class="toolbar-row"><button class="btn btn-primary" onclick="openTaskForm(null)"><i class="bi bi-plus-lg"></i> 新增任務</button></div>
       <div class="filters">
-        <input type="text" id="taskSearch" class="form-control" placeholder="搜尋任務名稱..." oninput="renderTaskTable()">
-        <select id="taskFilterStatus" class="form-select" onchange="renderTaskTable()"><option value="">全部狀態</option></select>
-        <select id="taskFilterPriority" class="form-select" onchange="renderTaskTable()"><option value="">全部優先順序</option></select>
-        <select id="taskFilterProject" class="form-select" onchange="renderTaskTable()"><option value="">全部專案</option></select>
+        <input type="text" id="taskSearch" class="form-control form-control-sm" placeholder="搜尋任務名稱..." oninput="renderTaskTable()">
+        <select id="taskFilterStatus" class="form-select form-select-sm" onchange="renderTaskTable()"><option value="">全部狀態</option></select>
+        <select id="taskFilterPriority" class="form-select form-select-sm" onchange="renderTaskTable()"><option value="">全部優先順序</option></select>
+        <select id="taskFilterProject" class="form-select form-select-sm" onchange="renderTaskTable()"><option value="">全部專案</option></select>
         <span class="count" id="taskCount"></span>
       </div>
       <div class="chip-filter" id="taskFilterCategoryChips"></div>
@@ -727,9 +734,9 @@
       <h2>全部專案清單</h2>
       <div class="toolbar-row"><button class="btn btn-primary" onclick="openProjectForm(null)"><i class="bi bi-plus-lg"></i> 新增專案</button></div>
       <div class="filters">
-        <input type="text" id="projectSearch" class="form-control" placeholder="搜尋專案名稱..." oninput="renderProjectTable()">
-        <select id="projectFilterStatus" class="form-select" onchange="renderProjectTable()"><option value="">全部狀態</option></select>
-        <select id="projectFilterPriority" class="form-select" onchange="renderProjectTable()"><option value="">全部優先級</option></select>
+        <input type="text" id="projectSearch" class="form-control form-control-sm" placeholder="搜尋專案名稱..." oninput="renderProjectTable()">
+        <select id="projectFilterStatus" class="form-select form-select-sm" onchange="renderProjectTable()"><option value="">全部狀態</option></select>
+        <select id="projectFilterPriority" class="form-select form-select-sm" onchange="renderProjectTable()"><option value="">全部優先級</option></select>
         <span class="count" id="projectCount"></span>
       </div>
       <div class="table-wrap table-responsive">
@@ -772,9 +779,9 @@
       <div class="muted" style="margin-bottom:16px;">新增、編輯、搜尋、封存習慣。設定好之後，回到左側「習慣」頁面做每日打卡就好。</div>
       <div class="toolbar-row"><button class="btn btn-primary" onclick="openHabitForm(null)"><i class="bi bi-plus-lg"></i> 新增習慣</button></div>
       <div class="filters">
-        <input type="text" id="habitSearch" class="form-control" placeholder="搜尋習慣名稱..." oninput="renderHabitList()">
-        <select id="habitFilterCategory" class="form-select" onchange="renderHabitList()"><option value="">全部分類</option></select>
-        <select id="habitFilterState" class="form-select" onchange="renderHabitList()">
+        <input type="text" id="habitSearch" class="form-control form-control-sm" placeholder="搜尋習慣名稱..." oninput="renderHabitList()">
+        <select id="habitFilterCategory" class="form-select form-select-sm" onchange="renderHabitList()"><option value="">全部分類</option></select>
+        <select id="habitFilterState" class="form-select form-select-sm" onchange="renderHabitList()">
           <option value="">全部（含封存）</option>
           <option value="active">僅啟用</option>
           <option value="archived">僅封存</option>
@@ -957,6 +964,9 @@ const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 // 用來讓「今日待辦」「習慣總覽」清單依時段分組顯示，而不是照建立順序排。
 const HABIT_TIME_OPTIONS = ["早上", "中午", "晚上", "不限"];
 const HABIT_TIME_ICON = { "早上": "☀️", "中午": "🌤️", "晚上": "🌙", "不限": "⏰" };
+// <select><option> 只能顯示純文字，沒辦法塞 <i> 圖示字型，所以下拉選單裡繼續用上面那份 emoji；
+// 其他用 HTML 畫出來的地方（例如今日打卡清單的時段標題）改用這份 Bootstrap Icons 對照表。
+const HABIT_TIME_BS_ICON = { "早上": "bi-sun", "中午": "bi-brightness-high", "晚上": "bi-moon-stars", "不限": "bi-clock" };
 
 function decodeRepeatRule(raw) {
   if (!raw) return { freq: "none", interval: 1, weekdays: [], lastDayOfMonth: false, end: { type: "never" }, occurrence: 1 };
@@ -1926,7 +1936,7 @@ function habitRowsWithTimeHeadingsHtml(rows, opts) {
     groups[t].push(h);
   });
   return HABIT_TIME_OPTIONS.filter(t => groups[t].length).map(t => `
-    <div class="habit-time-heading">${HABIT_TIME_ICON[t]} ${t}</div>
+    <div class="habit-time-heading"><i class="bi ${HABIT_TIME_BS_ICON[t] || 'bi-clock'}"></i> ${t}</div>
     ${groups[t].map(h => habitRowHtml(h, opts)).join("")}
   `).join("");
 }
@@ -2882,7 +2892,7 @@ function diaryFindRowHtml(f) {
   const status = f["狀態"] || "";
   return `<div class="find-row">
     <div class="find-row-top">
-      <select class="find-type form-select">${FIND_TYPE_OPTIONS.map(t => `<option value="${escapeAttr(t)}" ${f["類型"] === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select>
+      <select class="find-type form-select form-select-sm">${FIND_TYPE_OPTIONS.map(t => `<option value="${escapeAttr(t)}" ${f["類型"] === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select>
       <input type="text" class="find-content form-control" placeholder="內容/標題，例如：原子習慣、how to say no podcast" value="${escapeAttr(f["內容"] || "")}">
       <button type="button" class="icon-btn find-status-btn btn btn-sm btn-outline-secondary" data-status="${escapeAttr(status)}" title="${escapeAttr(diaryFindStatusLabel(status))}" aria-label="${escapeAttr(diaryFindStatusLabel(status))}" onclick="cycleDiaryFindStatus(this)">${diaryFindStatusIcon(status)}</button>
       <button type="button" class="icon-btn btn btn-sm btn-outline-danger" onclick="this.closest('.find-row').remove()" aria-label="刪除項目"><i class="bi bi-trash"></i></button>
@@ -2968,9 +2978,11 @@ async function toggleTaskDone(id, checked) {
   }
 }
 
-/* ---------------- 選單圖示／名稱（讀自「系統索引」分頁） ---------------- */
-
-// 把選單、頁面標題换成「系統索引」分頁裡設定的圖示跟名稱
+/* ---------------- 選單名稱（讀自「系統索引」分頁） ----------------
+   圖示改成固定的 Bootstrap Icons（跟全站風格一致），不再吃「系統索引」分頁
+   裡使用者自訂的 emoji「icon」欄位——分類管理裡的「圖示（emoji）」輸入框
+   還在、也還是會把值存回試算表，只是現在畫面上不會再顯示它了（見 systemCardHtml
+   旁的說明文字）。名稱（系統名稱）欄位不受影響，一樣會套用到選單／頁面標題。 */
 function applySystemBranding() {
   const bySheet = {};
   (SYSTEM_INDEX || []).forEach(s => { bySheet[s["主表分頁名稱"]] = s; });
@@ -2980,42 +2992,17 @@ function applySystemBranding() {
   const project = bySheet["專案"];
   const habit = bySheet["習慣"];
   const diary = bySheet["日記"];
-  if (course) {
-    document.getElementById("navIconCourses").textContent = course["icon"] || "📚";
-    document.getElementById("navLabelCourses").textContent = course["系統名稱"] || "課程";
-    document.getElementById("coursesPageTitle").textContent = course["系統名稱"] || "課程";
-    document.getElementById("homeCourseSectionTitle").textContent = (course["icon"] || "📚") + " " + (course["系統名稱"] || "課程");
-  }
-  if (sub) {
-    document.getElementById("navIconSubs").textContent = sub["icon"] || "💰";
-    document.getElementById("navLabelSubs").textContent = sub["系統名稱"] || "訂閱";
-    document.getElementById("subsPageTitle").textContent = sub["系統名稱"] || "訂閱";
-    document.getElementById("homeSubSectionTitle").textContent = (sub["icon"] || "💰") + " " + (sub["系統名稱"] || "訂閱");
-  }
-  if (task) {
-    document.getElementById("navIconTasks").textContent = task["icon"] || "✅";
-    document.getElementById("navLabelTasks").textContent = task["系統名稱"] || "任務";
-    document.getElementById("tasksPageTitle").textContent = task["系統名稱"] || "任務";
-    document.getElementById("homeTaskSectionTitle").textContent = (task["icon"] || "✅") + " " + (task["系統名稱"] || "任務");
-  }
-  if (project) {
-    document.getElementById("navIconProjects").textContent = project["icon"] || "📁";
-    document.getElementById("navLabelProjects").textContent = project["系統名稱"] || "專案";
-    document.getElementById("projectsPageTitle").textContent = project["系統名稱"] || "專案";
-    document.getElementById("homeProjectSectionTitle").textContent = (project["icon"] || "📁") + " " + (project["系統名稱"] || "專案");
-  }
-  if (habit) {
-    document.getElementById("navIconHabits").textContent = habit["icon"] || "🔥";
-    document.getElementById("navLabelHabits").textContent = habit["系統名稱"] || "習慣";
-    document.getElementById("habitsPageTitle").textContent = habit["系統名稱"] || "習慣";
-    document.getElementById("homeHabitSectionTitle").textContent = (habit["icon"] || "🔥") + " " + (habit["系統名稱"] || "習慣");
-  }
-  if (diary) {
-    document.getElementById("navIconDiary").textContent = diary["icon"] || "📔";
-    document.getElementById("navLabelDiary").textContent = diary["系統名稱"] || "日記";
-    document.getElementById("diaryPageTitle").textContent = diary["系統名稱"] || "日記";
-    document.getElementById("homeDiarySectionTitle").textContent = (diary["icon"] || "📔") + " " + (diary["系統名稱"] || "日記");
-  }
+  const setName = (navLabelId, pageTitleId, homeTitleId, name, fallback) => {
+    document.getElementById(navLabelId).textContent = name || fallback;
+    document.getElementById(pageTitleId).textContent = name || fallback;
+    document.querySelector(`#${homeTitleId} .section-title-text`).textContent = name || fallback;
+  };
+  if (course) setName("navLabelCourses", "coursesPageTitle", "homeCourseSectionTitle", course["系統名稱"], "課程");
+  if (sub) setName("navLabelSubs", "subsPageTitle", "homeSubSectionTitle", sub["系統名稱"], "訂閱");
+  if (task) setName("navLabelTasks", "tasksPageTitle", "homeTaskSectionTitle", task["系統名稱"], "任務");
+  if (project) setName("navLabelProjects", "projectsPageTitle", "homeProjectSectionTitle", project["系統名稱"], "專案");
+  if (habit) setName("navLabelHabits", "habitsPageTitle", "homeHabitSectionTitle", habit["系統名稱"], "習慣");
+  if (diary) setName("navLabelDiary", "diaryPageTitle", "homeDiarySectionTitle", diary["系統名稱"], "日記");
 }
 
 /* ---------------- 分類管理 ---------------- */
@@ -3034,7 +3021,7 @@ function systemCardHtml(s) {
   return `
     <div class="option-card">
       <h3>${escapeHtml(s["系統名稱"])} <span class="muted">(${escapeHtml(key)})</span></h3>
-      <div class="form-field mb-3"><label class="form-label">圖示（emoji）</label><input type="text" class="sys-icon-input form-control" maxlength="4" value="${escapeAttr(s["icon"])}"></div>
+      <div class="form-field mb-3"><label class="form-label">圖示（emoji）</label><input type="text" class="sys-icon-input form-control" maxlength="4" value="${escapeAttr(s["icon"])}"><div class="form-text">選單圖示改用固定的 Bootstrap Icons 了，這裡存的值目前不會顯示在畫面上。</div></div>
       <div class="form-field mb-3"><label class="form-label">名稱</label><input type="text" class="sys-name-input form-control" value="${escapeAttr(s["系統名稱"])}"></div>
       <button class="btn-sm btn-edit btn btn-outline-secondary sys-save-btn" data-key="${escapeAttr(key)}">儲存</button>
     </div>`;
