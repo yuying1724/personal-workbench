@@ -1,0 +1,2897 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>個人工作台（原型）</title>
+<meta name="theme-color" content="#8fac97">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="工作台">
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAM0klEQVR4nO3d2ZMV1R3A8d/vnO6+2+wbzAIEZAjbAIOyTIQQxIhGq4ypsuKDT6lU5SGPecsfkKdU5TFVectjFkujhsQCo6gYNQjIKig4DDAwG7PcuWv3Ob88NOAw3IOz3Dvdffl9HqxyqLlzqu/39na7T+Mf/v5HYKwUEfQAWHhxHMyI42BGHAcz4jiYEcfBjDgOZsRxMCOOgxlxHMyI42BGHAcz4jiYEcfBjDgOZsRxMCOOgxlxHMyI42BGHAcz4jiYEcfBjDgOZsRxMCOOgxlxHMyI42BGHAczsoIeQAURkRCVrZ+IKvr6waraOBBRCOF5ntYaESvxJ4jItm1E1FpX4vUDV51xIKJWenx8PJ1OV/TDHY/HG5saE4mEUqpCCQaoOuPQWg8ODuayOWnJiv6hTCaTzWbbO9pTqVT1rT+qbYfU38+YGJ/I5XKWXfH0pZRENDY6Vn1lQPXFgYie56XTaSHEEuwtEpGQolAoZLNZIQRU1+5pBDYrCPPeli/9QQQRIeB8h0rhrim8cQhEAPC0mu8CDGQNT0RKK631vPKQQiAKAgrnIXEY4xAolFY5twCAdclaIeb3cdRKL2BlsxgEFLNjqURSq/nFMZ3Lul7elrZt2ZpCt9cSujgEinwxH3diuzY8vqK1s6O53ZIWAMEcljoBIWDeLfxu4PfFbNES1hJ8IgWKbDG3v3fP1nU9Wuk5n3YjABgaHxmaGDl9+ezQ+GjciSFiqFYhoYtjOp/pXdvTt3FHQ039wl4hkI+gJS1bWiRoXmc7ulo7ulo7tj22+cyV8++d+shVnmPZ4ekjXHEg4rM7ntrevRXuvMeI81nY/prD3zes3CBL/2ki/7/zioOICEgKuW1tT0t987snPxidGLOspVjhzUVYDmUFimwht6dn9/burZo0EQkUYqEnHZVeuvOV6L/HC3o7EVGgAAClVVdrx0t7nhdChOeUSSji8Pczeh/r2b52i9JK4AKrQECttWM7G1avyxcKUlT29CgACCFc5TXVNz7WtRoAcJ77zvdIIRWpumTtC30HPe0t/ZqvpFDEobRybOfJzbv8b8sW81KIKBCfe/LHqXhiOpuRooKkkJ5S6enpg30H6mvqtF7UUZJESUTdnWtWL1+VdwsiBN/UBL/PIRBzbmHn+sfrUrWatL+aXTB/h39Zc9uvX/nV3w6/3j84QKTncqSzAETUVNfw4vPPHdi5r4yXB+zeuOPqrWth2OsIPg4AJIKVbV1lezlEIupesea3v/jN2a/P54uFSux/IIAmvW5Vd12qdr77ocbXRASAZY2tNclUJp9d5Odk8YKPw9NeXbJmeVMbAJRrcfh9IOLmtRvL8oIPofXcz23M4dVIW0J2trSf67+YcOLBnhkLPg4AQETbssv+mlD5U+mL30kq+ZqWDMXRbCjigIp9VVbpywQrJAxlQEiOVlg4cRzMiONgRhwHM+I4mBHHwYw4DmbEcTAjjoMZcRzMiONgRhwHM+I4mBHHwYw4DmYUlus55qjkhQ7VN2tKSEQsjpId+PcyLf1gql404vDffld5IxOjUoiZqw9EXNbYGtzQqlkE4iAgIMgVc68fOzQwdN3+9m5BRABPe32bdu7dvBuisX2Z0x3hIRGFHVICRDxy4oP+m1dT8YQlLNuybcu2Lcu2bVva75388MLAJUQM4SwGD4hMGRCJNYcvV8zZlq2JAO9M/JXJZV/a83zcib3133emc5mSv5XJpKenp0KyRiGCeDxeV9cYkvF8p8jEIVAAARFprW3Lns5ndm3Yvn5ld8EtKK1m3Rbr37SSTk+Ojt4S9++jBAgRMpm053nNzW1Bj2VOIhMHAnpaxUU8FU+OTI6taO3c09Ontf7Le69PZdLy/lsQ/I9mOj0phEQUiOGoA8CyZCaTrq9vtMp9n04lRCYOpVVdqvaV/T9zLPu1D996btfTjmUfOXF0aGIk5sR06fMfAoAQITxben+VxpuVMrOkNZmZGhi61tu95dWnX7akden65eMXT6XiyUw+M2tx++9BQ0PT8PANpbygxvwAJKKmplYpo7HYozFKAHCVJ4U8evrj5vqmlW1dIxOj//rsSNyJAQIBePcX4LeSSCTb21dms9MBDXkWJKJ4PJ5IpIIeyVxFJo62hpbLN75RQr3x0aGW+ubx6QlPeQKF67pCiOa6Jig1Y6njxBwnFsR4q0EE4vBvmf/R1iddr3jx2mVbWqNTY5aQqXgSADylnu09sKZ9lWkehJDcd+qLyt6GLwJxwN1l+swTT+3b+iSiQH+iRiICEIi2ZZN5uUfr/QiVaMRxT8wusY0o19wpbJYonD7/LlxGhVRDHKxCOA5mxHEwI46DGXEczIjjYEYcBzOK0kkw/9EEs85p+D/hUx2VEJk47lwJ8cDPcca/LvWYql004vDf+/NXL56/eilm2fruMwEFotZ6T09fc10j371SdhGIwy/jXP+Ff35yeMYXrIQoXM9VSg3eHnp534vNdY28/iivCMThO33lAgAkYwn//gOBIl8sbFq1Xml1YeDSNzevttQ1aXjwiSeUz+fDEQwSkeM4ovKPCCqXyMTh2DbMeEqvq9zaZOqZJ/Yn44k/vf3nkr/iee7w8E3XLSzdKB8GAUgI2dKyPJFIBj2YOYlMHP5z1PLFPADE7JirvBd2H0zGE8cvnRoaH7FK3ZowPj5WKOTD8zw9AFRK3b490t6+IhIz9kdgiHcQWJb1+Lptezf3TWXTT23b29XaMTh26+gXx6wHrtf19zyKxbyUMjRlAABIKT3PDdM1zw8TnTUHkC3tneu31yZqapM161euK7iFfxw7JIUUwpv1/vtrjkQiNTl5O1SXenuel0gkI3HTCkRozWEJazIz9ebH/9Zab169wZLy0KdH0rmMlPLBNYO/5mhoaK6tbcCwEIiYSCSbm9swHHvI3ylEn6qHKyo3Zju3bg+9c/w/61d0Xx2+fnmwP+HEEdD1vHs7qjMJIVpalmmtln60JRGBlJE5VIFoxIFAAHs27Ry6PTydzxy/eOqzL08goGM7nvI85a3tXL1hRbfpJEeEDh3DJgJx+E8g72zt+Pn+n3594xvHcujbi8+BgHrXbonZDp8hLbsIxAH3nhbb2Las0Xh/OpdRdtGIA+72QUQPNhD481erVWTiAAB/pz/oUTxC+DPHjDgOZsRxMCOOgxlxHMyI42BGUTqUBZ4Yf2lFLI6SHfCJ8wqJRhz+2+8pb2Ri7P5rqAhRtDW0BDayqhaBOO5OjJ9/7cM3+29dsy373sYFEYtuce+Wvn1bfgDR2L5EaWL8CMThT4z/zvF3M/nsL3/yqn8aHe6uTtK56b++/0ZrffOm763XpEP/PUtkyoBoxAEAAOnsdGdLx/KmZbN+vqyxtTaRyuSzJX+LJ8ZfjMjEIYV0lUtEs1YPWmtNNGuFwRPjl0Vk4vA3IoiIcN93syU/hcgT45dDZOJYAJ4Yf5EiE4e/QDXpWY9j8v931uLmifHLIhqjBADXc2VCChSzdi+EFMAT41dGZOLoau08c+X8ya9O31tLEAAipDPT+WLBPw/GE+OXVwTi8K8ePdC713XdwyeOOvefBFNKvdB3cDVPjF8BEYgD7i7TZ3ceOLD9hzOXLwEgoCUlT4xfCdGI4x671BEgz9lSISE/2TwnXEaFVEMcrEI4DmbEcTAjjoMZcRzMiONgRhwHM+I4mBHHwYw4DmbEcTAjjoMZcRzMKCxx8DerM4VkaYQiDk3kem7QowgLInI9Nwx9BB+HJax0dvrm2BDcvZT8USZQeFoNjt60LSvwpRF8HACEiFeHrwFAeG4wCYR/ueut28PpXFZi8LNyBx+HJopZzpkr5yczUwKx5BT3j5RPzv9PaRWCrUoI4gAAFFj0ih+d+YSItH5EtyxKK0S8dO3r/lsDcSemQ3DRfCjiIKK4HT915eznX30hhdSkQ3U/wRJQWkkhJzJTb3962JJhee5YWK4+16RTseSxs58S0Y7v98KM+xyreEonIiIggUIKOTB8/d2THxBpyXGURESHP39/eHykb+OOprrGoIdTcX76rvLOXD73/uljWuuZ8xYFLlxxAEBNPHWu/8uvblzpWbNxRWtnZ0u7La0ozZU0NwQAQEPjI0PjI6evnBuZGIs7MWmF63GFoYtDk447MUX6+MWTxy+erE3UYNhnclq4bD7rKte2bP9hyqEqA0IYBwBoIgRMOHEAzLtFqN6DW8uybMsmoMDPd5UUxjh8mgiABGLVbVK+5e+QBj0Ko6pdY7PF4ziYEcfBjDgOZsRxMCOOgxlxHMyI42BGHAcz4jiYEcfBjDgOZsRxMCOOgxlxHMyI42BGHAcz4jiYEcfBjDgOZsRxMCOOgxlxHMyI42BGHAcz4jiYEcfBjDgOZsRxMKP/AziKGxrXm2KDAAAAAElFTkSuQmCC">
+<link rel="manifest" id="pwaManifestLink" href="">
+<style>
+  :root{
+    --bg:#faf8f4; --card:#ffffff; --sidebar-bg:#f3ede2; --text:#4a463f; --sub:#9a9488;
+    --line:#ece6da; --accent:#8fac97; --accent-soft:#eaf1ec;
+    --good:#7fa887; --warn:#dba86a; --bad:#d98a86;
+    --sidebar-w:200px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",Arial,sans-serif;
+    font-size:14px; line-height:1.5;
+  }
+  h1{font-size:20px; margin:0 0 4px;}
+  h2{font-size:16px; margin:24px 0 10px;}
+  h2:first-child{ margin-top:0; }
+  .muted{color:var(--sub); font-size:12px;}
+
+  /* ---- 整體版面：左側選單 + 右側內容 ---- */
+  .app{ display:flex; min-height:100vh; }
+  .sidebar{
+    width:var(--sidebar-w); flex-shrink:0; background:var(--sidebar-bg);
+    border-right:1px solid var(--line); padding:16px 10px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .brand{ display:flex; align-items:center; gap:8px; padding:6px 10px 16px; font-weight:700; font-size:15px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px;
+    cursor:pointer; color:var(--sub); font-size:14px; white-space:nowrap;
+  }
+  .nav-item .icon{ font-size:16px; }
+  .nav-item:hover{ background:var(--bg); }
+  .nav-item.active{ background:var(--accent-soft); color:var(--accent); font-weight:600; }
+  .nav-group-header{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px;
+    cursor:pointer; color:var(--sub); font-size:14px; white-space:nowrap;
+  }
+  .nav-group-header .icon{ font-size:16px; }
+  .nav-group-header:hover{ background:var(--bg); }
+  .nav-group-header .label{ flex:1; }
+  .nav-group-caret{ font-size:11px; transition:transform .15s ease; }
+  .nav-subgroup{ display:none; flex-direction:column; gap:2px; padding-left:6px; }
+  .nav-subgroup.open{ display:flex; }
+  .nav-item.nav-subitem{ padding-left:24px; font-size:13px; }
+  .sidebar-status{
+    margin-top:auto; padding:10px 12px; font-size:11px; color:var(--sub); border-top:1px solid var(--line); padding-top:12px;
+  }
+  .sidebar-status.ok{ color:var(--good); }
+  .sidebar-status.err{ color:var(--bad); }
+
+  .content{ flex:1; min-width:0; padding:20px 24px 40px; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  @media (max-width:680px){
+    .app{ flex-direction:column; }
+    .sidebar{
+      width:100%; flex-direction:row; align-items:center; gap:4px;
+      overflow-x:auto; border-right:none; border-bottom:1px solid var(--line); padding:8px;
+    }
+    .brand{ padding:6px 10px; flex-shrink:0; }
+    .nav-item span.label{ display:none; }
+    .nav-item{ padding:10px; }
+    .nav-group-header span.label{ display:none; }
+    .nav-group-caret{ display:none; }
+    .nav-subgroup{ flex-direction:row; padding-left:0; }
+    .nav-subgroup.open{ display:flex; }
+    .nav-item.nav-subitem{ padding-left:10px; }
+    .sidebar-status{ display:none; }
+    .content{ padding:16px; }
+
+    /* 手機上輸入框字級至少 16px，避免 iOS Safari 自動放大畫面 */
+    input, select, textarea{ font-size:16px !important; }
+
+    /* 放大小按鈕的可點擊範圍，手指比游標粗很多 */
+    .icon-btn{ padding:8px 10px; font-size:16px; min-width:38px; min-height:38px; }
+    .actions .btn-sm{ padding:8px 12px; font-size:13px; }
+    .actions{ gap:8px; }
+    .filter-chip, .wd-btn, .quick-date-btn{ padding:8px 14px; }
+    .task-check, .habit-check{ width:22px; height:22px; }
+
+    /* 彈窗在小螢幕上盡量利用寬度，內部元件容易太窄就換行 */
+    .modal-overlay{ padding:10px; }
+    .modal-box{ padding:16px; }
+    .modal-actions{ flex-wrap:wrap; }
+    .repeat-sub{ flex-wrap:wrap; }
+
+    /* 表格 → 卡片：課程／訂閱／專案清單在手機上改成一筆一張卡，不用左右滑 */
+    .table-wrap{ overflow-x:visible; border:none; background:transparent; }
+    table{ min-width:0; width:100%; border-spacing:0; }
+    table thead{ display:none; }
+    table, table tbody, table tr, table td{ display:block; width:100%; }
+    table tr{
+      background:var(--card); border:1px solid var(--line); border-radius:10px;
+      padding:4px 12px; margin-bottom:10px;
+    }
+    table td{
+      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 12px;
+      padding:8px 0; border-bottom:1px dashed var(--line); white-space:normal; text-align:right;
+    }
+    table td:last-child{ border-bottom:none; }
+    table td::before{
+      content:attr(data-label); font-size:11px; font-weight:600; color:var(--sub);
+      flex-shrink:0; text-align:left;
+    }
+    table td:not([data-label])::before{ content:none; }
+    table td.wrap{ max-width:none; }
+    table td .actions{ flex:1; justify-content:flex-end; }
+    table td.empty{ display:block; text-align:center; }
+  }
+
+  /* ---- 設定表單（設定分頁） ---- */
+  .settings-form{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:16px; max-width:460px; display:flex; flex-direction:column; gap:10px;
+  }
+  .settings-form label{ font-size:12px; color:var(--sub); }
+  .settings-form input[type=text]{
+    padding:9px 10px; border:1px solid var(--line); border-radius:6px;
+    background:var(--bg); color:var(--text); font-size:13px;
+  }
+  .settings-form .btn-row{ display:flex; gap:8px; align-items:center; margin-top:4px; }
+  button{
+    padding:9px 16px; border:none; border-radius:6px; background:var(--accent);
+    color:#fff; font-size:13px; cursor:pointer;
+  }
+  button.secondary{ background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .page-title-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .page-title-row h1{ margin:0; }
+  .page-refresh-btn{ padding:6px 12px; font-size:12px; white-space:nowrap; }
+  #status{ font-size:12px; }
+  #status.ok{ color:var(--good); }
+  #status.err{ color:var(--bad); }
+
+  /* ---- 卡片（總覽） ---- */
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .card .label{ font-size:12px; color:var(--sub); margin-bottom:6px; }
+  .card .value{ font-size:24px; font-weight:700; }
+  .card .value small{ font-size:13px; font-weight:400; color:var(--sub); }
+
+  .breakdown{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:10px; }
+  .breakdown .row{ display:flex; align-items:center; gap:8px; margin:6px 0; font-size:13px; }
+  .breakdown .row .name{ width:120px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .breakdown .row .bar-bg{ flex:1; background:var(--bg); border-radius:4px; height:10px; overflow:hidden; }
+  .breakdown .row .bar-fg{ height:100%; background:var(--accent); }
+  .breakdown .row .count{ width:70px; text-align:right; color:var(--sub); flex-shrink:0; }
+
+  .badge{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; }
+  .badge.warn{ background:rgba(217,119,6,.15); color:var(--warn); }
+  .badge.good{ background:rgba(22,163,74,.15); color:var(--good); }
+  .badge.bad{ background:rgba(220,38,38,.15); color:var(--bad); }
+  .badge.bronze{ background:rgba(180,120,70,.15); color:#b47846; }
+
+  .list-block{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:10px; }
+  .list-block .item{ padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .list-block .item:last-child{ border-bottom:none; }
+  .list-block .item .t1{ display:flex; justify-content:space-between; }
+  .list-block .item .name{ font-weight:600; }
+  .list-block .item .meta{ color:var(--sub); font-size:12px; margin-top:2px; }
+
+  /* ---- 篩選列 ---- */
+  .filters{ display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+  .filters input[type=text], .filters select{
+    padding:7px 10px; border:1px solid var(--line); border-radius:6px;
+    background:var(--card); color:var(--text); font-size:13px;
+  }
+  .filters input[type=text]{ min-width:180px; flex:1; }
+  .filters .count{ align-self:center; color:var(--sub); font-size:12px; }
+
+  /* ---- 表格 ---- */
+  .table-wrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  table{ border-collapse:collapse; width:100%; min-width:720px; font-size:13px; }
+  th, td{ padding:8px 10px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th{ position:sticky; top:0; background:var(--accent-soft); color:var(--accent); cursor:pointer; user-select:none; font-weight:600; }
+  th:hover{ opacity:.85; }
+  tbody tr:hover td{ background:var(--bg); }
+  td.wrap{ white-space:normal; max-width:280px; }
+  .progress-cell{ display:flex; align-items:center; gap:6px; }
+  .progress-cell .bar-bg{ width:60px; background:var(--bg); border-radius:4px; height:8px; overflow:hidden; }
+  .progress-cell .bar-fg{ height:100%; background:var(--accent); }
+  a{ color:var(--accent); }
+
+  /* ---- 任務清單（打勾／依日期分組）---- */
+  .task-group{ margin-bottom:4px; }
+  .task-group-header{
+    display:flex; align-items:center; gap:6px; padding:10px 4px 6px;
+    font-size:13px; font-weight:700; color:var(--sub); cursor:pointer; user-select:none;
+  }
+  .task-group-header .arrow{ display:inline-block; transition:transform .15s; }
+  .task-group-header.collapsed .arrow{ transform:rotate(-90deg); }
+  .task-group-body{ display:flex; flex-direction:column; gap:6px; }
+  .task-group-body.collapsed{ display:none; }
+  .task-row{
+    display:flex; align-items:flex-start; gap:10px; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+  }
+  .task-row.done{ opacity:.6; }
+  .task-check{ margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); cursor:pointer; }
+  .task-main{ flex:1; min-width:0; }
+  .task-title{ font-size:14px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .task-row.done .task-title{ text-decoration:line-through; color:var(--sub); }
+  .task-meta{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; font-size:12px; color:var(--sub); }
+  .task-meta .due.overdue{ color:var(--bad); font-weight:600; }
+  .task-repeat-icon{ color:var(--accent); font-size:12px; }
+
+  /* ---- 習慣清單 ---- */
+  .habit-row{
+    display:flex; align-items:flex-start; gap:10px; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:6px;
+  }
+  .habit-row.done{ opacity:.7; }
+  .habit-check{ margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); cursor:pointer; }
+  .habit-count-input{
+    width:56px; padding:4px 6px; border:1px solid var(--line); border-radius:6px;
+    background:var(--bg); color:var(--text); font-size:13px; text-align:center; flex-shrink:0;
+  }
+  .habit-main{ flex:1; min-width:0; }
+  .habit-title{ font-size:14px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .habit-row.done .habit-title{ color:var(--sub); }
+  .habit-meta{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; font-size:12px; color:var(--sub); }
+  .habit-streak{ color:var(--accent); font-weight:600; }
+  .habit-time-heading{
+    font-size:12px; font-weight:700; color:var(--sub); margin:14px 0 6px;
+    text-transform:uppercase; letter-spacing:.03em;
+  }
+  .habit-time-heading:first-child{ margin-top:0; }
+
+  /* ---- 日記 ---- */
+  .mood-picker{ display:flex; gap:8px; flex-wrap:wrap; }
+  .mood-btn{
+    padding:8px 12px; font-size:20px; border-radius:8px; cursor:pointer;
+    background:var(--bg); border:1px solid var(--line); font-family:inherit; line-height:1;
+  }
+  .mood-btn.active{ background:var(--accent-soft); border-color:var(--accent); }
+  .diary-ref-tasks{
+    background:var(--bg); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; margin-bottom:10px; font-size:12px; color:var(--sub);
+  }
+  .diary-ref-tasks .item-line{ padding:2px 0; }
+  .diary-ref-task-item{ display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .diary-ref-task-item input[type=checkbox]{ cursor:pointer; }
+  .find-row{
+    display:flex; flex-direction:column; gap:6px; margin-bottom:10px;
+    padding-bottom:10px; border-bottom:1px dashed var(--line);
+  }
+  .find-row:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  .find-row-top{ display:flex; gap:6px; flex-wrap:wrap; }
+  .find-row select.find-type{
+    padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+    background:var(--bg); color:var(--text); font-size:13px; font-family:inherit; flex-shrink:0;
+  }
+  .find-row input.find-content{ flex:1; min-width:110px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font-size:13px; font-family:inherit; }
+  .find-row textarea.find-note{
+    width:100%; min-height:44px; padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+    background:var(--bg); color:var(--text); font-size:13px; font-family:inherit; resize:vertical; box-sizing:border-box;
+  }
+  .diary-entry-card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .diary-entry-card .diary-date-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .diary-entry-card .diary-date{ font-weight:700; font-size:14px; }
+  .diary-entry-card .diary-mood{ font-size:20px; }
+  .diary-entry-card .diary-snippet{ margin-top:8px; font-size:13px; color:var(--sub); line-height:1.6; white-space:pre-wrap; }
+  .diary-entry-card .diary-snippet b{ color:var(--text); }
+  .diary-empty-prompt{
+    background:var(--card); border:1px dashed var(--line); border-radius:10px;
+    padding:20px; text-align:center; color:var(--sub);
+  }
+
+  /* ---- 任務表單：到期日快速按鈕 / 重複選擇器 ---- */
+  .quick-date-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .quick-date-btn{
+    padding:5px 10px; font-size:12px; border-radius:999px; cursor:pointer;
+    background:var(--accent-soft); color:var(--accent); border:1px solid transparent; font-family:inherit;
+  }
+  .quick-date-btn:hover{ opacity:.85; }
+  .repeat-picker{ display:flex; flex-direction:column; gap:8px; }
+  .repeat-sub{ display:flex; align-items:center; gap:6px; font-size:13px; }
+  .repeat-sub input[type=number]{
+    padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text);
+  }
+  .repeat-sub input[type=text]{
+    flex:1; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font-size:13px;
+  }
+  .repeat-weekdays{ display:flex; gap:6px; flex-wrap:wrap; }
+  .wd-btn{
+    padding:5px 10px; font-size:12px; border-radius:999px; cursor:pointer; font-family:inherit;
+    background:var(--bg); color:var(--sub); border:1px solid var(--line);
+  }
+  .wd-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .chip-filter{ display:flex; flex-wrap:wrap; gap:6px; margin:-6px 0 10px; }
+  .filter-chip{
+    padding:5px 12px; font-size:12px; border-radius:999px; cursor:pointer; font-family:inherit;
+    background:var(--bg); color:var(--sub); border:1px solid var(--line);
+  }
+  .filter-chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .repeat-end{
+    display:flex; flex-direction:column; gap:6px; margin-top:2px; padding-top:8px; border-top:1px solid var(--line);
+  }
+  .repeat-end-label{ font-size:12px; color:var(--sub); }
+  .repeat-end-option{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); }
+  .repeat-end-option input[type=date], .repeat-end-option input[type=number]{
+    padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font-size:13px;
+  }
+  .repeat-end-option input:disabled{ opacity:.5; }
+
+  .empty{ padding:30px; text-align:center; color:var(--sub); }
+  .home-section{ margin-bottom:28px; }
+  .home-section h2{ display:flex; align-items:center; gap:8px; }
+
+  /* ---- 表格操作欄 / 新增按鈕列 ---- */
+  .toolbar-row{ display:flex; justify-content:flex-end; margin:14px 0 -6px; }
+  .actions{ display:flex; gap:6px; }
+  .actions .btn-sm{
+    padding:4px 10px; font-size:12px; border-radius:6px; cursor:pointer;
+    background:transparent; font-family:inherit;
+  }
+  .actions .btn-edit{ border:1px solid var(--accent); color:var(--accent); }
+  .actions .btn-edit:hover{ background:var(--accent-soft); }
+  .actions .btn-delete{ border:1px solid var(--bad); color:var(--bad); }
+  .actions .btn-delete:hover{ background:rgba(217,138,134,.15); }
+
+  /* ---- 新增/編輯 彈窗 ---- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(30,25,15,.35); display:flex;
+    align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal-box{
+    background:var(--card); border-radius:12px; padding:20px 22px; width:100%;
+    max-width:480px; max-height:88vh; overflow-y:auto;
+  }
+  .modal-box h2{ margin-top:0; }
+  .form-field{ margin-bottom:12px; }
+  .form-field label{ display:block; font-size:12px; color:var(--sub); margin-bottom:4px; }
+  .form-field input[type=text], .form-field input[type=number], .form-field input[type=date],
+  .form-field select, .form-field textarea{
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px;
+    background:var(--bg); color:var(--text); font-size:13px; font-family:inherit;
+  }
+  .form-field textarea{ resize:vertical; }
+  .form-field.checkbox-field label{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); }
+  .chk-list{
+    max-height:150px; overflow-y:auto; border:1px solid var(--line); border-radius:6px;
+    padding:8px 10px; display:flex; flex-wrap:wrap; gap:6px 14px; background:var(--bg);
+  }
+  .chk-list label{ font-size:13px; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .modal-message{ font-size:13px; line-height:1.6; color:var(--text); margin:4px 0 2px; }
+  .modal-actions .btn-danger-solid{ background:var(--bad); }
+
+  /* ---- 子任務編輯區（新增/編輯任務彈窗內） ---- */
+  .subtask-row{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .subtask-row .st-content{
+    flex:1; padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+    background:var(--bg); color:var(--text); font-size:13px; font-family:inherit;
+  }
+
+  /* ---- 分類管理 ---- */
+  .option-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+  .option-card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .option-card h3{ margin:0 0 10px; font-size:14px; }
+  .option-row{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .option-row:last-of-type{ border-bottom:none; }
+  .option-row .opt-name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .option-row .opt-count{ color:var(--sub); font-size:11px; flex-shrink:0; }
+  .option-row .opt-actions{ display:flex; gap:2px; flex-shrink:0; }
+  .icon-btn{
+    border:none; background:transparent; cursor:pointer; font-size:13px;
+    padding:3px 5px; border-radius:5px; line-height:1;
+  }
+  .icon-btn:hover{ background:var(--bg); }
+  .option-add-row{ display:flex; gap:6px; margin-top:10px; }
+  .option-add-row input{
+    flex:1; min-width:0; padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+    background:var(--bg); color:var(--text); font-size:12px;
+  }
+  .option-add-row button{ padding:6px 12px; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">📋 <span>個人工作台</span></div>
+    <nav>
+      <div class="nav-item active" data-panel="home"><span class="icon">🏠</span><span class="label">總覽</span></div>
+      <div class="nav-item" data-panel="tasks"><span class="icon" id="navIconTasks">✅</span><span class="label" id="navLabelTasks">任務</span></div>
+      <div class="nav-item" data-panel="habits"><span class="icon" id="navIconHabits">🔥</span><span class="label" id="navLabelHabits">習慣</span></div>
+      <div class="nav-item" data-panel="diary"><span class="icon" id="navIconDiary">📔</span><span class="label" id="navLabelDiary">日記</span></div>
+      <div class="nav-item" data-panel="projects"><span class="icon" id="navIconProjects">📁</span><span class="label" id="navLabelProjects">專案</span></div>
+      <div class="nav-item" data-panel="subs"><span class="icon" id="navIconSubs">💰</span><span class="label" id="navLabelSubs">訂閱</span></div>
+      <div class="nav-item" data-panel="courses"><span class="icon" id="navIconCourses">📚</span><span class="label" id="navLabelCourses">課程</span></div>
+
+      <div class="nav-group">
+        <div class="nav-group-header" onclick="toggleAdminGroup()">
+          <span class="icon">🛠️</span><span class="label">後台管理</span><span class="nav-group-caret" id="navGroupAdminCaret">▸</span>
+        </div>
+        <div class="nav-subgroup" id="navGroupAdminItems">
+          <div class="nav-item nav-subitem" data-panel="admin"><span class="icon">🏷️</span><span class="label">分類管理</span></div>
+          <div class="nav-item nav-subitem" data-panel="habit-admin"><span class="icon">🔥</span><span class="label">習慣管理</span></div>
+        </div>
+      </div>
+
+      <div class="nav-item" data-panel="settings"><span class="icon">⚙️</span><span class="label">設定</span></div>
+    </nav>
+    <div class="sidebar-status" id="sidebarStatus">尚未連線</div>
+  </aside>
+
+  <main class="content">
+
+    <!-- ========== 總覽（首頁） ========== -->
+    <div class="panel active" id="panel-home">
+      <h1>總覽</h1>
+      <div class="muted" id="homeSubtitle" style="margin-bottom:20px;">先到「設定」貼上 API 網址與 token</div>
+
+      <div class="home-section">
+        <h2 id="homeTaskSectionTitle">✅ 任務</h2>
+        <div class="cards" id="homeTaskCards"></div>
+      </div>
+
+      <div class="home-section">
+        <h2 id="homeHabitSectionTitle">🔥 習慣</h2>
+        <div class="cards" id="homeHabitCards"></div>
+        <div id="homeHabitDueList" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="home-section">
+        <h2 id="homeDiarySectionTitle">📔 日記</h2>
+        <div class="cards" id="homeDiaryCards"></div>
+        <div id="homeDiaryToday" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="home-section">
+        <h2 id="homeProjectSectionTitle">📁 專案</h2>
+        <div class="cards" id="homeProjectCards"></div>
+      </div>
+
+      <div class="home-section">
+        <h2 id="homeSubSectionTitle">💰 訂閱</h2>
+        <div class="cards" id="homeSubCards"></div>
+      </div>
+
+      <div class="home-section">
+        <h2 id="homeCourseSectionTitle">📚 課程</h2>
+        <div class="cards" id="homeCourseCards"></div>
+      </div>
+    </div>
+
+    <!-- ========== 課程 ========== -->
+    <div class="panel" id="panel-courses">
+      <div class="page-title-row">
+        <h1 id="coursesPageTitle">課程</h1>
+        <button type="button" class="secondary page-refresh-btn" onclick="reloadCourses()">🔄 重新整理本頁</button>
+      </div>
+      <h2>課程總覽</h2>
+      <div class="cards" id="courseCards"></div>
+
+      <h2>全部課程清單</h2>
+      <div class="toolbar-row"><button onclick="openCourseForm(null)">+ 新增課程</button></div>
+      <div class="filters">
+        <input type="text" id="courseSearch" placeholder="搜尋課程名稱 / 講師..." oninput="renderCourseTable()">
+        <select id="courseFilterStatus" onchange="renderCourseTable()"><option value="">全部狀態</option></select>
+        <select id="courseFilterCategory" onchange="renderCourseTable()"><option value="">全部分類</option></select>
+        <select id="courseFilterPlatform" onchange="renderCourseTable()"><option value="">全部平台</option></select>
+        <span class="count" id="courseCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="courseTable">
+          <thead><tr>
+            <th data-key="課程名稱">課程名稱</th>
+            <th data-key="平台">平台</th>
+            <th data-key="分類">分類</th>
+            <th data-key="狀態">狀態</th>
+            <th data-key="進度">進度</th>
+            <th data-key="優先順序">優先</th>
+            <th>操作</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== 訂閱 ========== -->
+    <div class="panel" id="panel-subs">
+      <div class="page-title-row">
+        <h1 id="subsPageTitle">訂閱</h1>
+        <button type="button" class="secondary page-refresh-btn" onclick="reloadSubs()">🔄 重新整理本頁</button>
+      </div>
+      <h2>訂閱總覽</h2>
+      <div class="cards" id="subCards"></div>
+      <div class="list-block" id="subUpcoming"></div>
+
+      <h2>全部訂閱清單</h2>
+      <div class="toolbar-row"><button onclick="openSubForm(null)">+ 新增訂閱</button></div>
+      <div class="filters">
+        <input type="text" id="subSearch" placeholder="搜尋產品名稱..." oninput="renderSubTable()">
+        <select id="subFilterTag" onchange="renderSubTable()"><option value="">全部標籤</option></select>
+        <select id="subFilterStatus" onchange="renderSubTable()">
+          <option value="">全部（含已取消）</option>
+          <option value="active">僅使用中</option>
+          <option value="canceled">僅已取消</option>
+        </select>
+        <span class="count" id="subCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="subTable">
+          <thead><tr>
+            <th data-key="產品">產品</th>
+            <th data-key="訂閱週期">週期</th>
+            <th data-key="每月金額">每月金額</th>
+            <th data-key="下次付款日">下次付款日</th>
+            <th data-key="即將付款">即將付款</th>
+            <th data-key="累積訂閱日">累積天數</th>
+            <th data-key="總計花費">總計花費</th>
+            <th data-key="分類標籤">標籤</th>
+            <th>操作</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== 任務 ========== -->
+    <div class="panel" id="panel-tasks">
+      <div class="page-title-row">
+        <h1 id="tasksPageTitle">任務</h1>
+        <button type="button" class="secondary page-refresh-btn" onclick="reloadTasks()">🔄 重新整理本頁</button>
+      </div>
+      <h2>任務總覽</h2>
+      <div class="cards" id="taskCards"></div>
+
+      <h2>全部任務清單</h2>
+      <div class="toolbar-row"><button onclick="openTaskForm(null)">+ 新增任務</button></div>
+      <div class="filters">
+        <input type="text" id="taskSearch" placeholder="搜尋任務名稱..." oninput="renderTaskTable()">
+        <select id="taskFilterStatus" onchange="renderTaskTable()"><option value="">全部狀態</option></select>
+        <select id="taskFilterPriority" onchange="renderTaskTable()"><option value="">全部優先順序</option></select>
+        <select id="taskFilterProject" onchange="renderTaskTable()"><option value="">全部專案</option></select>
+        <span class="count" id="taskCount"></span>
+      </div>
+      <div class="chip-filter" id="taskFilterCategoryChips"></div>
+      <div id="taskList"></div>
+    </div>
+
+    <!-- ========== 專案 ========== -->
+    <div class="panel" id="panel-projects">
+      <div class="page-title-row">
+        <h1 id="projectsPageTitle">專案</h1>
+        <button type="button" class="secondary page-refresh-btn" onclick="reloadProjects()">🔄 重新整理本頁</button>
+      </div>
+      <h2>專案總覽</h2>
+      <div class="cards" id="projectCards"></div>
+
+      <h2>全部專案清單</h2>
+      <div class="toolbar-row"><button onclick="openProjectForm(null)">+ 新增專案</button></div>
+      <div class="filters">
+        <input type="text" id="projectSearch" placeholder="搜尋專案名稱..." oninput="renderProjectTable()">
+        <select id="projectFilterStatus" onchange="renderProjectTable()"><option value="">全部狀態</option></select>
+        <select id="projectFilterPriority" onchange="renderProjectTable()"><option value="">全部優先級</option></select>
+        <span class="count" id="projectCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="projectTable">
+          <thead><tr>
+            <th data-key="專案名稱">專案名稱</th>
+            <th data-key="開始日">開始日</th>
+            <th data-key="結束日">結束日</th>
+            <th data-key="狀態">狀態</th>
+            <th data-key="優先級">優先級</th>
+            <th>任務完成度</th>
+            <th>操作</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========== 習慣 ========== -->
+    <div class="panel" id="panel-habits">
+      <div class="page-title-row">
+        <h1 id="habitsPageTitle">習慣</h1>
+        <button type="button" class="secondary page-refresh-btn" onclick="reloadHabits()">🔄 重新整理本頁</button>
+      </div>
+      <h2>習慣總覽</h2>
+      <div class="cards" id="habitCards"></div>
+
+      <h2>今日打卡</h2>
+      <div id="habitTodayList"></div>
+
+      <div class="muted" style="margin-top:16px;">想新增、編輯或封存習慣？到左側「🛠️ 後台管理 → 🔥 習慣管理」。 <button type="button" class="secondary" style="margin-left:8px;" onclick="switchPanel('habit-admin')">前往習慣管理</button></div>
+    </div>
+
+    <!-- ========== 習慣管理 ========== -->
+    <div class="panel" id="panel-habit-admin">
+      <div class="page-title-row">
+        <h1>習慣管理</h1>
+        <button type="button" class="secondary page-refresh-btn" onclick="reloadHabits()">🔄 重新整理本頁</button>
+      </div>
+      <div class="muted" style="margin-bottom:16px;">新增、編輯、搜尋、封存習慣。設定好之後，回到左側「習慣」頁面做每日打卡就好。</div>
+      <div class="toolbar-row"><button onclick="openHabitForm(null)">+ 新增習慣</button></div>
+      <div class="filters">
+        <input type="text" id="habitSearch" placeholder="搜尋習慣名稱..." oninput="renderHabitList()">
+        <select id="habitFilterCategory" onchange="renderHabitList()"><option value="">全部分類</option></select>
+        <select id="habitFilterState" onchange="renderHabitList()">
+          <option value="">全部（含封存）</option>
+          <option value="active">僅啟用</option>
+          <option value="archived">僅封存</option>
+        </select>
+        <span class="count" id="habitCount"></span>
+      </div>
+      <div id="habitList"></div>
+    </div>
+
+    <!-- ========== 日記 ========== -->
+    <div class="panel" id="panel-diary">
+      <div class="page-title-row">
+        <h1 id="diaryPageTitle">日記</h1>
+        <button type="button" class="secondary page-refresh-btn" onclick="reloadDiaries()">🔄 重新整理本頁</button>
+      </div>
+      <h2>日記總覽</h2>
+      <div class="cards" id="diaryCards"></div>
+
+      <h2>今天</h2>
+      <div id="diaryTodayBlock"></div>
+
+      <h2>過去的日記</h2>
+      <div id="diaryHistoryList"></div>
+    </div>
+
+    <!-- ========== 分類管理 ========== -->
+    <div class="panel" id="panel-admin">
+      <h1>分類管理</h1>
+      <div class="muted" style="margin-bottom:16px;">管理課程/訂閱/任務用到的各種下拉選項。改名字會自動同步更新所有已經用到這個選項的資料；刪除選項只是讓它以後不會出現在下拉選單，不會動到既有資料。</div>
+
+      <div class="home-section">
+        <h2>🧭 選單項目</h2>
+        <div class="muted" style="margin-bottom:10px;">改這裡的圖示（emoji）跟名稱，左側選單、頁面標題會跟著變，不會動到底下的資料結構。</div>
+        <div class="option-grid" id="adminSystemFields"></div>
+      </div>
+
+      <div class="home-section">
+        <h2>📚 課程相關</h2>
+        <div class="option-grid" id="adminCourseFields"></div>
+      </div>
+
+      <div class="home-section">
+        <h2>💰 訂閱相關</h2>
+        <div class="option-grid" id="adminSubFields"></div>
+      </div>
+
+      <div class="home-section">
+        <h2>✅ 任務相關</h2>
+        <div class="option-grid" id="adminTaskFields"></div>
+      </div>
+
+      <div class="home-section">
+        <h2>📁 專案相關</h2>
+        <div class="option-grid" id="adminProjectFields"></div>
+      </div>
+
+      <div class="home-section">
+        <h2>🔥 習慣相關</h2>
+        <div class="option-grid" id="adminHabitFields"></div>
+      </div>
+    </div>
+
+    <!-- ========== 設定 ========== -->
+    <div class="panel" id="panel-settings">
+      <h1>設定</h1>
+      <div class="muted" style="margin-bottom:14px;">這個網址跟 token 只會存在你的瀏覽器本機（localStorage），不會傳到別的地方。</div>
+      <div class="settings-form">
+        <div>
+          <label for="apiBase">Apps Script 網址</label><br>
+          <input type="text" id="apiBase" placeholder="/dev 或 /exec，結尾不用加 ?action=...">
+        </div>
+        <div>
+          <label for="apiToken">API_TOKEN</label><br>
+          <input type="text" id="apiToken" placeholder="跟 Apps Script 指令碼屬性設的要一樣">
+        </div>
+        <div class="btn-row">
+          <button onclick="saveAndLoad()">套用並載入</button>
+          <button class="secondary" onclick="loadAll()">重新整理</button>
+          <span id="status"></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal-box" id="modalBody"></div>
+</div>
+
+<script>
+/* ---------------- PWA：加入主畫面 / 全螢幕模式 ---------------- */
+(function setupPwaManifest() {
+  try {
+    const url = new URL(location.href);
+    url.hash = "";
+    const scopeUrl = url.href;
+    const manifest = {
+      name: "個人工作台",
+      short_name: "工作台",
+      start_url: scopeUrl,
+      scope: scopeUrl,
+      display: "standalone",
+      background_color: "#faf8f4",
+      theme_color: "#8fac97",
+      icons: [
+        { src: "data:image/png;base64,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", sizes: "180x180", type: "image/png" },
+        { src: "data:image/png;base64,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", sizes: "512x512", type: "image/png" }
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+    const link = document.getElementById("pwaManifestLink");
+    if (link) link.href = URL.createObjectURL(blob);
+  } catch (e) { /* 產生 manifest 失敗不影響其他功能，忽略即可 */ }
+})();
+
+/* =========================================================
+   個人工作台 原型儀表板
+   直接呼叫 Apps Script Web App API（doGet 路由）。
+   API 用自訂 token 驗證（見「設定」分頁），不是 Google 帳號登入，
+   所以在任何瀏覽器打開都可以，只要 token 對就抓得到資料。
+   ========================================================= */
+
+let API_BASE = "";
+let API_TOKEN = "";
+let courseData = [];
+let courseStats = null;
+let subData = [];
+let subStats = null;
+let taskData = [];
+let taskStats = null;
+let projectData = [];
+let projectStats = null;
+let habitData = [];
+let habitStats = null;
+let diaryData = [];
+let diaryStats = null;
+let API_OPTIONS = {};
+let API_OPTION_USAGE = {};
+let SYSTEM_INDEX = [];
+const COURSE_OPTION_FIELDS = ["平台", "分類", "狀態", "優先順序"];
+const SUB_OPTION_FIELDS = ["訂閱週期", "重要性", "分類標籤"];
+const TASK_OPTION_FIELDS = ["任務分類", "任務優先順序", "任務狀態", "重複頻率"];
+const PROJECT_OPTION_FIELDS = ["專案狀態", "專案優先級"];
+const HABIT_OPTION_FIELDS = ["習慣分類"];
+const MOOD_OPTIONS = ["😄", "🙂", "😐", "😔", "😢"];
+const FIND_TYPE_OPTIONS = ["文章", "Podcast", "書", "YouTube影片", "實體物品", "課題", "其他"];
+// 發現有趣的東西：整理狀態三態循環 ""(待整理) -> "已整理" -> "不需整理" -> ""
+const FIND_STATUS_CYCLE = ["", "已整理", "不需整理"];
+function diaryFindStatusIcon(s) {
+  if (s === "已整理") return "✅";
+  if (s === "不需整理") return "➖";
+  return "◯";
+}
+function diaryFindStatusLabel(s) {
+  if (s === "已整理") return "已整理（點一下切換）";
+  if (s === "不需整理") return "不需整理（點一下切換）";
+  return "待整理（點一下切換）";
+}
+function cycleDiaryFindStatus(btn) {
+  const cur = btn.dataset.status || "";
+  const next = FIND_STATUS_CYCLE[(FIND_STATUS_CYCLE.indexOf(cur) + 1) % FIND_STATUS_CYCLE.length];
+  btn.dataset.status = next;
+  btn.textContent = diaryFindStatusIcon(next);
+  btn.title = diaryFindStatusLabel(next);
+}
+
+/* ---------------- 任務：重複規則編碼/解碼 ----------------
+   重複規則存成兩種格式：
+   - 結構化 JSON：{"freq":"day"|"week"|"month"|"year","interval":N,"weekdays":[0-6]}（weekdays 只有 freq="week" 才有意義，0=週日...6=週六）
+   - 一般文字：自訂標籤，只是記錄用，後端不會自動產生下一筆
+*/
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+// 習慣的「時段」分類：固定四選一（不像分類/優先順序那種可以自訂的選項），
+// 用來讓「今日待辦」「習慣總覽」清單依時段分組顯示，而不是照建立順序排。
+const HABIT_TIME_OPTIONS = ["早上", "中午", "晚上", "不限"];
+const HABIT_TIME_ICON = { "早上": "☀️", "中午": "🌤️", "晚上": "🌙", "不限": "⏰" };
+
+function decodeRepeatRule(raw) {
+  if (!raw) return { freq: "none", interval: 1, weekdays: [], lastDayOfMonth: false, end: { type: "never" }, occurrence: 1 };
+  try {
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === "object" && ["day", "week", "month", "year"].includes(obj.freq)) {
+      return {
+        freq: obj.freq,
+        interval: obj.interval || 1,
+        weekdays: Array.isArray(obj.weekdays) ? obj.weekdays : [],
+        lastDayOfMonth: !!obj.lastDayOfMonth,
+        end: (obj.end && obj.end.type) ? obj.end : { type: "never" },
+        occurrence: obj.occurrence || 1,
+      };
+    }
+  } catch (e) { /* 不是 JSON，當自訂文字 */ }
+  return { freq: "custom", interval: 1, weekdays: [], lastDayOfMonth: false, end: { type: "never" }, occurrence: 1, label: raw };
+}
+
+function encodeRepeatRule(freq, interval, weekdays, customLabel, lastDayOfMonth, end, occurrence) {
+  if (freq === "none") return "";
+  if (freq === "custom") return (customLabel || "").trim();
+  const obj = { freq, interval: Math.max(1, parseInt(interval, 10) || 1) };
+  if (freq === "week" && weekdays && weekdays.length) obj.weekdays = weekdays.slice().sort((a, b) => a - b);
+  if (freq === "month" && lastDayOfMonth) obj.lastDayOfMonth = true;
+  if (end) {
+    if (end.type === "date" && end.date) obj.end = { type: "date", date: end.date };
+    else if (end.type === "count" && end.count) {
+      obj.end = { type: "count", count: Math.max(1, parseInt(end.count, 10) || 1) };
+      if (occurrence && occurrence > 1) obj.occurrence = occurrence; // 編輯既有的重複任務時保留目前是第幾次，避免次數重算
+    }
+  }
+  return JSON.stringify(obj);
+}
+
+// 這個任務能不能「跳過本次」：要有看得懂的重複規則（每天/每週/每月/每年，
+// 自訂文字標籤本來就不會自動延續下一筆，沒有「下一輪」可以跳），而且還沒
+// 被標記完成/取消/跳過（已經是結案狀態的話，跳過本次沒有意義）。
+function canSkipTask(t) {
+  if (!t) return false;
+  const status = t["狀態"] || "";
+  if (status === "已完成" || status === "已取消" || status === "已跳過") return false;
+  return ["day", "week", "month", "year"].includes(decodeRepeatRule(t["重複規則"]).freq);
+}
+
+function repeatRuleLabel(raw) {
+  const r = decodeRepeatRule(raw);
+  if (r.freq === "none") return "";
+  if (r.freq === "custom") return r.label;
+  const unitWord = { day: "天", week: "週", month: "個月", year: "年" }[r.freq];
+  let s;
+  if (r.freq === "month" && r.lastDayOfMonth) {
+    s = r.interval > 1 ? `每 ${r.interval} 個月的最後一天` : "每月最後一天";
+  } else {
+    s = r.interval > 1 ? `每 ${r.interval} ${unitWord}` : `每${r.freq === "month" ? "月" : unitWord}`;
+  }
+  if (r.freq === "week" && r.weekdays.length) {
+    s += "（" + r.weekdays.map(w => "週" + WEEKDAY_LABELS[w]).join("、") + "）";
+  }
+  if (r.end.type === "date") s += `，重複到 ${r.end.date} 為止`;
+  else if (r.end.type === "count") s += `，共 ${r.end.count} 次（目前第 ${r.occurrence} 次）`;
+  return s;
+}
+let courseSort = { key: null, dir: 1 };
+let subSort = { key: null, dir: 1 };
+let projectSort = { key: null, dir: 1 };
+
+// 記住上次填的 API 網址跟 token，方便下次不用重貼（存在瀏覽器本機，不會傳到任何地方）
+try {
+  const savedBase = localStorage.getItem("workbench_api_base");
+  const savedToken = localStorage.getItem("workbench_api_token");
+  if (savedBase) document.getElementById("apiBase").value = savedBase;
+  if (savedToken) document.getElementById("apiToken").value = savedToken;
+} catch (e) { /* 私密瀏覽模式等情況下 localStorage 可能不可用，忽略即可 */ }
+
+function setStatus(msg, kind) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = kind || "";
+  const side = document.getElementById("sidebarStatus");
+  side.textContent = msg;
+  side.className = "sidebar-status " + (kind || "");
+}
+
+function saveAndLoad() {
+  const val = document.getElementById("apiBase").value.trim();
+  const token = document.getElementById("apiToken").value.trim();
+  if (!val) { setStatus("請先貼上 API 網址", "err"); return; }
+  if (!token) { setStatus("請貼上 API_TOKEN（跟 Apps Script 指令碼屬性設的要一樣）", "err"); return; }
+  API_BASE = val.replace(/\/+$/, "");
+  API_TOKEN = token;
+  try {
+    localStorage.setItem("workbench_api_base", API_BASE);
+    localStorage.setItem("workbench_api_token", API_TOKEN);
+  } catch (e) {}
+  loadAll();
+}
+
+// 讀取用的重試機制：只用在「讀資料」（GET），不會用在「寫資料」（POST），
+// 因為讀資料重試很安全（就是再問一次而已），但寫資料如果重試，萬一第一次
+// 其實已經寫進去了、只是回應沒送到，重試就會變成寫兩次、產生重複資料。
+// Apps Script 免費版偶爾會因為同時執行太多請求，回傳一個 HTML 錯誤頁而不是
+// JSON（就是「Unexpected token '<'」那個錯誤）——這種情況通常隔個半秒~一秒
+// 再問一次就會恢復正常，所以在這裡自動重試最多 2 次，使用者不太會感覺到。
+async function fetchJSONWithRetry(url, maxAttempts) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // cache: "no-store" 避免瀏覽器把 GET 回應快取住，新增/刪除/改名之後
+      // 馬上重新整理時看到舊資料
+      const res = await fetch(url, { cache: "no-store" });
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error("伺服器暫時沒有正確回應（可能是同時有太多請求）");
+      }
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 500 * attempt));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+async function fetchJSON(action) {
+  const url = API_BASE + "?action=" + action + "&token=" + encodeURIComponent(API_TOKEN);
+  const json = await fetchJSONWithRetry(url, 3);
+  if (json && json.error) throw new Error(json.error);
+  return json;
+}
+
+// 新增／編輯／刪除：POST 呼叫。故意用 text/plain 當 Content-Type（不是
+// application/json），這樣瀏覽器才不會先送 CORS 預檢請求（Apps Script
+// 沒辦法正確回應預檢），後端一樣會把內容當 JSON 字串解析。
+
+// 只有「覆寫同一筆」或「upsert」性質的 action 才放進這個名單、允許自動重試：
+// update_xxx／delete_xxx 都是找到同一筆蓋掉/刪掉，同一個請求重送第二次結果
+// 完全一樣；create_diary 是「用日期 upsert」、set_habit_log 是「用習慣+日期
+// upsert」，重送也只會覆寫同一筆。名單以外的（主要是 create_course／
+// create_subscription／create_task／create_project／create_habit 這些單純
+// 「新增一筆」的動作）故意不放進來——如果第一次其實已經寫成功、只是回應
+// 剛好沒送達，重試就會變成多新增一筆重複資料，這是之前修過的那種風險。
+const RETRYABLE_ACTIONS = new Set([
+  "update_course", "delete_course",
+  "update_subscription", "delete_subscription",
+  "update_task", "delete_task",
+  "update_project", "delete_project",
+  "update_habit", "delete_habit", "set_habit_log",
+  "create_diary", "update_diary", "delete_diary",
+  "delete_option", "update_system",
+]);
+
+async function postAction(action, payload) {
+  const retryable = RETRYABLE_ACTIONS.has(action);
+  const maxAttempts = retryable ? 3 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let json;
+    try {
+      const res = await fetch(API_BASE, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ token: API_TOKEN, action: action, payload: payload }),
+      });
+      const text = await res.text();
+      json = JSON.parse(text);
+    } catch (err) {
+      // fetch 本身失敗，或回應不是合法 JSON（通常是 Apps Script 暫時的錯誤頁）——
+      // 這種才是「值得重試」的情況，跟後端明確回傳的業務邏輯錯誤（下面那個
+      // json.error）不一樣，業務邏輯錯誤重送也不會變好，不重試。
+      if (retryable && attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 500 * attempt));
+        continue;
+      }
+      throw new Error("伺服器暫時沒有正確回應，請按這個模組畫面上的「🔄 重新整理本頁」確認資料有沒有存進去，再決定要不要重新送出");
+    }
+    if (json && json.error) throw new Error(json.error);
+    return json;
+  }
+}
+
+async function loadAll() {
+  if (!API_BASE || !API_TOKEN) {
+    const val = document.getElementById("apiBase").value.trim();
+    const token = document.getElementById("apiToken").value.trim();
+    if (!val || !token) { setStatus("請先到「設定」貼上 API 網址跟 token", "err"); return; }
+    API_BASE = val.replace(/\/+$/, "");
+    API_TOKEN = token;
+  }
+  setStatus("載入中...", "");
+  try {
+    // 原本這裡是13個 fetchJSON 平行request（Promise.all），模組越加越多、
+    // 免費版 Apps Script 網頁應用程式對同時大量請求的承受度不高，偶爾會有幾個
+    // 請求被擋下來變成回傳 HTML 錯誤頁而不是 JSON（就是「Unexpected token '<'」
+    // 那個錯誤）。改成後端一次算好全部資料、前端只發一個請求，就不會有這個問題。
+    const bundle = await fetchJSON("all");
+    courseData = bundle.courses; courseStats = bundle.courseStats;
+    subData = bundle.subscriptions; subStats = bundle.subscriptionStats;
+    taskData = bundle.tasks; taskStats = bundle.taskStats;
+    projectData = bundle.projects; projectStats = bundle.projectStats;
+    habitData = bundle.habits; habitStats = bundle.habitStats;
+    diaryData = bundle.diaries; diaryStats = bundle.diaryStats;
+    API_OPTIONS = bundle.options;
+    API_OPTION_USAGE = bundle.optionUsage;
+    SYSTEM_INDEX = bundle.systemIndex;
+    applySystemBranding();
+    renderHomeOverview();
+    renderCourseOverview();
+    renderCourseFilters();
+    renderCourseTable();
+    renderSubOverview();
+    renderSubFilters();
+    renderSubTable();
+    renderProjectOverview();
+    renderProjectFilters();
+    renderProjectTable();
+    renderHabitOverview();
+    renderHabitFilters();
+    renderHabitTodayList();
+    renderHabitList();
+    renderDiaryOverview();
+    renderDiaryToday();
+    renderDiaryHistory();
+    renderTaskOverview();
+    renderTaskFilters();
+    renderTaskTable();
+    renderAdminPanel();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("載入失敗：" + err.message, "err");
+  }
+}
+
+// ---- 單一模組重新整理 ----
+// 新增/編輯/刪除單一模組的資料之後，不用像頁面剛載入時那樣把全部15種資料
+// 整包重抓一次（那個很重、模組一多就容易在短時間內連續操作時撞到 Apps
+// Script 的並發限制、出現「載入失敗」）。這裡改成只抓「該模組的資料＋統計」
+// 兩樣，其餘畫面（例如首頁總覽卡片）都是純前端運算，直接重繪不用再打一次 API。
+async function reloadCourses() {
+  setStatus("更新中...", "");
+  try {
+    const bundle = await fetchJSON("course_bundle");
+    courseData = bundle.courses; courseStats = bundle.courseStats;
+    renderHomeOverview();
+    renderCourseOverview();
+    renderCourseFilters();
+    renderCourseTable();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("更新失敗：" + err.message, "err");
+  }
+}
+
+async function reloadSubs() {
+  setStatus("更新中...", "");
+  try {
+    const bundle = await fetchJSON("sub_bundle");
+    subData = bundle.subscriptions; subStats = bundle.subscriptionStats;
+    renderHomeOverview();
+    renderSubOverview();
+    renderSubFilters();
+    renderSubTable();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("更新失敗：" + err.message, "err");
+  }
+}
+
+async function reloadTasks() {
+  setStatus("更新中...", "");
+  try {
+    const bundle = await fetchJSON("task_bundle");
+    taskData = bundle.tasks; taskStats = bundle.taskStats;
+    renderHomeOverview();
+    renderTaskOverview();
+    renderTaskFilters();
+    renderTaskTable();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("更新失敗：" + err.message, "err");
+  }
+}
+
+async function reloadProjects() {
+  setStatus("更新中...", "");
+  try {
+    const bundle = await fetchJSON("project_bundle");
+    projectData = bundle.projects; projectStats = bundle.projectStats;
+    renderHomeOverview();
+    renderProjectOverview();
+    renderProjectFilters();
+    renderProjectTable();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("更新失敗：" + err.message, "err");
+  }
+}
+
+// 刪除專案會連動清空任務的「所屬專案」欄位，所以刪除專案後專案跟任務兩邊都要重抓
+async function reloadProjectsAndTasks() {
+  setStatus("更新中...", "");
+  try {
+    const bundle = await fetchJSON("project_task_bundle");
+    projectData = bundle.projects; projectStats = bundle.projectStats;
+    taskData = bundle.tasks; taskStats = bundle.taskStats;
+    renderHomeOverview();
+    renderProjectOverview();
+    renderProjectFilters();
+    renderProjectTable();
+    renderTaskOverview();
+    renderTaskFilters();
+    renderTaskTable();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("更新失敗：" + err.message, "err");
+  }
+}
+
+async function reloadHabits() {
+  setStatus("更新中...", "");
+  try {
+    const bundle = await fetchJSON("habit_bundle");
+    habitData = bundle.habits; habitStats = bundle.habitStats;
+    renderHomeOverview();
+    renderHabitOverview();
+    renderHabitFilters();
+    renderHabitTodayList();
+    renderHabitList();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("更新失敗：" + err.message, "err");
+  }
+}
+
+async function reloadDiaries() {
+  setStatus("更新中...", "");
+  try {
+    const bundle = await fetchJSON("diary_bundle");
+    diaryData = bundle.diaries; diaryStats = bundle.diaryStats;
+    renderHomeOverview();
+    renderDiaryOverview();
+    renderDiaryToday();
+    renderDiaryHistory();
+    document.getElementById("homeSubtitle").textContent = "最後更新：" + new Date().toLocaleString("zh-TW");
+    setStatus("已連線・" + new Date().toLocaleTimeString("zh-TW"), "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("更新失敗：" + err.message, "err");
+  }
+}
+
+function switchPanel(name) {
+  document.querySelectorAll(".nav-item").forEach(t => t.classList.toggle("active", t.dataset.panel === name));
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + name));
+  if (name === "admin" || name === "habit-admin") {
+    document.getElementById("navGroupAdminItems").classList.add("open");
+    document.getElementById("navGroupAdminCaret").textContent = "▾";
+  }
+}
+document.querySelectorAll(".nav-item").forEach(item => {
+  item.addEventListener("click", () => switchPanel(item.dataset.panel));
+});
+function toggleAdminGroup() {
+  const el = document.getElementById("navGroupAdminItems");
+  const caret = document.getElementById("navGroupAdminCaret");
+  const isOpen = el.classList.toggle("open");
+  caret.textContent = isOpen ? "▾" : "▸";
+}
+
+/* ---------------- 總覽（首頁） ---------------- */
+
+function renderHomeOverview() {
+  const cs = courseStats, ss = subStats, ts = taskStats;
+  document.getElementById("homeCourseCards").innerHTML = `
+    <div class="card"><div class="label">總課程數</div><div class="value">${cs.total}</div></div>
+    <div class="card"><div class="label">平均進度</div><div class="value">${cs.avgProgressPercent}<small>%</small></div></div>
+    <div class="card"><div class="label">已完成</div><div class="value">${cs.completed}<small> / ${cs.total}</small></div></div>
+  `;
+  document.getElementById("homeSubCards").innerHTML = `
+    <div class="card"><div class="label">每月總支出</div><div class="value">$${ss.totalMonthlySpend.toLocaleString()}</div></div>
+    <div class="card"><div class="label">使用中</div><div class="value">${ss.activeCount}</div></div>
+    <div class="card"><div class="label">即將付款</div><div class="value">${ss.upcomingPayments.length}</div></div>
+    <div class="card"><div class="label">費用偏高提醒</div><div class="value">${ss.costWarnings.length}</div></div>
+  `;
+  document.getElementById("homeTaskCards").innerHTML = `
+    <div class="card"><div class="label">總任務數</div><div class="value">${ts.total}</div></div>
+    <div class="card"><div class="label">已完成</div><div class="value">${ts.completed}<small> / ${ts.total}</small></div></div>
+    <div class="card"><div class="label">逾期</div><div class="value">${ts.overdue}</div></div>
+    <div class="card"><div class="label">3天內到期</div><div class="value">${ts.dueSoon}</div></div>
+  `;
+  const ps = projectSummary();
+  document.getElementById("homeProjectCards").innerHTML = `
+    <div class="card"><div class="label">總專案數</div><div class="value">${ps.total}</div></div>
+    <div class="card"><div class="label">平均完成度</div><div class="value">${ps.avgPct}<small>%</small></div></div>
+    <div class="card"><div class="label">已完成</div><div class="value">${ps.doneCount}<small> / ${ps.total}</small></div></div>
+    <div class="card"><div class="label">含逾期任務</div><div class="value">${ps.overdueTasks}</div></div>
+  `;
+
+  const hs = habitStats;
+  document.getElementById("homeHabitCards").innerHTML = `
+    <div class="card"><div class="label">今日進度</div><div class="value">${hs.doneTodayCount}<small> / ${hs.dueTodayCount}</small></div></div>
+    <div class="card"><div class="label">近7天平均完成率</div><div class="value">${hs.avgRate7}<small>%</small></div></div>
+  `;
+  const homeDue = habitData.filter(h => h["狀態"] !== "封存" && h["今日應做"] && !h["今日已完成"]);
+  document.getElementById("homeHabitDueList").innerHTML = homeDue.length
+    ? homeDue.map(h => habitRowHtml(h, { showActions: false })).join("")
+    : `<div class="muted">今天的習慣都打卡完了 🎉</div>`;
+
+  const ds = diaryStats;
+  document.getElementById("homeDiaryCards").innerHTML = `
+    <div class="card"><div class="label">連續寫日記</div><div class="value">${ds.streak}<small> 天</small></div></div>
+    <div class="card"><div class="label">總篇數</div><div class="value">${ds.total}</div></div>
+  `;
+  document.getElementById("homeDiaryToday").innerHTML = ds.hasToday
+    ? `<div class="muted">今天寫過日記了 📔</div>`
+    : `<div class="diary-empty-prompt">今天還沒寫日記<div style="margin-top:8px;"><button onclick="switchPanel('diary'); openDiaryForm(todayDateStr(0))">+ 寫今天的日記</button></div></div>`;
+}
+
+/* ---------------- 課程總覽 ---------------- */
+
+function renderCourseOverview() {
+  const s = courseStats;
+  document.getElementById("courseCards").innerHTML = `
+    <div class="card"><div class="label">總課程數</div><div class="value">${s.total}</div></div>
+    <div class="card"><div class="label">平均進度</div><div class="value">${s.avgProgressPercent}<small>%</small></div></div>
+    <div class="card"><div class="label">已完成</div><div class="value">${s.completed}<small> / ${s.total}</small></div></div>
+  `;
+}
+
+function renderCourseFilters() {
+  fillSelect("courseFilterStatus", uniqueValues(courseData, "狀態"));
+  fillSelect("courseFilterCategory", uniqueValues(courseData, "分類", true));
+  fillSelect("courseFilterPlatform", uniqueValues(courseData, "平台"));
+}
+
+function renderCourseTable() {
+  const q = document.getElementById("courseSearch").value.trim().toLowerCase();
+  const fStatus = document.getElementById("courseFilterStatus").value;
+  const fCategory = document.getElementById("courseFilterCategory").value;
+  const fPlatform = document.getElementById("courseFilterPlatform").value;
+
+  let rows = courseData.filter(c => {
+    if (q && !((c["課程名稱"] || "") + (c["講師"] || "")).toLowerCase().includes(q)) return false;
+    if (fStatus && c["狀態"] !== fStatus) return false;
+    if (fCategory && !(c["分類"] || []).includes(fCategory)) return false;
+    if (fPlatform && c["平台"] !== fPlatform) return false;
+    return true;
+  });
+
+  if (courseSort.key) rows = sortRows(rows, courseSort);
+
+  document.getElementById("courseCount").textContent = `共 ${rows.length} / ${courseData.length} 筆`;
+
+  const tbody = document.querySelector("#courseTable tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">沒有符合條件的課程</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(c => {
+    const pct = Math.round((Number(c["進度"]) || 0) * 100);
+    const id = c["課程ID"];
+    return `<tr>
+      <td class="wrap" data-label="課程名稱">${c["課程連結"] ? `<a href="${escapeAttr(c["課程連結"])}" target="_blank">${escapeHtml(c["課程名稱"] || "")}</a>` : escapeHtml(c["課程名稱"] || "")}</td>
+      <td data-label="平台">${escapeHtml(c["平台"] || "")}</td>
+      <td class="wrap" data-label="分類">${escapeHtml((c["分類"] || []).join("、"))}</td>
+      <td data-label="狀態">${escapeHtml(c["狀態"] || "")}</td>
+      <td data-label="進度"><div class="progress-cell"><div class="bar-bg"><div class="bar-fg" style="width:${pct}%"></div></div>${pct}%</div></td>
+      <td data-label="優先">${escapeHtml(c["優先順序"] || "")}</td>
+      <td data-label="操作"><div class="actions">
+        <button class="btn-sm btn-edit" onclick="openCourseForm('${id}')">編輯</button>
+        <button class="btn-sm btn-delete" onclick="deleteCourseRow('${id}')">刪除</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------------- 訂閱總覽 ---------------- */
+
+function renderSubOverview() {
+  const s = subStats;
+  document.getElementById("subCards").innerHTML = `
+    <div class="card"><div class="label">每月總支出</div><div class="value">$${s.totalMonthlySpend.toLocaleString()}</div></div>
+    <div class="card"><div class="label">使用中</div><div class="value">${s.activeCount}</div></div>
+    <div class="card"><div class="label">已取消</div><div class="value">${s.canceledCount}</div></div>
+    <div class="card"><div class="label">即將付款</div><div class="value">${s.upcomingPayments.length}</div></div>
+    <div class="card"><div class="label">費用偏高提醒</div><div class="value">${s.costWarnings.length}</div></div>
+  `;
+
+  const upcoming = s.upcomingPayments;
+  document.getElementById("subUpcoming").innerHTML =
+    "<h2 style='margin-top:0'>14 天內即將付款</h2>" +
+    (upcoming.length
+      ? upcoming.map(u => `
+        <div class="item">
+          <div class="t1"><span class="name">${escapeHtml(u["產品"])}</span><span>$${Number(u["每月金額"]).toLocaleString()}</span></div>
+          <div class="meta">下次付款日：${escapeHtml(u["下次付款日"] || "")}　<span class="badge good">${daysUntilLabel(u["下次付款日"])}</span></div>
+        </div>`).join("")
+      : `<div class="muted">近期沒有即將到期的付款</div>`);
+}
+
+// 距離下次付款日還有幾天（用來標在「即將付款」旁邊）
+function daysUntilLabel(dateStr) {
+  if (!dateStr) return "";
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr); target.setHours(0, 0, 0, 0);
+  const diff = Math.round((target - today) / 86400000);
+  if (diff < 0) return "已過期";
+  if (diff === 0) return "今天";
+  if (diff === 1) return "明天";
+  return diff + " 天後";
+}
+
+function renderSubFilters() {
+  fillSelect("subFilterTag", uniqueValues(subData, "分類標籤", true));
+}
+
+function renderSubTable() {
+  const q = document.getElementById("subSearch").value.trim().toLowerCase();
+  const fTag = document.getElementById("subFilterTag").value;
+  const fStatus = document.getElementById("subFilterStatus").value;
+
+  let rows = subData.filter(s => {
+    if (q && !(s["產品"] || "").toLowerCase().includes(q)) return false;
+    if (fTag && !(s["分類標籤"] || []).includes(fTag)) return false;
+    if (fStatus === "active" && s["取消訂閱"] === true) return false;
+    if (fStatus === "canceled" && s["取消訂閱"] !== true) return false;
+    return true;
+  });
+
+  if (subSort.key) rows = sortRows(rows, subSort);
+
+  document.getElementById("subCount").textContent = `共 ${rows.length} / ${subData.length} 筆`;
+
+  const tbody = document.querySelector("#subTable tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">沒有符合條件的訂閱</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(s => {
+    const id = s["訂閱ID"];
+    return `
+    <tr>
+      <td class="wrap" data-label="產品">${s["付款URL"] ? `<a href="${escapeAttr(s["付款URL"])}" target="_blank">${escapeHtml(s["產品"] || "")}</a>` : escapeHtml(s["產品"] || "")}${s["取消訂閱"] ? ` <span class="badge bad">已取消</span>` : ""}</td>
+      <td data-label="週期">${escapeHtml(s["訂閱週期"] || "")}</td>
+      <td data-label="每月金額">$${(Number(s["每月金額"]) || 0).toLocaleString()}</td>
+      <td data-label="下次付款日">${escapeHtml(s["下次付款日"] || "")}</td>
+      <td data-label="即將付款">${s["即將付款"] ? `<span class="badge good">${daysUntilLabel(s["下次付款日"])}</span>` : ""}</td>
+      <td data-label="累積天數">${s["累積訂閱日"] != null ? s["累積訂閱日"] : ""}</td>
+      <td data-label="總計花費">$${(Number(s["總計花費"]) || 0).toLocaleString()}</td>
+      <td class="wrap" data-label="標籤">${escapeHtml((s["分類標籤"] || []).join("、"))}</td>
+      <td data-label="操作"><div class="actions">
+        <button class="btn-sm btn-edit" onclick="openSubForm('${id}')">編輯</button>
+        <button class="btn-sm btn-delete" onclick="deleteSubRow('${id}')">刪除</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------------- 任務總覽 ---------------- */
+
+function renderTaskOverview() {
+  const s = taskStats;
+  document.getElementById("taskCards").innerHTML = `
+    <div class="card"><div class="label">總任務數</div><div class="value">${s.total}</div></div>
+    <div class="card"><div class="label">已完成</div><div class="value">${s.completed}<small> / ${s.total}</small></div></div>
+    <div class="card"><div class="label">逾期</div><div class="value">${s.overdue}</div></div>
+    <div class="card"><div class="label">3天內到期</div><div class="value">${s.dueSoon}</div></div>
+    <div class="card"><div class="label">星標未完成</div><div class="value">${s.starredOpen}</div></div>
+  `;
+}
+
+// 任務的「分類」篩選用點擊式標籤（chips）取代下拉選單，可以一次選好幾個分類
+// （符合任一個選中的分類就算），選中的狀態存在這個 Set 裡，重新整理資料時
+// 用來判斷哪些分類還要保持選中。
+let taskCategoryFilterState = new Set();
+
+function renderTaskFilters() {
+  fillSelect("taskFilterStatus", uniqueValues(taskData, "狀態"));
+  fillSelect("taskFilterPriority", uniqueValues(taskData, "優先順序"));
+  fillProjectSelect("taskFilterProject");
+  renderTaskCategoryChips();
+}
+
+function renderTaskCategoryChips() {
+  const cats = uniqueValues(taskData, "分類", true);
+  // 資料重新整理後，原本選的分類如果已經不存在了（例如被刪除），順便從篩選狀態拿掉
+  taskCategoryFilterState.forEach(c => { if (!cats.includes(c)) taskCategoryFilterState.delete(c); });
+  const container = document.getElementById("taskFilterCategoryChips");
+  const allActive = taskCategoryFilterState.size === 0;
+  container.innerHTML = `
+    <button type="button" class="filter-chip ${allActive ? "active" : ""}" onclick="clearTaskCategoryFilter()">全部分類</button>
+    ${cats.map(c => `<button type="button" class="filter-chip ${taskCategoryFilterState.has(c) ? "active" : ""}" onclick="toggleTaskCategoryFilter('${escapeAttr(c)}')">${escapeHtml(c)}</button>`).join("")}
+  `;
+}
+
+function toggleTaskCategoryFilter(cat) {
+  if (taskCategoryFilterState.has(cat)) taskCategoryFilterState.delete(cat);
+  else taskCategoryFilterState.add(cat);
+  renderTaskCategoryChips();
+  renderTaskTable();
+}
+
+function clearTaskCategoryFilter() {
+  taskCategoryFilterState.clear();
+  renderTaskCategoryChips();
+  renderTaskTable();
+}
+
+// 專案篩選下拉選單比較特別：選項要顯示「專案名稱」，但送出/比對用的是「專案ID」，
+// 不能直接用 fillSelect（fillSelect 假設顯示文字跟實際值是同一個字串）
+function fillProjectSelect(id) {
+  const el = document.getElementById(id);
+  const current = el.value;
+  el.innerHTML = el.querySelector("option").outerHTML +
+    projectData.map(p => `<option value="${escapeAttr(p["專案ID"])}">${escapeHtml(p["專案名稱"] || "")}</option>`).join("");
+  if (projectData.some(p => p["專案ID"] === current)) el.value = current;
+}
+
+// 分組收合狀態（重新整理清單時保留展開/收合，預設「已完成／已取消」收起來）
+let taskGroupCollapsed = { overdue: false, today: false, future: false, noDue: false, done: true };
+
+function toggleTaskGroup(key) {
+  taskGroupCollapsed[key] = !taskGroupCollapsed[key];
+  renderTaskTable();
+}
+
+function renderTaskTable() {
+  const q = document.getElementById("taskSearch").value.trim().toLowerCase();
+  const fStatus = document.getElementById("taskFilterStatus").value;
+  const fPriority = document.getElementById("taskFilterPriority").value;
+  const fProject = document.getElementById("taskFilterProject").value;
+
+  let rows = taskData.filter(t => {
+    if (q && !(t["任務名稱"] || "").toLowerCase().includes(q)) return false;
+    if (fStatus && t["狀態"] !== fStatus) return false;
+    if (taskCategoryFilterState.size && !(t["分類"] || []).some(c => taskCategoryFilterState.has(c))) return false;
+    if (fPriority && t["優先順序"] !== fPriority) return false;
+    if (fProject && t["所屬專案"] !== fProject) return false;
+    return true;
+  });
+
+  document.getElementById("taskCount").textContent = `共 ${rows.length} / ${taskData.length} 筆`;
+
+  const container = document.getElementById("taskList");
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty">沒有符合條件的任務</div>`;
+    return;
+  }
+
+  const todayStr = localDateStr(new Date());
+  const groups = { overdue: [], today: [], future: [], noDue: [], done: [] };
+
+  rows.forEach(t => {
+    const status = t["狀態"] || "";
+    if (status === "已完成" || status === "已取消" || status === "已跳過") { groups.done.push(t); return; }
+    const due = t["到期日"] || "";
+    if (!due) { groups.noDue.push(t); return; }
+    if (due < todayStr) groups.overdue.push(t);
+    else if (due === todayStr) groups.today.push(t);
+    else groups.future.push(t);
+  });
+
+  ["overdue", "today", "future"].forEach(k => groups[k].sort((a, b) => (a["到期日"] || "").localeCompare(b["到期日"] || "")));
+  groups.noDue.sort((a, b) => (a["任務名稱"] || "").localeCompare(b["任務名稱"] || "", "zh-Hant"));
+  groups.done.sort((a, b) => (b["到期日"] || "").localeCompare(a["到期日"] || ""));
+
+  const sections = [
+    { key: "overdue", label: "以前的" },
+    { key: "today", label: "今天" },
+    { key: "future", label: "未來" },
+    { key: "noDue", label: "沒有到期日" },
+    { key: "done", label: "已完成／已取消／已跳過" },
+  ];
+
+  container.innerHTML = sections
+    .filter(sec => groups[sec.key].length)
+    .map(sec => {
+      const collapsed = taskGroupCollapsed[sec.key];
+      return `
+        <div class="task-group">
+          <div class="task-group-header ${collapsed ? "collapsed" : ""}" onclick="toggleTaskGroup('${sec.key}')">
+            <span class="arrow">▾</span>${sec.label}（${groups[sec.key].length}）
+          </div>
+          <div class="task-group-body ${collapsed ? "collapsed" : ""}">
+            ${groups[sec.key].map(t => renderTaskRow(t, sec.key)).join("")}
+          </div>
+        </div>`;
+    }).join("");
+}
+
+function renderTaskRow(t, groupKey) {
+  const id = t["任務ID"];
+  const status = t["狀態"] || "";
+  const isDone = status === "已完成" || status === "已取消" || status === "已跳過";
+  const isOverdue = groupKey === "overdue";
+  const subs = t["子任務"] || [];
+  const subDone = subs.filter(x => x["完成"]).length;
+
+  const metaParts = [];
+  if (t["到期日"]) metaParts.push(`<span class="due ${isOverdue ? "overdue" : ""}">${escapeHtml(t["到期日"])}</span>`);
+  if (t["優先順序"]) metaParts.push(escapeHtml(t["優先順序"]));
+  if ((t["分類"] || []).length) metaParts.push(escapeHtml(t["分類"].join("、")));
+  if (t["所屬專案"]) { const pname = projectNameById(t["所屬專案"]); if (pname) metaParts.push("📁" + escapeHtml(pname)); }
+  if (subs.length) metaParts.push(`子任務 ${subDone}/${subs.length}`);
+  if (status && status !== "已完成" && status !== "待辦") metaParts.push(escapeHtml(status));
+
+  return `<div class="task-row ${isDone ? "done" : ""}">
+    <input type="checkbox" class="task-check" ${isDone ? "checked" : ""} onchange="toggleTaskDone('${id}', this.checked)">
+    <div class="task-main" onclick="openTaskForm('${id}')">
+      <div class="task-title">
+        ${t["星標"] ? "⭐" : ""}${escapeHtml(t["任務名稱"] || "")}
+        ${t["重複規則"] ? `<span class="task-repeat-icon" title="重複：${escapeHtml(repeatRuleLabel(t["重複規則"]))}">↻</span>` : ""}
+      </div>
+      <div class="task-meta">${metaParts.join(" · ")}</div>
+    </div>
+    <div class="actions">
+      ${canSkipTask(t) ? `<button class="btn-sm btn-edit" onclick="event.stopPropagation(); skipTaskRow('${id}')">跳過本次</button>` : ""}
+      <button class="btn-sm btn-edit" onclick="event.stopPropagation(); openTaskForm('${id}')">編輯</button>
+      <button class="btn-sm btn-delete" onclick="event.stopPropagation(); deleteTaskRow('${id}')">刪除</button>
+    </div>
+  </div>`;
+}
+
+function projectNameById(id) {
+  const p = projectData.find(x => x["專案ID"] === id);
+  return p ? (p["專案名稱"] || "") : "";
+}
+
+/* ---------------- 專案總覽 ---------------- */
+
+// 從 projectData（每個專案已經帶有後端算好的 任務數/已完成數/逾期數/完成度Percent）
+// 彙總出總覽卡片要用的整體數字：平均完成度、含逾期任務的專案數、已完成專案數
+function projectSummary() {
+  const total = projectData.length;
+  const avgPct = total
+    ? Math.round(projectData.reduce((sum, p) => sum + (Number(p["完成度Percent"]) || 0), 0) / total)
+    : 0;
+  const overdueTasks = projectData.reduce((sum, p) => sum + (Number(p["逾期數"]) || 0), 0);
+  const doneCount = (projectStats && projectStats.byStatus && projectStats.byStatus["已完成"]) || 0;
+  return { total, avgPct, overdueTasks, doneCount };
+}
+
+function renderProjectOverview() {
+  const ps = projectSummary();
+  document.getElementById("projectCards").innerHTML = `
+    <div class="card"><div class="label">總專案數</div><div class="value">${ps.total}</div></div>
+    <div class="card"><div class="label">平均完成度</div><div class="value">${ps.avgPct}<small>%</small></div></div>
+    <div class="card"><div class="label">已完成</div><div class="value">${ps.doneCount}<small> / ${ps.total}</small></div></div>
+    <div class="card"><div class="label">含逾期任務</div><div class="value">${ps.overdueTasks}</div></div>
+  `;
+}
+
+function renderProjectFilters() {
+  fillSelect("projectFilterStatus", uniqueValues(projectData, "狀態"));
+  fillSelect("projectFilterPriority", uniqueValues(projectData, "優先級"));
+}
+
+function renderProjectTable() {
+  const q = document.getElementById("projectSearch").value.trim().toLowerCase();
+  const fStatus = document.getElementById("projectFilterStatus").value;
+  const fPriority = document.getElementById("projectFilterPriority").value;
+
+  let rows = projectData.filter(p => {
+    if (q && !(p["專案名稱"] || "").toLowerCase().includes(q)) return false;
+    if (fStatus && p["狀態"] !== fStatus) return false;
+    if (fPriority && p["優先級"] !== fPriority) return false;
+    return true;
+  });
+
+  if (projectSort.key) rows = sortRows(rows, projectSort);
+
+  document.getElementById("projectCount").textContent = `共 ${rows.length} / ${projectData.length} 筆`;
+
+  const tbody = document.querySelector("#projectTable tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">沒有符合條件的專案</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(p => {
+    const pct = Math.round(Number(p["完成度Percent"]) || 0);
+    const id = p["專案ID"];
+    const doneLabel = `${p["已完成數"] || 0}/${p["任務數"] || 0}`;
+    return `<tr>
+      <td class="wrap" data-label="專案名稱">${escapeHtml(p["專案名稱"] || "")}</td>
+      <td data-label="開始日">${escapeHtml(p["開始日"] || "")}</td>
+      <td data-label="結束日">${escapeHtml(p["結束日"] || "")}</td>
+      <td data-label="狀態">${escapeHtml(p["狀態"] || "")}</td>
+      <td data-label="優先級">${escapeHtml(p["優先級"] || "")}</td>
+      <td data-label="任務完成度"><div class="progress-cell"><div class="bar-bg"><div class="bar-fg" style="width:${pct}%"></div></div>${pct}%<small style="margin-left:4px; color:var(--sub);">(${doneLabel})</small></div></td>
+      <td data-label="操作"><div class="actions">
+        <button class="btn-sm btn-edit" onclick="openProjectForm('${id}')">編輯</button>
+        <button class="btn-sm btn-delete" onclick="deleteProjectRow('${id}')">刪除</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------------- 習慣總覽 ---------------- */
+
+// 頻率規則轉成中文標籤：每天 / 每週一、三、五
+function habitFreqLabel(h) {
+  if (h["頻率類型"] === "weekday") {
+    const wd = (h["星期幾"] || []).slice().sort((a, b) => a - b).map(w => WEEKDAY_LABELS[w]);
+    return wd.length ? `每週${wd.join("、")}` : "指定星期（未選）";
+  }
+  if (h["頻率類型"] === "weeklyCount") {
+    return `每週${Number(h["每週次數"]) || 1}次（不指定星期）`;
+  }
+  return "每天";
+}
+
+// 超標/達標/基礎徽章的樣式跟文字
+function habitTierBadgeHtml(tier) {
+  if (tier === "超標") return `<span class="badge warn">🥇超標</span>`;
+  if (tier === "達標") return `<span class="badge good">🥈達標</span>`;
+  if (tier === "基礎") return `<span class="badge bronze">🥉基礎</span>`;
+  return "";
+}
+
+// 單一習慣的列（今日打卡清單、首頁「今日待打卡」、習慣總覽清單都共用這個）。
+// showActions=false 時不顯示編輯/刪除按鈕，用在首頁跟今日打卡這種輕量情境。
+function habitRowHtml(h, opts) {
+  opts = opts || {};
+  const id = h["習慣ID"];
+  const isCount = h["類型"] === "計數";
+  const isWeekly = h["頻率類型"] === "weeklyCount";
+  const done = h["今日已完成"];
+  const target = Number(h["目標值"]) || 1;
+  const todayVal = Number(h["今日數值"]) || 0;
+  const archived = h["狀態"] === "封存";
+  const streakUnit = isWeekly ? "週" : "天";
+
+  const checkControl = isCount
+    ? `<input type="number" class="habit-count-input" min="0" value="${todayVal || ""}" placeholder="0" onchange="setHabitCount('${id}', this.value)">`
+    : `<input type="checkbox" class="habit-check" ${done ? "checked" : ""} onchange="toggleHabitCheck('${id}', this.checked)">`;
+
+  const metaParts = [];
+  if (h["分類"]) metaParts.push(escapeHtml(h["分類"]));
+  metaParts.push(habitFreqLabel(h));
+  if (isCount) metaParts.push(`今日 ${todayVal}/${target}${escapeHtml(h["單位"] || "")}`);
+  if (h["今日等級"]) metaParts.push(habitTierBadgeHtml(h["今日等級"]));
+  metaParts.push(`<span class="habit-streak">🔥連續 ${h["連續天數"]} ${streakUnit}</span>`);
+  metaParts.push(`最長 ${h["最長連續"]} ${streakUnit}`);
+  metaParts.push(`近7天 ${h["近7天完成率"]}%`);
+
+  const actions = opts.showActions === false ? "" : `
+    <div class="actions">
+      <button class="btn-sm btn-edit" onclick="openHabitForm('${id}')">編輯</button>
+      <button class="btn-sm btn-delete" onclick="deleteHabitRow('${id}')">刪除</button>
+    </div>`;
+
+  return `<div class="habit-row ${done ? "done" : ""}">
+    ${checkControl}
+    <div class="habit-main">
+      <div class="habit-title">${escapeHtml(h["習慣名稱"] || "")}${archived ? ' <span class="muted">（已封存）</span>' : ""}</div>
+      <div class="habit-meta">${metaParts.join(" · ")}</div>
+    </div>
+    ${actions}
+  </div>`;
+}
+
+function renderHabitOverview() {
+  const s = habitStats;
+  document.getElementById("habitCards").innerHTML = `
+    <div class="card"><div class="label">總習慣數</div><div class="value">${s.total}</div></div>
+    <div class="card"><div class="label">今日進度</div><div class="value">${s.doneTodayCount}<small> / ${s.dueTodayCount}</small></div></div>
+    <div class="card"><div class="label">近7天平均完成率</div><div class="value">${s.avgRate7}<small>%</small></div></div>
+  `;
+}
+
+function renderHabitFilters() {
+  fillSelect("habitFilterCategory", uniqueValues(habitData, "分類"));
+}
+
+// 把一批習慣依「時段」分組（早上/中午/晚上/不限），依固定順序輸出，
+// 每組前面加一個小標題；組內順序保留傳入陣列原本的順序（呼叫端先排好完成度
+// 之類的次序，這裡只負責分組跟決定組跟組之間先後，不打亂組內順序）。
+function habitRowsWithTimeHeadingsHtml(rows, opts) {
+  const groups = {};
+  HABIT_TIME_OPTIONS.forEach(t => { groups[t] = []; });
+  rows.forEach(h => {
+    const t = HABIT_TIME_OPTIONS.includes(h["時段"]) ? h["時段"] : "不限";
+    groups[t].push(h);
+  });
+  return HABIT_TIME_OPTIONS.filter(t => groups[t].length).map(t => `
+    <div class="habit-time-heading">${HABIT_TIME_ICON[t]} ${t}</div>
+    ${groups[t].map(h => habitRowHtml(h, opts)).join("")}
+  `).join("");
+}
+
+// 今天排定要做、但還沒打卡的習慣放前面，已經打完的放後面；再依時段分組顯示
+function renderHabitTodayList() {
+  const todayHabits = habitData.filter(h => h["狀態"] !== "封存" && h["今日應做"]);
+  const container = document.getElementById("habitTodayList");
+  if (!todayHabits.length) {
+    container.innerHTML = `<div class="empty">今天沒有排定要做的習慣</div>`;
+    return;
+  }
+  const sorted = [...todayHabits].sort((a, b) => Number(a["今日已完成"]) - Number(b["今日已完成"]));
+  container.innerHTML = habitRowsWithTimeHeadingsHtml(sorted, { showActions: false });
+}
+
+function renderHabitList() {
+  const q = document.getElementById("habitSearch").value.trim().toLowerCase();
+  const fCategory = document.getElementById("habitFilterCategory").value;
+  const fState = document.getElementById("habitFilterState").value;
+
+  let rows = habitData.filter(h => {
+    if (q && !(h["習慣名稱"] || "").toLowerCase().includes(q)) return false;
+    if (fCategory && h["分類"] !== fCategory) return false;
+    if (fState === "active" && h["狀態"] === "封存") return false;
+    if (fState === "archived" && h["狀態"] !== "封存") return false;
+    return true;
+  });
+
+  document.getElementById("habitCount").textContent = `共 ${rows.length} / ${habitData.length} 筆`;
+
+  const container = document.getElementById("habitList");
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty">沒有符合條件的習慣</div>`;
+    return;
+  }
+  container.innerHTML = habitRowsWithTimeHeadingsHtml(rows, { showActions: true });
+}
+
+/* ---------------- 日記 ---------------- */
+
+function renderDiaryOverview() {
+  const s = diaryStats;
+  document.getElementById("diaryCards").innerHTML = `
+    <div class="card"><div class="label">連續寫日記</div><div class="value">${s.streak}<small> 天</small></div></div>
+    <div class="card"><div class="label">總篇數</div><div class="value">${s.total}</div></div>
+  `;
+}
+
+function renderDiaryToday() {
+  const todayStr = todayDateStr(0);
+  const entry = diaryData.find(d => d["日期"] === todayStr);
+  const container = document.getElementById("diaryTodayBlock");
+  if (!entry) {
+    container.innerHTML = `<div class="diary-empty-prompt">今天還沒寫日記<div style="margin-top:8px;"><button onclick="openDiaryForm('${todayStr}')">+ 寫今天的日記</button></div></div>`;
+    return;
+  }
+  container.innerHTML = diaryEntryCardHtml(entry);
+}
+
+function renderDiaryHistory() {
+  const todayStr = todayDateStr(0);
+  const past = diaryData.filter(d => d["日期"] !== todayStr);
+  const container = document.getElementById("diaryHistoryList");
+  if (!past.length) {
+    container.innerHTML = `<div class="empty">還沒有其他日記</div>`;
+    return;
+  }
+  container.innerHTML = past.map(diaryEntryCardHtml).join("");
+}
+
+function diaryEntryCardHtml(d) {
+  const id = d["日記ID"];
+  const finds = d["發現清單"] || [];
+  const starredThatDay = taskData.filter(t => t["到期日"] === d["日期"] && t["星標"] === true);
+  const snippetParts = [];
+  if (starredThatDay.length) {
+    snippetParts.push(`<b>⭐ 重要任務</b>　${starredThatDay.map(t => `${t["狀態"] === "已完成" ? "✅" : "◯"} ${escapeHtml(t["任務名稱"] || "")}`).join("　")}`);
+  }
+  if (d["感恩"]) snippetParts.push(`<b>感恩</b>　${escapeHtml(d["感恩"])}`);
+  if (d["放手"]) snippetParts.push(`<b>放手</b>　${escapeHtml(d["放手"])}`);
+  if (d["小故事"]) snippetParts.push(`<b>小故事</b>　${escapeHtml(d["小故事"])}`);
+  if (finds.length) snippetParts.push(`<b>發現</b>　${finds.map(f => `${diaryFindStatusIcon(f["狀態"] || "")} ${escapeHtml(f["類型"] + "：" + f["內容"])}`).join("　")}`);
+  return `<div class="diary-entry-card">
+    <div class="diary-date-row">
+      <div>
+        <span class="diary-date">${escapeHtml(d["日期"] || "")}</span>
+        ${d["心情"] ? `<span class="diary-mood">${escapeHtml(d["心情"])}</span>` : ""}
+      </div>
+      <div class="actions">
+        <button class="btn-sm btn-edit" onclick="openDiaryForm('${d["日期"]}')">編輯</button>
+        <button class="btn-sm btn-delete" onclick="deleteDiaryRow('${id}')">刪除</button>
+      </div>
+    </div>
+    ${snippetParts.length ? `<div class="diary-snippet">${snippetParts.join("<br>")}</div>` : `<div class="diary-snippet muted">（這篇還沒寫內容）</div>`}
+  </div>`;
+}
+
+/* ---------------- 共用工具 ---------------- */
+
+function uniqueValues(rows, key, isArray) {
+  const set = new Set();
+  rows.forEach(r => {
+    const v = r[key];
+    if (isArray) (v || []).forEach(x => x && set.add(x));
+    else if (v) set.add(v);
+  });
+  return [...set].sort((a, b) => a.localeCompare(b, "zh-Hant"));
+}
+
+function fillSelect(id, values) {
+  const el = document.getElementById(id);
+  const current = el.value;
+  el.innerHTML = el.querySelector("option").outerHTML + values.map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join("");
+  if (values.includes(current)) el.value = current;
+}
+
+function sortRows(rows, sort) {
+  const copy = [...rows];
+  copy.sort((a, b) => {
+    let va = a[sort.key], vb = b[sort.key];
+    if (Array.isArray(va)) va = va.join("、");
+    if (Array.isArray(vb)) vb = vb.join("、");
+    if (typeof va === "number" || typeof vb === "number") {
+      va = Number(va) || 0; vb = Number(vb) || 0;
+      return (va - vb) * sort.dir;
+    }
+    va = (va || "").toString(); vb = (vb || "").toString();
+    return va.localeCompare(vb, "zh-Hant") * sort.dir;
+  });
+  return copy;
+}
+
+// 用本機時區組出 yyyy-MM-dd（不要用 toISOString，那個是 UTC，時區在台灣午夜~早上8點之間會多算一天）
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function escapeHtml(str) {
+  return (str ?? "").toString().replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function escapeAttr(str) { return escapeHtml(str); }
+
+// 表格欄位點擊排序（只有帶 data-key 的欄位可以排序，「操作」欄跳過）
+document.querySelectorAll("#courseTable th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    courseSort.dir = (courseSort.key === key) ? -courseSort.dir : 1;
+    courseSort.key = key;
+    renderCourseTable();
+  });
+});
+document.querySelectorAll("#subTable th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    subSort.dir = (subSort.key === key) ? -subSort.dir : 1;
+    subSort.key = key;
+    renderSubTable();
+  });
+});
+document.querySelectorAll("#projectTable th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    projectSort.dir = (projectSort.key === key) ? -projectSort.dir : 1;
+    projectSort.key = key;
+    renderProjectTable();
+  });
+});
+/* ---------------- 新增／編輯／刪除 ---------------- */
+
+function selectOptions(list, current) {
+  return (list || []).map(v =>
+    `<option value="${escapeAttr(v)}" ${current === v ? "selected" : ""}>${escapeHtml(v)}</option>`
+  ).join("");
+}
+
+function checkboxList(list, current) {
+  const cur = current || [];
+  return (list || []).map(v =>
+    `<label><input type="checkbox" value="${escapeAttr(v)}" ${cur.includes(v) ? "checked" : ""}> ${escapeHtml(v)}</label>`
+  ).join("");
+}
+
+function closeModal() {
+  document.getElementById("modalOverlay").classList.add("hidden");
+  document.getElementById("modalBody").innerHTML = "";
+}
+
+// 點背景關閉：如果目前開的是 showConfirmModal/showPromptModal，要順便把
+// Promise resolve 掉（當作取消），不然呼叫端會卡住等不到結果
+let _modalCancel = null;
+document.getElementById("modalOverlay").addEventListener("click", e => {
+  if (e.target.id !== "modalOverlay") return;
+  if (_modalCancel) { const fn = _modalCancel; _modalCancel = null; fn(); }
+  else closeModal();
+});
+
+// 取代 confirm()：回傳 Promise<boolean>，樣式跟其他彈窗一致
+function showConfirmModal({ title = "確認", message = "", confirmLabel = "確定", danger = false } = {}) {
+  return new Promise(resolve => {
+    document.getElementById("modalBody").innerHTML = `
+      <h2>${escapeHtml(title)}</h2>
+      <div class="modal-message">${escapeHtml(message)}</div>
+      <div class="modal-actions">
+        <button class="secondary" id="cfmCancel">取消</button>
+        <button id="cfmOk" class="${danger ? "btn-danger-solid" : ""}">${escapeHtml(confirmLabel)}</button>
+      </div>
+    `;
+    document.getElementById("modalOverlay").classList.remove("hidden");
+    const finish = result => { _modalCancel = null; closeModal(); resolve(result); };
+    document.getElementById("cfmOk").addEventListener("click", () => finish(true));
+    document.getElementById("cfmCancel").addEventListener("click", () => finish(false));
+    _modalCancel = () => finish(false);
+  });
+}
+
+// 取代 prompt()：回傳 Promise<string|null>（取消是 null），樣式跟其他彈窗一致
+function showPromptModal({ title = "輸入", label = "", value = "" } = {}) {
+  return new Promise(resolve => {
+    document.getElementById("modalBody").innerHTML = `
+      <h2>${escapeHtml(title)}</h2>
+      <div class="form-field"><label>${escapeHtml(label)}</label><input type="text" id="pmInput" value="${escapeAttr(value)}"></div>
+      <div class="modal-actions">
+        <button class="secondary" id="pmCancel">取消</button>
+        <button id="pmOk">確定</button>
+      </div>
+    `;
+    document.getElementById("modalOverlay").classList.remove("hidden");
+    const input = document.getElementById("pmInput");
+    input.focus();
+    input.select();
+    const finish = result => { _modalCancel = null; closeModal(); resolve(result); };
+    document.getElementById("pmOk").addEventListener("click", () => finish(input.value));
+    document.getElementById("pmCancel").addEventListener("click", () => finish(null));
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") finish(input.value);
+      if (e.key === "Escape") finish(null);
+    });
+    _modalCancel = () => finish(null);
+  });
+}
+
+// ---- 課程 ----
+
+function openCourseForm(id) {
+  const c = id ? courseData.find(x => x["課程ID"] === id) : null;
+  document.getElementById("modalBody").innerHTML = `
+    <h2>${c ? "編輯課程" : "新增課程"}</h2>
+    <div class="form-field"><label>課程名稱</label><input type="text" id="f_courseName" value="${c ? escapeAttr(c["課程名稱"]) : ""}"></div>
+    <div class="form-field"><label>平台</label><select id="f_platform"><option value="">（未選）</option>${selectOptions(API_OPTIONS["平台"], c ? c["平台"] : "")}</select></div>
+    <div class="form-field"><label>講師</label><input type="text" id="f_teacher" value="${c ? escapeAttr(c["講師"]) : ""}"></div>
+    <div class="form-field"><label>進度（%）</label><input type="number" id="f_progress" min="0" max="100" value="${c ? Math.round((Number(c["進度"]) || 0) * 100) : 0}"></div>
+    <div class="form-field"><label>狀態</label><select id="f_status"><option value="">（未選）</option>${selectOptions(API_OPTIONS["狀態"], c ? c["狀態"] : "")}</select></div>
+    <div class="form-field"><label>優先順序</label><select id="f_priority"><option value="">（未選）</option>${selectOptions(API_OPTIONS["優先順序"], c ? c["優先順序"] : "")}</select></div>
+    <div class="form-field"><label>課程連結</label><input type="text" id="f_link" value="${c ? escapeAttr(c["課程連結"]) : ""}"></div>
+    <div class="form-field"><label>開始日期</label><input type="date" id="f_startDate" value="${c && c["開始日期"] ? c["開始日期"] : ""}"></div>
+    <div class="form-field"><label>心得筆記</label><textarea id="f_notes" rows="3">${c ? escapeHtml(c["心得筆記"] || "") : ""}</textarea></div>
+    <div class="form-field"><label>分類</label><div class="chk-list">${checkboxList(API_OPTIONS["分類"], c ? c["分類"] : [])}</div></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal()">取消</button>
+      <button onclick="saveCourseForm(${c ? `'${id}'` : "null"})">儲存</button>
+    </div>
+  `;
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+
+async function saveCourseForm(id) {
+  const payload = {
+    "課程名稱": document.getElementById("f_courseName").value.trim(),
+    "平台": document.getElementById("f_platform").value,
+    "講師": document.getElementById("f_teacher").value.trim(),
+    "進度": document.getElementById("f_progress").value,
+    "狀態": document.getElementById("f_status").value,
+    "優先順序": document.getElementById("f_priority").value,
+    "課程連結": document.getElementById("f_link").value.trim(),
+    "開始日期": document.getElementById("f_startDate").value,
+    "心得筆記": document.getElementById("f_notes").value,
+    "分類": Array.from(document.querySelectorAll("#modalBody .chk-list input:checked")).map(el => el.value),
+  };
+  if (!payload["課程名稱"]) { alert("請填課程名稱"); return; }
+  try {
+    if (id) { payload["課程ID"] = id; await postAction("update_course", payload); }
+    else { await postAction("create_course", payload); }
+    closeModal();
+    await reloadCourses();
+  } catch (err) {
+    alert("儲存失敗：" + err.message);
+  }
+}
+
+async function deleteCourseRow(id) {
+  const ok = await showConfirmModal({
+    title: "刪除課程", message: "確定要刪除這筆課程嗎？此動作無法復原。",
+    confirmLabel: "刪除", danger: true,
+  });
+  if (!ok) return;
+  try {
+    await postAction("delete_course", { "課程ID": id });
+    await reloadCourses();
+  } catch (err) {
+    alert("刪除失敗：" + err.message);
+  }
+}
+
+// ---- 訂閱 ----
+
+function openSubForm(id) {
+  const s = id ? subData.find(x => x["訂閱ID"] === id) : null;
+  document.getElementById("modalBody").innerHTML = `
+    <h2>${s ? "編輯訂閱" : "新增訂閱"}</h2>
+    <div class="form-field"><label>產品</label><input type="text" id="f_product" value="${s ? escapeAttr(s["產品"]) : ""}"></div>
+    <div class="form-field"><label>訂閱費</label><input type="number" id="f_fee" value="${s && s["訂閱費"] != null ? s["訂閱費"] : ""}"></div>
+    <div class="form-field"><label>訂閱週期</label><select id="f_cycle"><option value="">（未選）</option>${selectOptions(API_OPTIONS["訂閱週期"], s ? s["訂閱週期"] : "")}</select></div>
+    <div class="form-field"><label>訂閱開始日</label><input type="date" id="f_subStart" value="${s && s["訂閱開始日"] ? s["訂閱開始日"] : ""}"></div>
+    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_canceled" ${s && s["取消訂閱"] ? "checked" : ""}> 已取消訂閱</label></div>
+    <div class="form-field"><label>取消訂閱日</label><input type="date" id="f_cancelDate" value="${s && s["取消訂閱日"] ? s["取消訂閱日"] : ""}"></div>
+    <div class="form-field"><label>重要性</label><select id="f_importance"><option value="">（未選）</option>${selectOptions(API_OPTIONS["重要性"], s ? s["重要性"] : "")}</select></div>
+    <div class="form-field"><label>備註</label><textarea id="f_memo" rows="2">${s ? escapeHtml(s["備註"] || "") : ""}</textarea></div>
+    <div class="form-field"><label>付款URL</label><input type="text" id="f_payUrl" value="${s ? escapeAttr(s["付款URL"]) : ""}"></div>
+    <div class="form-field"><label>分類標籤</label><div class="chk-list">${checkboxList(API_OPTIONS["分類標籤"], s ? s["分類標籤"] : [])}</div></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal()">取消</button>
+      <button onclick="saveSubForm(${s ? `'${id}'` : "null"})">儲存</button>
+    </div>
+  `;
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+
+async function saveSubForm(id) {
+  const payload = {
+    "產品": document.getElementById("f_product").value.trim(),
+    "訂閱費": document.getElementById("f_fee").value,
+    "訂閱週期": document.getElementById("f_cycle").value,
+    "訂閱開始日": document.getElementById("f_subStart").value,
+    "取消訂閱": document.getElementById("f_canceled").checked,
+    "取消訂閱日": document.getElementById("f_cancelDate").value,
+    "重要性": document.getElementById("f_importance").value,
+    "備註": document.getElementById("f_memo").value,
+    "付款URL": document.getElementById("f_payUrl").value.trim(),
+    "分類標籤": Array.from(document.querySelectorAll("#modalBody .chk-list input:checked")).map(el => el.value),
+  };
+  if (!payload["產品"]) { alert("請填產品名稱"); return; }
+  try {
+    if (id) { payload["訂閱ID"] = id; await postAction("update_subscription", payload); }
+    else { await postAction("create_subscription", payload); }
+    closeModal();
+    await reloadSubs();
+  } catch (err) {
+    alert("儲存失敗：" + err.message);
+  }
+}
+
+async function deleteSubRow(id) {
+  const ok = await showConfirmModal({
+    title: "刪除訂閱", message: "確定要刪除這筆訂閱嗎？此動作無法復原。",
+    confirmLabel: "刪除", danger: true,
+  });
+  if (!ok) return;
+  try {
+    await postAction("delete_subscription", { "訂閱ID": id });
+    await reloadSubs();
+  } catch (err) {
+    alert("刪除失敗：" + err.message);
+  }
+}
+
+// ---- 任務 ----
+
+function subtaskRowHtml(content, done) {
+  return `<div class="subtask-row">
+    <input type="checkbox" class="st-done" ${done ? "checked" : ""}>
+    <input type="text" class="st-content" value="${escapeAttr(content || "")}" placeholder="子任務內容">
+    <button type="button" class="icon-btn" onclick="this.closest('.subtask-row').remove()">🗑️</button>
+  </div>`;
+}
+
+function renderSubtaskEditorRows(list) {
+  return (list || []).map(st => subtaskRowHtml(st["內容"], st["完成"])).join("");
+}
+
+function addSubtaskRow() {
+  document.getElementById("subtaskEditor").insertAdjacentHTML("beforeend", subtaskRowHtml("", false));
+}
+
+function collectSubtasksFromModal() {
+  return Array.from(document.querySelectorAll("#subtaskEditor .subtask-row")).map(row => ({
+    "內容": row.querySelector(".st-content").value.trim(),
+    "完成": row.querySelector(".st-done").checked,
+  })).filter(st => st["內容"]);
+}
+
+// 目前正在編輯的重複規則狀態（開啟表單時初始化，儲存時讀出來編碼成字串）
+let repeatPickerState = { weekdays: [] };
+
+function openTaskForm(id) {
+  const t = id ? taskData.find(x => x["任務ID"] === id) : null;
+  const repeat = decodeRepeatRule(t ? t["重複規則"] : "");
+  repeatPickerState = { weekdays: repeat.weekdays.slice(), occurrence: repeat.occurrence };
+
+  document.getElementById("modalBody").innerHTML = `
+    <h2>${t ? "編輯任務" : "新增任務"}</h2>
+    <div class="form-field"><label>任務名稱</label><input type="text" id="f_taskName" value="${t ? escapeAttr(t["任務名稱"]) : ""}"></div>
+    <div class="form-field"><label>優先順序</label><select id="f_taskPriority"><option value="">（未選）</option>${selectOptions(API_OPTIONS["任務優先順序"], t ? t["優先順序"] : "")}</select></div>
+    <div class="form-field"><label>狀態</label><select id="f_taskStatus"><option value="">（未選）</option>${selectOptions(API_OPTIONS["任務狀態"], t ? t["狀態"] : "")}</select></div>
+    <div class="form-field">
+      <label>到期日</label>
+      <input type="date" id="f_taskDue" value="${t && t["到期日"] ? t["到期日"] : ""}">
+      <div class="quick-date-row">
+        <button type="button" class="quick-date-btn" onclick="setQuickDate(0)">今天</button>
+        <button type="button" class="quick-date-btn" onclick="setQuickDate(1)">明天</button>
+        <button type="button" class="quick-date-btn" onclick="setQuickDate(3)">3天後</button>
+        <button type="button" class="quick-date-btn" onclick="setQuickDateThisSunday()">這週日</button>
+        <button type="button" class="quick-date-btn" onclick="clearTaskDue()">無日期</button>
+      </div>
+    </div>
+    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_taskStar" ${t && t["星標"] ? "checked" : ""}> 星標</label></div>
+    <div class="form-field">
+      <label>重複（完成時會自動幫你產生下一筆；自訂文字只是記錄用，不會自動產生）</label>
+      <div class="repeat-picker">
+        <select id="f_repeatFreq" onchange="onRepeatFreqChange()">
+          <option value="none" ${repeat.freq === "none" ? "selected" : ""}>不重複</option>
+          <option value="day" ${repeat.freq === "day" ? "selected" : ""}>每天</option>
+          <option value="week" ${repeat.freq === "week" ? "selected" : ""}>每週</option>
+          <option value="month" ${repeat.freq === "month" ? "selected" : ""}>每月</option>
+          <option value="year" ${repeat.freq === "year" ? "selected" : ""}>每年</option>
+          <option value="custom" ${repeat.freq === "custom" ? "selected" : ""}>自訂文字</option>
+        </select>
+        <div id="repeatIntervalRow" class="repeat-sub" hidden>
+          <span>每</span>
+          <input type="number" id="f_repeatInterval" min="1" value="${repeat.interval || 1}" style="width:56px;">
+          <span id="repeatUnitLabel"></span>
+        </div>
+        <div id="repeatWeekdaysRow" class="repeat-weekdays" hidden>
+          ${[0, 1, 2, 3, 4, 5, 6].map(w => `<button type="button" class="wd-btn" data-wd="${w}" onclick="toggleRepeatWeekday(${w})">週${WEEKDAY_LABELS[w]}</button>`).join("")}
+        </div>
+        <div id="repeatLastDayRow" class="repeat-sub" hidden>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text);">
+            <input type="checkbox" id="f_repeatLastDay" ${repeat.lastDayOfMonth ? "checked" : ""}> 每月最後一天（不管大月小月，都算到那個月最後一天）
+          </label>
+        </div>
+        <div id="repeatCustomRow" class="repeat-sub" hidden>
+          <input type="text" id="f_repeatCustomLabel" placeholder="例如：牌照稅" value="${repeat.freq === "custom" ? escapeAttr(repeat.label || "") : ""}">
+        </div>
+        <div id="repeatEndRow" class="repeat-end" hidden>
+          <div class="repeat-end-label">重複截止</div>
+          <label class="repeat-end-option"><input type="radio" name="f_repeatEndType" value="never" ${repeat.end.type === "never" ? "checked" : ""} onchange="onRepeatEndTypeChange()"> 一直重複</label>
+          <label class="repeat-end-option"><input type="radio" name="f_repeatEndType" value="date" ${repeat.end.type === "date" ? "checked" : ""} onchange="onRepeatEndTypeChange()"> 到日期
+            <input type="date" id="f_repeatEndDate" value="${repeat.end.type === "date" ? repeat.end.date : ""}" ${repeat.end.type !== "date" ? "disabled" : ""}>
+          </label>
+          <label class="repeat-end-option"><input type="radio" name="f_repeatEndType" value="count" ${repeat.end.type === "count" ? "checked" : ""} onchange="onRepeatEndTypeChange()"> 重複次數
+            <input type="number" id="f_repeatEndCount" min="1" value="${repeat.end.type === "count" ? repeat.end.count : 5}" style="width:56px;" ${repeat.end.type !== "count" ? "disabled" : ""}> 次
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="form-field"><label>備註</label><textarea id="f_taskNotes" rows="2">${t ? escapeHtml(t["備註"] || "") : ""}</textarea></div>
+    <div class="form-field"><label>分類</label><div class="chk-list">${checkboxList(API_OPTIONS["任務分類"], t ? t["分類"] : [])}</div></div>
+    <div class="form-field"><label>所屬專案</label><select id="f_taskProject"><option value="">（無）</option>${projectData.map(p => `<option value="${escapeAttr(p["專案ID"])}" ${t && t["所屬專案"] === p["專案ID"] ? "selected" : ""}>${escapeHtml(p["專案名稱"] || "")}</option>`).join("")}</select></div>
+    <div class="form-field">
+      <label>子任務</label>
+      <div id="subtaskEditor">${renderSubtaskEditorRows(t ? t["子任務"] : [])}</div>
+      <button type="button" class="secondary" style="margin-top:6px; padding:6px 12px; font-size:12px;" onclick="addSubtaskRow()">+ 新增子任務</button>
+    </div>
+    <div class="modal-actions">
+      ${canSkipTask(t) ? `<button class="secondary" onclick="skipTaskRow('${id}')">跳過本次</button>` : ""}
+      <button class="secondary" onclick="closeModal()">取消</button>
+      <button onclick="saveTaskForm(${t ? `'${id}'` : "null"})">儲存</button>
+    </div>
+  `;
+  onRepeatFreqChange();
+  updateWeekdayButtonStyles();
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+
+function onRepeatFreqChange() {
+  const freq = document.getElementById("f_repeatFreq").value;
+  const isStructured = ["day", "week", "month", "year"].includes(freq);
+  const unitWord = { day: "天", week: "週", month: "個月", year: "年" }[freq] || "";
+  document.getElementById("repeatIntervalRow").hidden = !isStructured;
+  document.getElementById("repeatWeekdaysRow").hidden = freq !== "week";
+  document.getElementById("repeatLastDayRow").hidden = freq !== "month";
+  document.getElementById("repeatCustomRow").hidden = freq !== "custom";
+  document.getElementById("repeatEndRow").hidden = !isStructured;
+  const unitLabelEl = document.getElementById("repeatUnitLabel");
+  if (unitLabelEl) unitLabelEl.textContent = unitWord;
+}
+
+function onRepeatEndTypeChange() {
+  const type = document.querySelector('input[name="f_repeatEndType"]:checked').value;
+  document.getElementById("f_repeatEndDate").disabled = type !== "date";
+  document.getElementById("f_repeatEndCount").disabled = type !== "count";
+}
+
+function toggleRepeatWeekday(w) {
+  const idx = repeatPickerState.weekdays.indexOf(w);
+  if (idx === -1) repeatPickerState.weekdays.push(w);
+  else repeatPickerState.weekdays.splice(idx, 1);
+  updateWeekdayButtonStyles();
+}
+
+function updateWeekdayButtonStyles() {
+  document.querySelectorAll("#repeatWeekdaysRow .wd-btn").forEach(btn => {
+    const w = Number(btn.dataset.wd);
+    btn.classList.toggle("active", repeatPickerState.weekdays.includes(w));
+  });
+}
+
+function todayDateStr(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + (offsetDays || 0));
+  return localDateStr(d);
+}
+
+function setQuickDate(offsetDays) {
+  document.getElementById("f_taskDue").value = todayDateStr(offsetDays);
+}
+
+function setQuickDateThisSunday() {
+  const d = new Date();
+  const offsetToSunday = d.getDay() === 0 ? 0 : (7 - d.getDay()); // 今天若已經是週日就是今天，否則算到最近的下一個週日
+  d.setDate(d.getDate() + offsetToSunday);
+  document.getElementById("f_taskDue").value = localDateStr(d);
+}
+
+function clearTaskDue() {
+  document.getElementById("f_taskDue").value = "";
+}
+
+async function saveTaskForm(id) {
+  const repeatFreq = document.getElementById("f_repeatFreq").value;
+  const repeatInterval = document.getElementById("f_repeatInterval").value;
+  const repeatCustomLabel = document.getElementById("f_repeatCustomLabel").value;
+  const repeatLastDay = document.getElementById("f_repeatLastDay").checked;
+  const repeatEndType = document.querySelector('input[name="f_repeatEndType"]:checked').value;
+  const repeatEnd = {
+    type: repeatEndType,
+    date: document.getElementById("f_repeatEndDate").value,
+    count: document.getElementById("f_repeatEndCount").value,
+  };
+  const repeatRule = encodeRepeatRule(repeatFreq, repeatInterval, repeatPickerState.weekdays, repeatCustomLabel, repeatLastDay, repeatEnd, repeatPickerState.occurrence);
+
+  const payload = {
+    "任務名稱": document.getElementById("f_taskName").value.trim(),
+    "優先順序": document.getElementById("f_taskPriority").value,
+    "狀態": document.getElementById("f_taskStatus").value,
+    "到期日": document.getElementById("f_taskDue").value,
+    "星標": document.getElementById("f_taskStar").checked,
+    "重複規則": repeatRule,
+    "備註": document.getElementById("f_taskNotes").value,
+    "分類": Array.from(document.querySelectorAll("#modalBody .chk-list input:checked")).map(el => el.value),
+    "所屬專案": document.getElementById("f_taskProject").value,
+    "子任務": collectSubtasksFromModal(),
+  };
+  if (!payload["任務名稱"]) { alert("請填任務名稱"); return; }
+  if (repeatFreq === "week" && repeatPickerState.weekdays.length === 0) {
+    alert("請至少選一個星期幾，或改選「不重複」");
+    return;
+  }
+  try {
+    if (id) { payload["任務ID"] = id; await postAction("update_task", payload); }
+    else { await postAction("create_task", payload); }
+    closeModal();
+    await reloadTasks();
+  } catch (err) {
+    alert("儲存失敗：" + err.message);
+  }
+}
+
+async function deleteTaskRow(id) {
+  const ok = await showConfirmModal({
+    title: "刪除任務", message: "確定要刪除這筆任務嗎？此動作無法復原。",
+    confirmLabel: "刪除", danger: true,
+  });
+  if (!ok) return;
+  try {
+    await postAction("delete_task", { "任務ID": id });
+    await reloadTasks();
+  } catch (err) {
+    alert("刪除失敗：" + err.message);
+  }
+}
+
+// 跳過這一次：這一筆本身標記成「已跳過」（不算完成，也不會一直卡在逾期清單），
+// 但下一輪的待辦任務還是會照重複規則自動產生——跟「刪除」不一樣，系列不會斷掉。
+async function skipTaskRow(id) {
+  const ok = await showConfirmModal({
+    title: "跳過本次", message: "這一次先不做，但下一輪的待辦任務還是會照重複規則自動產生。確定要跳過這一次嗎？",
+    confirmLabel: "跳過本次",
+  });
+  if (!ok) return;
+  try {
+    await postAction("skip_task", { "任務ID": id });
+    closeModal();
+    await reloadTasks();
+  } catch (err) {
+    alert("跳過失敗：" + err.message);
+  }
+}
+
+// ---- 專案 ----
+
+function openProjectForm(id) {
+  const p = id ? projectData.find(x => x["專案ID"] === id) : null;
+  document.getElementById("modalBody").innerHTML = `
+    <h2>${p ? "編輯專案" : "新增專案"}</h2>
+    <div class="form-field"><label>專案名稱</label><input type="text" id="f_projectName" value="${p ? escapeAttr(p["專案名稱"]) : ""}"></div>
+    <div class="form-field"><label>開始日</label><input type="date" id="f_projectStart" value="${p && p["開始日"] ? p["開始日"] : ""}"></div>
+    <div class="form-field"><label>結束日</label><input type="date" id="f_projectEnd" value="${p && p["結束日"] ? p["結束日"] : ""}"></div>
+    <div class="form-field"><label>狀態</label><select id="f_projectStatus"><option value="">（未選）</option>${selectOptions(API_OPTIONS["專案狀態"], p ? p["狀態"] : "")}</select></div>
+    <div class="form-field"><label>優先級</label><select id="f_projectPriority"><option value="">（未選）</option>${selectOptions(API_OPTIONS["專案優先級"], p ? p["優先級"] : "")}</select></div>
+    <div class="form-field"><label>備註</label><textarea id="f_projectNotes" rows="3">${p ? escapeHtml(p["備註"] || "") : ""}</textarea></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal()">取消</button>
+      <button onclick="saveProjectForm(${p ? `'${id}'` : "null"})">儲存</button>
+    </div>
+  `;
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+
+async function saveProjectForm(id) {
+  const payload = {
+    "專案名稱": document.getElementById("f_projectName").value.trim(),
+    "開始日": document.getElementById("f_projectStart").value,
+    "結束日": document.getElementById("f_projectEnd").value,
+    "狀態": document.getElementById("f_projectStatus").value,
+    "優先級": document.getElementById("f_projectPriority").value,
+    "備註": document.getElementById("f_projectNotes").value,
+  };
+  if (!payload["專案名稱"]) { alert("請填專案名稱"); return; }
+  try {
+    if (id) { payload["專案ID"] = id; await postAction("update_project", payload); }
+    else { await postAction("create_project", payload); }
+    closeModal();
+    await reloadProjects();
+  } catch (err) {
+    alert("儲存失敗：" + err.message);
+  }
+}
+
+async function deleteProjectRow(id) {
+  const ok = await showConfirmModal({
+    title: "刪除專案", message: "確定要刪除這個專案嗎？底下的任務不會被刪除，只會變回「沒有專案」。",
+    confirmLabel: "刪除", danger: true,
+  });
+  if (!ok) return;
+  try {
+    await postAction("delete_project", { "專案ID": id });
+    await reloadProjectsAndTasks();
+  } catch (err) {
+    alert("刪除失敗：" + err.message);
+  }
+}
+
+// ---- 習慣 ----
+
+let habitPickerState = { weekdays: [] };
+
+function openHabitForm(id) {
+  const h = id ? habitData.find(x => x["習慣ID"] === id) : null;
+  habitPickerState = { weekdays: h ? (h["星期幾"] || []).slice() : [] };
+
+  document.getElementById("modalBody").innerHTML = `
+    <h2>${h ? "編輯習慣" : "新增習慣"}</h2>
+    <div class="form-field"><label>習慣名稱</label><input type="text" id="f_habitName" value="${h ? escapeAttr(h["習慣名稱"]) : ""}"></div>
+    <div class="form-field"><label>分類</label><select id="f_habitCategory"><option value="">（未選）</option>${selectOptions(API_OPTIONS["習慣分類"], h ? h["分類"] : "")}</select></div>
+    <div class="form-field">
+      <label>時段</label>
+      <select id="f_habitTime">
+        ${HABIT_TIME_OPTIONS.map(t => `<option value="${t}" ${(h ? (h["時段"] || "不限") : "不限") === t ? "selected" : ""}>${HABIT_TIME_ICON[t]} ${t}</option>`).join("")}
+      </select>
+    </div>
+    <div class="form-field">
+      <label>打卡方式</label>
+      <select id="f_habitType" onchange="onHabitTypeChange()">
+        <option value="打勾" ${!h || h["類型"] !== "計數" ? "selected" : ""}>打勾（有做/沒做）</option>
+        <option value="計數" ${h && h["類型"] === "計數" ? "selected" : ""}>計數（例如喝水杯數、閱讀頁數）</option>
+      </select>
+    </div>
+    <div id="habitCountFieldsRow">
+      <div class="form-field"><label>目標值（達標門檻）</label><input type="number" id="f_habitTarget" min="1" value="${h && h["目標值"] ? h["目標值"] : ""}"></div>
+      <div class="form-field"><label>單位</label><input type="text" id="f_habitUnit" placeholder="例如：杯、頁" value="${h ? escapeAttr(h["單位"]) : ""}"></div>
+      <div class="form-field checkbox-field"><label><input type="checkbox" id="f_habitTiered" ${h && h["啟用分級"] === true ? "checked" : ""} onchange="onHabitTierChange()"> 開啟三級制（基礎／達標／超標）</label></div>
+      <div id="habitTierFieldsRow" class="muted" style="margin-left:2px;">
+        <div class="form-field"><label>基礎值（做到這個數字以上，就算今天有達成、連續天數不會斷）</label><input type="number" id="f_habitBase" min="0" value="${h && h["基礎值"] ? h["基礎值"] : ""}"></div>
+        <div class="form-field"><label>超標值（做到這個數字以上，會特別標示🥇超標）</label><input type="number" id="f_habitOver" min="0" value="${h && h["超標值"] ? h["超標值"] : ""}"></div>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>頻率</label>
+      <div class="repeat-picker">
+        <select id="f_habitFreq" onchange="onHabitFreqChange()">
+          <option value="daily" ${!h || (h["頻率類型"] !== "weekday" && h["頻率類型"] !== "weeklyCount") ? "selected" : ""}>每天</option>
+          <option value="weekday" ${h && h["頻率類型"] === "weekday" ? "selected" : ""}>指定星期幾</option>
+          <option value="weeklyCount" ${h && h["頻率類型"] === "weeklyCount" ? "selected" : ""}>每週N次（不指定星期幾）</option>
+        </select>
+        <div id="habitWeekdaysRow" class="repeat-weekdays" hidden>
+          ${[0, 1, 2, 3, 4, 5, 6].map(w => `<button type="button" class="wd-btn" data-wd="${w}" onclick="toggleHabitWeekday(${w})">週${WEEKDAY_LABELS[w]}</button>`).join("")}
+        </div>
+        <div id="habitWeeklyCountRow" class="repeat-sub" hidden>
+          <span>每週</span>
+          <input type="number" id="f_habitWeeklyCount" min="1" value="${h && h["每週次數"] ? h["每週次數"] : 3}" style="width:56px;">
+          <span>次，哪幾天做都可以</span>
+        </div>
+      </div>
+    </div>
+    <div class="form-field checkbox-field"><label><input type="checkbox" id="f_habitArchived" ${h && h["狀態"] === "封存" ? "checked" : ""}> 封存（先不追蹤，但保留歷史紀錄跟連續天數）</label></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal()">取消</button>
+      <button onclick="saveHabitForm(${h ? `'${id}'` : "null"})">儲存</button>
+    </div>
+  `;
+  onHabitTypeChange();
+  onHabitTierChange();
+  onHabitFreqChange();
+  updateHabitWeekdayButtonStyles();
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+
+function onHabitTypeChange() {
+  const type = document.getElementById("f_habitType").value;
+  document.getElementById("habitCountFieldsRow").hidden = type !== "計數";
+}
+
+function onHabitTierChange() {
+  const tiered = document.getElementById("f_habitTiered").checked;
+  document.getElementById("habitTierFieldsRow").hidden = !tiered;
+}
+
+function onHabitFreqChange() {
+  const freq = document.getElementById("f_habitFreq").value;
+  document.getElementById("habitWeekdaysRow").hidden = freq !== "weekday";
+  document.getElementById("habitWeeklyCountRow").hidden = freq !== "weeklyCount";
+}
+
+function toggleHabitWeekday(w) {
+  const idx = habitPickerState.weekdays.indexOf(w);
+  if (idx === -1) habitPickerState.weekdays.push(w);
+  else habitPickerState.weekdays.splice(idx, 1);
+  updateHabitWeekdayButtonStyles();
+}
+
+function updateHabitWeekdayButtonStyles() {
+  document.querySelectorAll("#habitWeekdaysRow .wd-btn").forEach(btn => {
+    const w = Number(btn.dataset.wd);
+    btn.classList.toggle("active", habitPickerState.weekdays.includes(w));
+  });
+}
+
+async function saveHabitForm(id) {
+  const freq = document.getElementById("f_habitFreq").value;
+  if (freq === "weekday" && habitPickerState.weekdays.length === 0) {
+    alert("請至少選一個星期幾，或改選「每天」");
+    return;
+  }
+  const type = document.getElementById("f_habitType").value;
+  const tiered = type === "計數" && document.getElementById("f_habitTiered").checked;
+  const payload = {
+    "習慣名稱": document.getElementById("f_habitName").value.trim(),
+    "分類": document.getElementById("f_habitCategory").value,
+    "時段": document.getElementById("f_habitTime").value,
+    "類型": type,
+    "目標值": document.getElementById("f_habitTarget").value,
+    "單位": document.getElementById("f_habitUnit").value.trim(),
+    "啟用分級": tiered,
+    "基礎值": tiered ? document.getElementById("f_habitBase").value : "",
+    "超標值": tiered ? document.getElementById("f_habitOver").value : "",
+    "頻率類型": freq,
+    "星期幾": habitPickerState.weekdays,
+    "每週次數": document.getElementById("f_habitWeeklyCount").value,
+    "狀態": document.getElementById("f_habitArchived").checked ? "封存" : "啟用",
+  };
+  if (!payload["習慣名稱"]) { alert("請填習慣名稱"); return; }
+  if (tiered && payload["基礎值"] && payload["目標值"] && Number(payload["基礎值"]) >= Number(payload["目標值"])) {
+    alert("基礎值要小於目標值（達標門檻），請重新設定");
+    return;
+  }
+  if (tiered && payload["超標值"] && payload["目標值"] && Number(payload["超標值"]) <= Number(payload["目標值"])) {
+    alert("超標值要大於目標值（達標門檻），請重新設定");
+    return;
+  }
+  if (freq === "weeklyCount" && (!payload["每週次數"] || Number(payload["每週次數"]) < 1)) {
+    alert("請填每週要做幾次（至少1次）");
+    return;
+  }
+  try {
+    if (id) { payload["習慣ID"] = id; await postAction("update_habit", payload); }
+    else { await postAction("create_habit", payload); }
+    closeModal();
+    await reloadHabits();
+  } catch (err) {
+    alert("儲存失敗：" + err.message);
+  }
+}
+
+async function deleteHabitRow(id) {
+  const ok = await showConfirmModal({
+    title: "刪除習慣", message: "確定要刪除這個習慣嗎？底下所有打卡紀錄也會一起被刪除，此動作無法復原。",
+    confirmLabel: "刪除", danger: true,
+  });
+  if (!ok) return;
+  try {
+    await postAction("delete_habit", { "習慣ID": id });
+    await reloadHabits();
+  } catch (err) {
+    alert("刪除失敗：" + err.message);
+  }
+}
+
+// 打勾型習慣的今日打卡：勾起來就記錄數值1，取消勾選就把今天的紀錄整列刪掉
+async function toggleHabitCheck(id, checked) {
+  try {
+    await postAction("set_habit_log", { "習慣ID": id, "數值": checked ? 1 : null });
+    await reloadHabits();
+  } catch (err) {
+    alert("更新失敗：" + err.message);
+    await reloadHabits();
+  }
+}
+
+// 計數型習慣的今日打卡：輸入框改變就把今天的數值存回去；清空輸入框等於取消今天的紀錄
+// 數字輸入框的上下箭頭連點，或打字時瀏覽器連續觸發好幾次 onchange，
+// 會讓好幾個 setHabitCount 幾乎同時打到後端——如果後端還沒把第一筆存完，
+// 第二筆讀到的還是「今天沒紀錄」，就會多存出一列重複紀錄，畫面上數字也會忽大忽小。
+// 這裡用 debounce：同一個習慣如果在 400ms 內又觸發一次，就取消前一次、只送最後一次的值。
+let habitCountDebounceTimers = {};
+function setHabitCount(id, value) {
+  if (habitCountDebounceTimers[id]) clearTimeout(habitCountDebounceTimers[id]);
+  habitCountDebounceTimers[id] = setTimeout(async () => {
+    delete habitCountDebounceTimers[id];
+    const v = value === "" ? null : Number(value);
+    try {
+      await postAction("set_habit_log", { "習慣ID": id, "數值": v });
+      await reloadHabits();
+    } catch (err) {
+      alert("更新失敗：" + err.message);
+      await reloadHabits();
+    }
+  }, 400);
+}
+
+/* ---------------- 日記：新增／編輯／刪除 ---------------- */
+
+let diaryMoodState = "";
+let diaryDateState = "";
+
+// 日記裡的「今天最重要的任務」清單：只挑當天到期＋有打星標的任務，
+// 勾選這裡的checkbox會直接呼叫跟「任務」頁面一樣的更新，改的是同一份
+// 任務資料（不是日記自己另外存一份「有沒有做到」），這樣兩邊資料只有一份，
+// 不會出現日記說做到了、任務頁卻還是待辦這種對不起來的情況。
+function diaryRefTasksHtml(dateStr) {
+  const dueStarred = taskData.filter(t => t["到期日"] === dateStr && t["星標"] === true);
+  if (!dueStarred.length) {
+    return `<div class="diary-ref-tasks">
+      <div>今天沒有打星標的重要任務。想在這裡追蹤，可以先到「任務」把該做的事打上星標 ⭐。</div>
+    </div>`;
+  }
+  return `<div class="diary-ref-tasks" id="diaryRefTasks">
+    <div>今天最重要的任務（打星標的任務，勾選會直接把任務標記為完成）：</div>
+    ${dueStarred.map(t => `
+      <label class="item-line diary-ref-task-item">
+        <input type="checkbox" ${t["狀態"] === "已完成" ? "checked" : ""} onchange="toggleDiaryRefTask('${t["任務ID"]}', this.checked, '${dateStr}')">
+        ⭐ ${escapeHtml(t["任務名稱"] || "")}
+      </label>`).join("")}
+  </div>`;
+}
+
+async function toggleDiaryRefTask(taskId, checked, dateStr) {
+  const t = taskData.find(x => x["任務ID"] === taskId);
+  if (!t) return;
+  try {
+    await postAction("update_task", {
+      "任務ID": taskId,
+      "任務名稱": t["任務名稱"],
+      "優先順序": t["優先順序"],
+      "狀態": checked ? "已完成" : "待辦",
+      "到期日": t["到期日"],
+      "星標": t["星標"],
+      "重複規則": t["重複規則"],
+      "備註": t["備註"],
+      "分類": t["分類"],
+      "所屬專案": t["所屬專案"],
+      "子任務": t["子任務"],
+    });
+    t["狀態"] = checked ? "已完成" : "待辦"; // 先更新本地資料，日記彈窗裡的清單立刻反映最新狀態
+    const container = document.getElementById("diaryRefTasks");
+    if (container) container.outerHTML = diaryRefTasksHtml(dateStr);
+    renderDiaryToday(); // 背後日記卡片上的「⭐ 重要任務」也是看 taskData 算的，順便重繪一次
+    renderDiaryHistory();
+    await reloadTasks(); // 背景重新整理任務頁跟統計，不用關掉日記彈窗
+  } catch (err) {
+    alert("更新任務狀態失敗：" + err.message);
+  }
+}
+
+function openDiaryForm(dateStr) {
+  const d = diaryData.find(x => x["日期"] === dateStr) || null;
+  diaryMoodState = d ? (d["心情"] || "") : "";
+  diaryDateState = dateStr;
+  document.getElementById("modalBody").innerHTML = `
+    <h2>${d ? "編輯" : "新增"}日記：${escapeHtml(dateStr)}</h2>
+    <div class="form-field">
+      <label>心情</label>
+      <div class="mood-picker" id="diaryMoodPicker">
+        ${MOOD_OPTIONS.map(m => `<button type="button" class="mood-btn" data-mood="${m}" onclick="setDiaryMood('${m}')">${m}</button>`).join("")}
+      </div>
+    </div>
+    ${diaryRefTasksHtml(dateStr)}
+    <div class="form-field"><label>感恩</label><textarea id="f_diaryGratitude" rows="2" placeholder="今天有什麼值得感謝的事？">${d ? escapeHtml(d["感恩"] || "") : ""}</textarea></div>
+    <div class="form-field"><label>放手</label><textarea id="f_diaryLetGo" rows="2" placeholder="有什麼想放下、原諒自己的事？">${d ? escapeHtml(d["放手"] || "") : ""}</textarea></div>
+    <div class="form-field"><label>值得紀錄的小故事</label><textarea id="f_diaryStory" rows="3" placeholder="今天的第一次、最後一次、最開心、最難過...">${d ? escapeHtml(d["小故事"] || "") : ""}</textarea></div>
+    <div class="form-field">
+      <label>發現有趣的東西</label>
+      <div id="diaryFindEditor">${renderDiaryFindEditorRows(d ? d["發現清單"] : [])}</div>
+      <button type="button" class="secondary" style="margin-top:6px; padding:6px 12px; font-size:12px;" onclick="addDiaryFindRow()">+ 新增項目</button>
+    </div>
+    <div class="modal-actions">
+      ${d ? `<button class="secondary" style="border-color:var(--bad); color:var(--bad);" onclick="deleteDiaryRow('${d["日記ID"]}')">刪除</button>` : ""}
+      <button class="secondary" onclick="closeModal()">取消</button>
+      <button onclick="saveDiaryForm()">儲存</button>
+    </div>
+  `;
+  updateDiaryMoodButtonStyles();
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+
+function setDiaryMood(m) {
+  diaryMoodState = diaryMoodState === m ? "" : m;
+  updateDiaryMoodButtonStyles();
+}
+
+function updateDiaryMoodButtonStyles() {
+  document.querySelectorAll("#diaryMoodPicker .mood-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mood === diaryMoodState);
+  });
+}
+
+function diaryFindRowHtml(f) {
+  f = f || {};
+  const status = f["狀態"] || "";
+  return `<div class="find-row">
+    <div class="find-row-top">
+      <select class="find-type">${FIND_TYPE_OPTIONS.map(t => `<option value="${escapeAttr(t)}" ${f["類型"] === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select>
+      <input type="text" class="find-content" placeholder="內容/標題，例如：原子習慣、how to say no podcast" value="${escapeAttr(f["內容"] || "")}">
+      <button type="button" class="icon-btn find-status-btn" data-status="${escapeAttr(status)}" title="${escapeAttr(diaryFindStatusLabel(status))}" onclick="cycleDiaryFindStatus(this)">${diaryFindStatusIcon(status)}</button>
+      <button type="button" class="icon-btn" onclick="this.closest('.find-row').remove()">🗑️</button>
+    </div>
+    <textarea class="find-note" rows="2" placeholder="備註（選填）：為什麼覺得有趣、學到什麼、連結、想法...">${escapeHtml(f["備註"] || "")}</textarea>
+  </div>`;
+}
+
+function renderDiaryFindEditorRows(list) {
+  return (list && list.length ? list : []).map(diaryFindRowHtml).join("");
+}
+
+function addDiaryFindRow() {
+  document.getElementById("diaryFindEditor").insertAdjacentHTML("beforeend", diaryFindRowHtml({}));
+}
+
+function collectDiaryFindsFromModal() {
+  return Array.from(document.querySelectorAll("#diaryFindEditor .find-row")).map(row => ({
+    "類型": row.querySelector(".find-type").value,
+    "內容": row.querySelector(".find-content").value.trim(),
+    "備註": row.querySelector(".find-note").value.trim(),
+    "狀態": row.querySelector(".find-status-btn").dataset.status || "",
+  })).filter(f => f["內容"]);
+}
+
+async function saveDiaryForm() {
+  const payload = {
+    "日期": diaryDateState,
+    "心情": diaryMoodState,
+    "感恩": document.getElementById("f_diaryGratitude").value,
+    "放手": document.getElementById("f_diaryLetGo").value,
+    "小故事": document.getElementById("f_diaryStory").value,
+    "發現清單": collectDiaryFindsFromModal(),
+  };
+  try {
+    await postAction("create_diary", payload);
+    closeModal();
+    await reloadDiaries();
+  } catch (err) {
+    alert("儲存失敗：" + err.message);
+  }
+}
+
+async function deleteDiaryRow(id) {
+  const ok = await showConfirmModal({
+    title: "刪除日記", message: "確定要刪除這篇日記嗎？此動作無法復原。",
+    confirmLabel: "刪除", danger: true,
+  });
+  if (!ok) return;
+  try {
+    await postAction("delete_diary", { "日記ID": id });
+    closeModal();
+    await reloadDiaries();
+  } catch (err) {
+    alert("刪除失敗：" + err.message);
+  }
+}
+
+// 打勾／取消勾選：不開彈窗，直接把目前這筆任務的其他欄位原封不動送回去，只改狀態
+// 勾起來 → 狀態改成「已完成」（如果這筆有設定重複規則，後端會自動幫你產生下一筆）
+// 取消勾選 → 狀態改回「待辦」
+async function toggleTaskDone(id, checked) {
+  const t = taskData.find(x => x["任務ID"] === id);
+  if (!t) return;
+  try {
+    await postAction("update_task", {
+      "任務ID": id,
+      "任務名稱": t["任務名稱"],
+      "優先順序": t["優先順序"],
+      "狀態": checked ? "已完成" : "待辦",
+      "到期日": t["到期日"],
+      "星標": t["星標"],
+      "重複規則": t["重複規則"],
+      "備註": t["備註"],
+      "分類": t["分類"],
+      "所屬專案": t["所屬專案"],
+      "子任務": t["子任務"],
+    });
+    await reloadTasks();
+  } catch (err) {
+    alert("更新失敗：" + err.message);
+    await reloadTasks();
+  }
+}
+
+/* ---------------- 選單圖示／名稱（讀自「系統索引」分頁） ---------------- */
+
+// 把選單、頁面標題换成「系統索引」分頁裡設定的圖示跟名稱
+function applySystemBranding() {
+  const bySheet = {};
+  (SYSTEM_INDEX || []).forEach(s => { bySheet[s["主表分頁名稱"]] = s; });
+  const course = bySheet["課程"];
+  const sub = bySheet["訂閱服務"];
+  const task = bySheet["任務"];
+  const project = bySheet["專案"];
+  const habit = bySheet["習慣"];
+  const diary = bySheet["日記"];
+  if (course) {
+    document.getElementById("navIconCourses").textContent = course["icon"] || "📚";
+    document.getElementById("navLabelCourses").textContent = course["系統名稱"] || "課程";
+    document.getElementById("coursesPageTitle").textContent = course["系統名稱"] || "課程";
+    document.getElementById("homeCourseSectionTitle").textContent = (course["icon"] || "📚") + " " + (course["系統名稱"] || "課程");
+  }
+  if (sub) {
+    document.getElementById("navIconSubs").textContent = sub["icon"] || "💰";
+    document.getElementById("navLabelSubs").textContent = sub["系統名稱"] || "訂閱";
+    document.getElementById("subsPageTitle").textContent = sub["系統名稱"] || "訂閱";
+    document.getElementById("homeSubSectionTitle").textContent = (sub["icon"] || "💰") + " " + (sub["系統名稱"] || "訂閱");
+  }
+  if (task) {
+    document.getElementById("navIconTasks").textContent = task["icon"] || "✅";
+    document.getElementById("navLabelTasks").textContent = task["系統名稱"] || "任務";
+    document.getElementById("tasksPageTitle").textContent = task["系統名稱"] || "任務";
+    document.getElementById("homeTaskSectionTitle").textContent = (task["icon"] || "✅") + " " + (task["系統名稱"] || "任務");
+  }
+  if (project) {
+    document.getElementById("navIconProjects").textContent = project["icon"] || "📁";
+    document.getElementById("navLabelProjects").textContent = project["系統名稱"] || "專案";
+    document.getElementById("projectsPageTitle").textContent = project["系統名稱"] || "專案";
+    document.getElementById("homeProjectSectionTitle").textContent = (project["icon"] || "📁") + " " + (project["系統名稱"] || "專案");
+  }
+  if (habit) {
+    document.getElementById("navIconHabits").textContent = habit["icon"] || "🔥";
+    document.getElementById("navLabelHabits").textContent = habit["系統名稱"] || "習慣";
+    document.getElementById("habitsPageTitle").textContent = habit["系統名稱"] || "習慣";
+    document.getElementById("homeHabitSectionTitle").textContent = (habit["icon"] || "🔥") + " " + (habit["系統名稱"] || "習慣");
+  }
+  if (diary) {
+    document.getElementById("navIconDiary").textContent = diary["icon"] || "📔";
+    document.getElementById("navLabelDiary").textContent = diary["系統名稱"] || "日記";
+    document.getElementById("diaryPageTitle").textContent = diary["系統名稱"] || "日記";
+    document.getElementById("homeDiarySectionTitle").textContent = (diary["icon"] || "📔") + " " + (diary["系統名稱"] || "日記");
+  }
+}
+
+/* ---------------- 分類管理 ---------------- */
+
+function renderAdminPanel() {
+  document.getElementById("adminSystemFields").innerHTML = (SYSTEM_INDEX || []).map(systemCardHtml).join("");
+  document.getElementById("adminCourseFields").innerHTML = COURSE_OPTION_FIELDS.map(optionCardHtml).join("");
+  document.getElementById("adminSubFields").innerHTML = SUB_OPTION_FIELDS.map(optionCardHtml).join("");
+  document.getElementById("adminTaskFields").innerHTML = TASK_OPTION_FIELDS.map(optionCardHtml).join("");
+  document.getElementById("adminProjectFields").innerHTML = PROJECT_OPTION_FIELDS.map(optionCardHtml).join("");
+  document.getElementById("adminHabitFields").innerHTML = HABIT_OPTION_FIELDS.map(optionCardHtml).join("");
+}
+
+function systemCardHtml(s) {
+  const key = s["主表分頁名稱"];
+  return `
+    <div class="option-card">
+      <h3>${escapeHtml(s["系統名稱"])} <span class="muted">(${escapeHtml(key)})</span></h3>
+      <div class="form-field"><label>圖示（emoji）</label><input type="text" class="sys-icon-input" maxlength="4" value="${escapeAttr(s["icon"])}"></div>
+      <div class="form-field"><label>名稱</label><input type="text" class="sys-name-input" value="${escapeAttr(s["系統名稱"])}"></div>
+      <button class="btn-sm btn-edit sys-save-btn" data-key="${escapeAttr(key)}">儲存</button>
+    </div>`;
+}
+
+function optionCardHtml(field) {
+  const opts = API_OPTIONS[field] || [];
+  const usage = API_OPTION_USAGE[field] || {};
+  const rows = opts.map(v => `
+    <div class="option-row">
+      <span class="opt-name" title="${escapeHtml(v)}">${escapeHtml(v)}</span>
+      <span class="opt-count">${usage[v] || 0} 筆</span>
+      <span class="opt-actions">
+        <button class="icon-btn" data-action="rename" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}" title="重新命名">✏️</button>
+        <button class="icon-btn" data-action="delete-option" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}" data-count="${usage[v] || 0}" title="刪除">🗑️</button>
+      </span>
+    </div>`).join("");
+  return `
+    <div class="option-card">
+      <h3>${escapeHtml(field)}</h3>
+      ${rows || `<div class="muted">目前沒有選項</div>`}
+      <div class="option-add-row">
+        <input type="text" class="add-option-input" placeholder="新增選項...">
+        <button class="btn-sm btn-edit add-option-btn" data-field="${escapeAttr(field)}">新增</button>
+      </div>
+    </div>`;
+}
+
+document.getElementById("panel-admin").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+
+  if (btn.classList.contains("sys-save-btn")) {
+    const card = btn.closest(".option-card");
+    const icon = card.querySelector(".sys-icon-input").value.trim();
+    const name = card.querySelector(".sys-name-input").value.trim();
+    if (!icon || !name) { alert("圖示跟名稱都不能空白"); return; }
+    try {
+      await postAction("update_system", { "主表分頁名稱": btn.dataset.key, "系統名稱": name, "icon": icon });
+      await loadAll();
+    } catch (err) {
+      alert("儲存失敗：" + err.message);
+    }
+    return;
+  }
+
+  if (btn.classList.contains("add-option-btn")) {
+    const card = btn.closest(".option-card");
+    const input = card.querySelector(".add-option-input");
+    const field = btn.dataset.field;
+    const value = input.value.trim();
+    if (!value) return;
+    try {
+      await postAction("add_option", { field, value });
+      await loadAll();
+    } catch (err) {
+      alert("新增失敗：" + err.message);
+    }
+    return;
+  }
+
+  if (btn.dataset.action === "rename") {
+    const field = btn.dataset.field, value = btn.dataset.value;
+    const input = await showPromptModal({ title: "重新命名", label: field + "（原本：" + value + "）", value });
+    if (input === null) return;
+    const newValue = input.trim();
+    if (!newValue || newValue === value) return;
+    try {
+      await postAction("rename_option", { field, oldValue: value, newValue });
+      await loadAll();
+    } catch (err) {
+      alert("重新命名失敗：" + err.message);
+    }
+    return;
+  }
+
+  if (btn.dataset.action === "delete-option") {
+    const field = btn.dataset.field, value = btn.dataset.value, count = Number(btn.dataset.count) || 0;
+    const msg = count > 0
+      ? `「${value}」目前有 ${count} 筆資料在用。刪除後這些資料不會被清掉，只是這個選項以後不會出現在下拉選單。確定要刪除嗎？`
+      : `確定要刪除「${value}」這個選項嗎？`;
+    const ok = await showConfirmModal({ title: "刪除選項", message: msg, confirmLabel: "刪除", danger: true });
+    if (!ok) return;
+    try {
+      await postAction("delete_option", { field, value });
+      await loadAll();
+    } catch (err) {
+      alert("刪除失敗：" + err.message);
+    }
+    return;
+  }
+});
+
+// 如果已經記得網址跟 token，自動載入一次
+if (document.getElementById("apiBase").value.trim() && document.getElementById("apiToken").value.trim()) {
+  loadAll();
+}
+</script>
+</body>
+</html>
