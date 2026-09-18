@@ -206,51 +206,6 @@
     .mobile-topbar .mobile-title{ font-weight:700; font-size:15px; flex:1; }
   }
 
-  @media (max-width:680px){
-    .app{ flex-direction:column; }
-
-    .brand{ padding:6px 10px 16px; }
-    .sidebar-status{ display:block; }
-    .content{ padding:16px; }
-
-    /* 手機上輸入框字級至少 16px，避免 iOS Safari 自動放大畫面 */
-    input, select, textarea{ font-size:16px !important; }
-
-    /* 放大小按鈕的可點擊範圍，手指比游標粗很多 */
-    .icon-btn{ padding:8px 10px; font-size:16px; min-width:38px; min-height:38px; }
-    .actions .btn-sm{ padding:8px 12px; font-size:13px; }
-    .actions{ gap:8px; }
-    .filter-chip, .wd-btn, .quick-date-btn{ padding:8px 14px; }
-    .task-check, .habit-check{ width:22px; height:22px; }
-
-    /* 彈窗在小螢幕上盡量利用寬度，內部元件容易太窄就換行 */
-    .modal-box{ padding:16px; }
-    .modal-actions{ flex-wrap:wrap; }
-    .repeat-sub{ flex-wrap:wrap; }
-
-    /* 表格 → 卡片：課程／訂閱／專案清單在手機上改成一筆一張卡，不用左右滑 */
-    .table-wrap{ overflow-x:visible; border:none; background:transparent; }
-    table{ min-width:0; width:100%; border-spacing:0; }
-    table thead{ display:none; }
-    table, table tbody, table tr, table td{ display:block; width:100%; }
-    table tr{
-      background:var(--card); border:1px solid var(--line); border-radius:10px;
-      padding:4px 12px; margin-bottom:10px;
-    }
-    table td{
-      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 12px;
-      padding:8px 0; border-bottom:1px dashed var(--line); white-space:normal; text-align:right;
-    }
-    table td:last-child{ border-bottom:none; }
-    table td::before{
-      content:attr(data-label); font-size:11px; font-weight:600; color:var(--sub);
-      flex-shrink:0; text-align:left;
-    }
-    table td:not([data-label])::before{ content:none; }
-    table td.wrap{ max-width:none; }
-    table td .actions{ flex:1; justify-content:flex-end; }
-    table td.empty{ display:block; text-align:center; }
-  }
 
   /* ---- 設定表單（設定分頁） ---- */
   .settings-form{
@@ -557,6 +512,58 @@
     background:var(--bg); color:var(--text); font-size:12px;
   }
   .option-add-row button{ padding:6px 12px; font-size:12px; }
+
+  /* 這個手機版斷點的覆寫規則故意放在整份 <style> 的最後面（原本在檔案中段，
+     跟後面才定義的 .table-wrap / table / .icon-btn / .actions .btn-sm / .filter-chip /
+     .wd-btn / .quick-date-btn / .task-check / .habit-check 等規則選擇器優先權相同，
+     但那些規則在檔案後面才出現，CSS 同優先權時後出現的贏，所以手機版的覆寫全部被
+     悄悄蓋掉——這就是手機版表格擠成一直排看不到值、按鈕/勾選框沒有放大等問題的根因）。
+     移到最後面就能確保這裡永遠是最後套用的規則，不用到處補 !important。 */
+  @media (max-width:680px){
+    .app{ flex-direction:column; }
+
+    .brand{ padding:6px 10px 16px; }
+    .sidebar-status{ display:block; }
+    .content{ padding:16px; }
+
+    /* 手機上輸入框字級至少 16px，避免 iOS Safari 自動放大畫面 */
+    input, select, textarea{ font-size:16px !important; }
+
+    /* 放大小按鈕的可點擊範圍，手指比游標粗很多 */
+    .icon-btn{ padding:8px 10px; font-size:16px; min-width:38px; min-height:38px; }
+    .actions .btn-sm{ padding:8px 12px; font-size:13px; }
+    .actions{ gap:8px; }
+    .filter-chip, .wd-btn, .quick-date-btn{ padding:8px 14px; }
+    .task-check, .habit-check{ width:22px; height:22px; }
+
+    /* 彈窗在小螢幕上盡量利用寬度，內部元件容易太窄就換行 */
+    .modal-content.modal-box{ padding:16px; }
+    .modal-actions{ flex-wrap:wrap; }
+    .repeat-sub{ flex-wrap:wrap; }
+
+    /* 表格 → 卡片：課程／訂閱／專案清單在手機上改成一筆一張卡，不用左右滑 */
+    .table-wrap{ overflow-x:visible; border:none; background:transparent; }
+    table{ min-width:0; width:100%; border-spacing:0; }
+    table thead{ display:none; }
+    table, table tbody, table tr, table td{ display:block; width:100%; }
+    table tr{
+      background:var(--card); border:1px solid var(--line); border-radius:10px;
+      padding:4px 12px; margin-bottom:10px;
+    }
+    table td{
+      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 12px;
+      padding:8px 0; border-bottom:1px dashed var(--line); white-space:normal; text-align:right;
+    }
+    table td:last-child{ border-bottom:none; }
+    table td::before{
+      content:attr(data-label); font-size:11px; font-weight:600; color:var(--sub);
+      flex-shrink:0; text-align:left;
+    }
+    table td:not([data-label])::before{ content:none; }
+    table td.wrap{ max-width:none; }
+    table td .actions{ flex:1; justify-content:flex-end; }
+    table td.empty{ display:block; text-align:center; }
+  }
 </style>
 </head>
 <body>
