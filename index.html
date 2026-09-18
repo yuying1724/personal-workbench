@@ -30,18 +30,22 @@
 <link rel="manifest" id="pwaManifestLink" href="">
 <style>
   :root{
-    --bg:#faf8f4; --card:#ffffff; --sidebar-bg:#f3ede2; --text:#4a463f; --sub:#9a9488;
-    --line:#ece6da; --accent:#8fac97; --accent-soft:#eaf1ec;
+    /* 2026-09-18：套用「義式旅遊手帳」風格參考，整體改成暖杏色調（原本是偏白的米色），
+       文字改成深咖啡色，卡片色比底色再亮一階，線條/陰影也跟著改成暖色調，
+       品牌主色（鼠尾草綠 --accent）維持不變，跟暖色底搭配依然協調，不用跟著改。 */
+    --bg:#f6efdd; --card:#fdf8ee; --sidebar-bg:#efe3c8; --text:#4a3a28; --sub:#9c8a70;
+    --line:#e6d9bb; --accent:#8fac97; --accent-soft:#eaf1ec;
     --good:#7fa887; --warn:#dba86a; --bad:#d98a86;
     --sidebar-w:200px;
-    --shadow-sm:0 1px 3px rgba(74,70,63,.07), 0 1px 2px rgba(74,70,63,.05);
-    --shadow-md:0 10px 24px rgba(74,70,63,.12), 0 2px 8px rgba(74,70,63,.06);
+    --shadow-sm:0 1px 3px rgba(74,58,40,.08), 0 1px 2px rgba(74,58,40,.05);
+    --shadow-md:0 10px 24px rgba(74,58,40,.14), 0 2px 8px rgba(74,58,40,.07);
   }
   /* 深色模式：改用 Bootstrap 原生的 data-bs-theme 機制切換（JS 的 initTheme()/applyTheme()
-     會自己用 matchMedia 判斷系統偏好、換算成 light/dark 寫進這個屬性，「跟隨系統」才會生效） */
+     會自己用 matchMedia 判斷系統偏好、換算成 light/dark 寫進這個屬性，「跟隨系統」才會生效）
+     深色模式也跟著微調成暖色調的深咖啡（不是純黑/冷灰），跟淺色模式的手帳質感呼應。 */
   [data-bs-theme="dark"]{
-    --bg:#1e1c18; --card:#2a2722; --sidebar-bg:#221f1a; --text:#ece7dd; --sub:#a39a8c;
-    --line:#3a352c; --accent:#9fc2a8; --accent-soft:#2f3b32;
+    --bg:#221c15; --card:#2e2620; --sidebar-bg:#251f17; --text:#ece0cf; --sub:#b3a58c;
+    --line:#3d3226; --accent:#9fc2a8; --accent-soft:#2f3b32;
     --good:#8fbf97; --warn:#e0ab72; --bad:#e0948f;
     --shadow-sm:0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
     --shadow-md:0 12px 28px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
@@ -209,7 +213,7 @@
 
   /* ---- 設定表單（設定分頁） ---- */
   .settings-form{
-    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
     padding:16px; max-width:460px; display:flex; flex-direction:column; gap:10px;
     box-shadow:var(--shadow-sm);
   }
@@ -238,7 +242,7 @@
   /* ---- 卡片（總覽） ---- */
   .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
   .card{
-    background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;
     box-shadow:var(--shadow-sm); transition:transform .18s ease, box-shadow .18s ease;
   }
   .card:hover{ transform:translateY(-3px); box-shadow:var(--shadow-md); }
@@ -246,7 +250,7 @@
   .card .value{ font-size:24px; font-weight:700; }
   .card .value small{ font-size:13px; font-weight:400; color:var(--sub); }
 
-  .breakdown{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:10px; box-shadow:var(--shadow-sm); }
+  .breakdown{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:10px; box-shadow:var(--shadow-sm); }
   .breakdown .row{ display:flex; align-items:center; gap:8px; margin:6px 0; font-size:13px; }
   .breakdown .row .name{ width:120px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .breakdown .row .bar-bg{ flex:1; background:var(--bg); border-radius:4px; height:10px; overflow:hidden; }
@@ -259,7 +263,7 @@
   .badge.bad{ background:rgba(220,38,38,.15); color:var(--bad); }
   .badge.bronze{ background:rgba(180,120,70,.15); color:#b47846; }
 
-  .list-block{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:10px; box-shadow:var(--shadow-sm); }
+  .list-block{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:10px; box-shadow:var(--shadow-sm); }
   .list-block .item{ padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; transition:background-color .15s ease; }
   .list-block .item:last-child{ border-bottom:none; }
   .list-block .item:hover{ background:var(--bg); border-radius:6px; margin:0 -8px; padding:8px 8px; }
@@ -283,7 +287,7 @@
   .filters .count{ align-self:center; color:var(--sub); font-size:12px; }
 
   /* ---- 表格 ---- */
-  .table-wrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow-sm); }
+  .table-wrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-sm); }
   table{ border-collapse:collapse; width:100%; min-width:720px; font-size:13px; }
   th, td{ padding:8px 10px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap; transition:background-color .12s ease; }
   /* Bootstrap 的 .table 會用比較高優先權的規則把每個儲存格背景設成 --bs-table-bg，
@@ -316,7 +320,7 @@
   .task-group-body.collapsed{ display:none; }
   .task-row{
     display:flex; align-items:flex-start; gap:10px; background:var(--card);
-    border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    border:1px solid var(--line); border-radius:14px; padding:10px 12px;
   }
   .task-row.done{ opacity:.6; }
   .task-check{ margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); cursor:pointer; }
@@ -330,7 +334,7 @@
   /* ---- 習慣清單 ---- */
   .habit-row{
     display:flex; align-items:flex-start; gap:10px; background:var(--card);
-    border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:6px;
+    border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:6px;
   }
   .habit-row.done{ opacity:.7; }
   .habit-check{ margin-top:2px; width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); cursor:pointer; }
@@ -380,7 +384,7 @@
     background:var(--bg); color:var(--text); font-size:13px; font-family:inherit; resize:vertical; box-sizing:border-box;
   }
   .diary-entry-card{
-    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
     padding:14px 16px; margin-bottom:10px;
   }
   .diary-entry-card .diary-date-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -389,7 +393,7 @@
   .diary-entry-card .diary-snippet{ margin-top:8px; font-size:13px; color:var(--sub); line-height:1.6; white-space:pre-wrap; }
   .diary-entry-card .diary-snippet b{ color:var(--text); }
   .diary-empty-prompt{
-    background:var(--card); border:1px dashed var(--line); border-radius:10px;
+    background:var(--card); border:1px dashed var(--line); border-radius:14px;
     padding:20px; text-align:center; color:var(--sub);
   }
 
@@ -457,7 +461,7 @@
   /* ---- 新增/編輯 彈窗（外層 .modal/.modal-dialog/.modal-content 交給 Bootstrap Modal 元件處理，
      這裡的 .modal-box 只補一點跟整體風格搭配的樣式，疊加在 Bootstrap 的 .modal-content 上） ---- */
   .modal-content.modal-box{
-    background:var(--card); color:var(--text); border-radius:12px; padding:6px 6px;
+    background:var(--card); color:var(--text); border-radius:16px; padding:6px 6px;
     max-height:88vh; overflow-y:auto; border-color:var(--line);
     box-shadow:var(--shadow-md);
   }
@@ -491,7 +495,7 @@
 
   /* ---- 分類管理 ---- */
   .option-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
-  .option-card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; box-shadow:var(--shadow-sm); transition:box-shadow .18s ease; }
+  .option-card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:var(--shadow-sm); transition:box-shadow .18s ease; }
   .option-card:hover{ box-shadow:var(--shadow-md); }
   .option-card h3{ margin:0 0 10px; font-size:14px; }
   .option-row{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:13px; }
@@ -547,7 +551,7 @@
     table thead{ display:none; }
     table, table tbody, table tr, table td{ display:block; width:100%; }
     table tr{
-      background:var(--card); border:1px solid var(--line); border-radius:10px;
+      background:var(--card); border:1px solid var(--line); border-radius:14px;
       padding:4px 12px; margin-bottom:10px;
     }
     table td{
