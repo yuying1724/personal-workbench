@@ -823,6 +823,12 @@
       <h2>今天</h2>
       <div id="diaryTodayBlock"></div>
 
+      <div class="toolbar-row" style="justify-content:flex-start; margin:14px 0; align-items:center; gap:8px; flex-wrap:wrap;">
+        <input type="date" id="diaryBackfillDate" class="form-control form-control-sm" style="max-width:170px;">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openDiaryBackfillForm()"><i class="bi bi-pencil-square"></i> 補寫日記</button>
+        <span class="muted">忘記寫的日子，選日期補上（該天已經有日記的話會變成編輯）</span>
+      </div>
+
       <h2>過去的日記</h2>
       <div id="diaryHistoryList"></div>
     </div>
@@ -2012,9 +2018,21 @@ function renderDiaryToday() {
   const container = document.getElementById("diaryTodayBlock");
   if (!entry) {
     container.innerHTML = `<div class="diary-empty-prompt">今天還沒寫日記<div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="openDiaryForm('${todayStr}')"><i class="bi bi-plus-lg"></i> 寫今天的日記</button></div></div>`;
-    return;
+  } else {
+    container.innerHTML = diaryEntryCardHtml(entry);
   }
-  container.innerHTML = diaryEntryCardHtml(entry);
+  // 補寫日記的日期欄位預設帶昨天的日期（她最常見的情境是忘了寫昨天），
+  // 只在欄位還空著的時候設定，避免每次重新整理蓋掉使用者自己選的日期
+  const backfillInput = document.getElementById("diaryBackfillDate");
+  if (backfillInput && !backfillInput.value) backfillInput.value = todayDateStr(-1);
+}
+
+// 補寫過去日記：讀取日期欄位選的日期，開啟該天的日記表單（該天已有日記就是編輯，沒有就是新增，
+// openDiaryForm() 本身就是靠 diaryData 裡有沒有那天的資料來判斷，不用額外處理）
+function openDiaryBackfillForm() {
+  const input = document.getElementById("diaryBackfillDate");
+  const dateStr = (input && input.value) || todayDateStr(-1);
+  openDiaryForm(dateStr);
 }
 
 function renderDiaryHistory() {
