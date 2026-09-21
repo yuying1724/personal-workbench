@@ -1,0 +1,12 @@
+{
+  "name": "personal-workbench",
+  "version": "2.0.0",
+  "private": true,
+  "description": "個人工作台：GitHub Pages 前端（可安裝成 App）+ Google Sheets + Apps Script API",
+  "scripts": {
+    "build": "node tools/build-gas.js && node tools/build-web.js",
+    "test": "npm run build && node --test \"tests/**/*.test.js\"",
+    "dev": "npm run build && node tools/dev-server.js"
+  },
+  "engines": { "node": ">=20" }
+}
