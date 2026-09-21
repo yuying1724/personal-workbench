@@ -303,4 +303,26 @@ input.narrow { width: 76px !important; text-align: center; }
 .card h3 { font-size: 14px; margin: 0 0 4px; }
 .link-btn { display: inline-block; text-decoration: none; }
 .fab { display: grid; }
-input[type=checkbox], input[type=radio] { accent-color: var(--accent-strong); }
+
+/* 勾選框：自己畫，不用瀏覽器／系統預設的樣式（Windows 深色模式下原生勾選框會變黑色） */
+:root[data-theme="light"] { color-scheme: light; }
+input[type=radio] { accent-color: var(--accent-strong); }
+input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none; cursor: pointer;
+  width: 20px; height: 20px; border-radius: 6px; display: inline-grid; place-content: center;
+  border: 2px solid color-mix(in srgb, var(--sub) 55%, var(--line)); background: var(--card);
+  transition: background-color .12s ease, border-color .12s ease;
+}
+input[type=checkbox]::after {
+  content: ''; width: 5px; height: 10px; margin-top: -2px;
+  border: solid var(--on-accent); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) scale(0); transition: transform .12s ease;
+}
+input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent); }
+input[type=checkbox]:checked::after { transform: rotate(45deg) scale(1); }
+input[type=checkbox]:hover { border-color: var(--accent); }
+input[type=checkbox]:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+input[type=checkbox]:disabled { opacity: .5; cursor: default; }
+input[type=checkbox].big-check { width: 24px; height: 24px; border-radius: 7px; }
+input[type=checkbox].big-check::after { width: 6px; height: 12px; }
+.check input[type=checkbox] { width: 20px; height: 20px; }
+a.btn { text-decoration: none; }

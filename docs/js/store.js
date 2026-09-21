@@ -9,8 +9,9 @@ function set(key, value) {
 export const prefs = {
   get token() { return get('wb.token'); }, set token(v) { set('wb.token', v); },
   get apiUrl() { return get('wb.apiUrl') || (window.WB_CONFIG && window.WB_CONFIG.apiUrl) || ''; }, set apiUrl(v) { set('wb.apiUrl', v); },
-  get theme() { return get('wb.theme') || 'auto'; },
-  set theme(v) { set('wb.theme', v === 'auto' ? null : v); applyTheme(); },
+  // 預設淺色；選「跟隨系統」也會記下來（存成 'auto'）
+  get theme() { return get('wb.theme') || 'light'; },
+  set theme(v) { set('wb.theme', v); applyTheme(); },
   get session() { try { return JSON.parse(get('wb.session') || 'null'); } catch (e) { return null; } },
   set session(v) { set('wb.session', v ? JSON.stringify(v) : null); },
   // 各頁面的篩選／收合狀態（只存在這台裝置）

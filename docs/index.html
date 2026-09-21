@@ -20,7 +20,7 @@
     // 主題要在畫面出現前就套用，避免閃一下
     (function () {
       try {
-        var t = localStorage.getItem('wb.theme');
+        var t = localStorage.getItem('wb.theme') || 'light'; // 預設淺色
         if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
     })();
