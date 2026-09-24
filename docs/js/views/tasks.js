@@ -1,7 +1,7 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state } from '../store.js';
-import { write, systemName } from '../data.js';
+import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText, toast } from '../ui.js';
 import {
   todayStr, thisSundayStr, dateLabel, decodeRepeatRule, encodeRepeatRule, repeatRuleLabel, canSkipTask, uniqueValues, TASK_CLOSED,
@@ -124,6 +124,13 @@ export function computeTaskStats(tasks) {
   return { total: (tasks || []).length, completed, overdue, dueSoon, starredOpen };
 }
 
+/** 用本機資料重算任務統計，回傳還原函式 */
+export function recalcTaskStats() {
+  const prev = state.data.taskStats;
+  state.data.taskStats = computeTaskStats(state.data.tasks);
+  return () => { state.data.taskStats = prev; };
+}
+
 /** 打勾／取消：先改畫面、背景送出；其他欄位原封不動送回去，只改狀態（有重複規則的話後端會自動產生下一筆，重抓後才會出現） */
 export async function toggleTaskDone(t, checked) {
   const r = await write('update_task', taskPayload(t, { '狀態': checked ? '已完成' : '待辦' }), {
@@ -237,19 +244,18 @@ export function openTaskForm(id, defaults = {}) {
     };
     if (!payload['任務名稱']) { err.show('請填任務名稱'); return; }
     if (freq.value === 'week' && !wd.value.length) { err.show('每週重複請至少選一個星期幾，或改選「不重複」'); return; }
-    await withBusy(btn, async () => {
-      try {
-        if (t) await write('update_task', Object.assign(payload, { '任務ID': t['任務ID'] }), { throw: true, toast: '已儲存' });
-        else await write('create_task', payload, { throw: true, toast: '已新增任務' });
-        ref.sheet.close();
-      } catch (e) { err.show(errorText(e)); }
-    });
+    const spec = { list: 'tasks', idField: '任務ID', recalc: recalcTaskStats };
+    if (t) saveRow('update_task', Object.assign(payload, { '任務ID': t['任務ID'] }), Object.assign(spec, { id: t['任務ID'], toast: '已儲存' }));
+    else saveRow('create_task', payload, Object.assign(spec, { toast: '已新增任務' }));
+    ref.sheet.close();
   }
 
   const extra = [];
   if (t) extra.push(h('button', { class: 'btn btn-danger', type: 'button', 'aria-label': '刪除', onclick: async () => {
     const ok = await confirmDialog({ title: '刪除任務', message: `確定要刪除「${t['任務名稱']}」嗎？此動作無法復原。`, confirmText: '刪除', danger: true });
-    if (ok && await write('delete_task', { '任務ID': t['任務ID'] }, { toast: '已刪除' })) ref.sheet.close();
+    if (!ok) return;
+    deleteRow('delete_task', { '任務ID': t['任務ID'] }, { list: 'tasks', idField: '任務ID', id: t['任務ID'], recalc: recalcTaskStats, toast: '已刪除' });
+    ref.sheet.close();
   } }, icon('trash')));
   if (canSkipTask(t)) extra.push(h('button', { class: 'btn', type: 'button', title: '跳過本次', onclick: () => skipTask(t, ref.sheet) }, icon('skip')));
   ref.sheet = openSheet({ title: t ? '編輯任務' : '新增任務', body, footer: formFooter(ref, save, { extra }) });

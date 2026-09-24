@@ -1,7 +1,7 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state } from '../store.js';
-import { write, systemName } from '../data.js';
+import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { habitFreqLabel, uniqueValues, HABIT_TIME_OPTIONS, HABIT_TIME_ICON } from '../util.js';
 import {
@@ -198,17 +198,21 @@ export function openHabitForm(id) {
     if (isTiered && payload['基礎值'] && payload['目標值'] && Number(payload['基礎值']) >= Number(payload['目標值'])) return err.show('基礎值要小於目標值（達標門檻）');
     if (isTiered && payload['超標值'] && payload['目標值'] && Number(payload['超標值']) <= Number(payload['目標值'])) return err.show('超標值要大於目標值（達標門檻）');
     if (freq.value === 'weeklyCount' && !(Number(payload['每週次數']) >= 1)) return err.show('請填每週要做幾次（至少 1 次）');
-    await withBusy(btn, async () => {
-      try {
-        if (hb) await write('update_habit', Object.assign(payload, { '習慣ID': hb['習慣ID'] }), { throw: true, toast: '已儲存' });
-        else await write('create_habit', payload, { throw: true, toast: '已新增習慣' });
-        ref.sheet.close();
-      } catch (e) { err.show(errorText(e)); }
+    // 新習慣的今日／連續統計要等背景重抓，先給合理的初始值
+    const dow = new Date().getDay();
+    const dueToday = freq.value === 'weekday' ? wd.value.includes(dow) : true;
+    const fields = Object.assign({}, payload, hb ? {} : {
+      '今日數值': 0, '今日應做': dueToday, '今日已完成': false, '今日等級': null, '連續天數': 0, '最長連續': 0, '近7天完成率': 0, '近30天完成率': 0,
     });
+    if (hb) saveRow('update_habit', Object.assign(payload, { '習慣ID': hb['習慣ID'] }), { list: 'habits', idField: '習慣ID', id: hb['習慣ID'], fields, toast: '已儲存' });
+    else saveRow('create_habit', payload, { list: 'habits', idField: '習慣ID', fields, toast: '已新增習慣' });
+    ref.sheet.close();
   }
   const extra = hb ? [h('button', { class: 'btn btn-danger', type: 'button', 'aria-label': '刪除', onclick: async () => {
     const ok = await confirmDialog({ title: '刪除習慣', message: `確定要刪除「${hb['習慣名稱']}」嗎？底下所有打卡紀錄也會一起刪除，無法復原。（只是暫停的話，可以改用「封存」）`, confirmText: '刪除', danger: true });
-    if (ok && await write('delete_habit', { '習慣ID': hb['習慣ID'] }, { toast: '已刪除' })) ref.sheet.close();
+    if (!ok) return;
+    deleteRow('delete_habit', { '習慣ID': hb['習慣ID'] }, { list: 'habits', idField: '習慣ID', id: hb['習慣ID'], toast: '已刪除' });
+    ref.sheet.close();
   } }, icon('trash'))] : [];
   ref.sheet = openSheet({ title: hb ? '編輯習慣' : '新增習慣', body, footer: formFooter(ref, save, { extra }) });
 }

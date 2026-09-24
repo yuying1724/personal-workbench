@@ -59,6 +59,7 @@ export async function write(action, payload, opts = {}) {
   let undo = null;
   if (opts.optimistic) {
     try { undo = opts.optimistic() || null; notify(); } catch (e) { console.error(e); undo = null; }
+    if (opts.toast) toast(opts.toast); // 樂觀更新：畫面已經改了就先提示，失敗再另外提示
   }
   try {
     const result = await api.call(action, payload);
@@ -68,16 +69,70 @@ export async function write(action, payload, opts = {}) {
     state.adminStale = true;
     const sync = bundles[0] === 'bootstrap' ? refresh() : reload(...bundles);
     if (opts.optimistic) sync.catch((e) => { if (e.code !== 'AUTH_REQUIRED') console.error(e); });
-    else await sync;
-    if (opts.toast) toast(opts.toast);
+    else { await sync; if (opts.toast) toast(opts.toast); }
     return result || {};
   } catch (e) {
     if (undo) { try { undo(); } catch (e2) { console.error(e2); } notify(); }
     if (e.code === 'AUTH_REQUIRED') return null;
     if (opts.throw) throw e;
-    toast(errorText(e), { kind: 'bad' });
+    const prefix = opts.optimistic ? (action.startsWith('delete_') ? '刪除失敗，已還原：' : '儲存失敗，已還原：') : '';
+    toast(prefix + errorText(e), { kind: 'bad', ms: opts.retry ? 10000 : undefined, action: opts.retry ? { label: '重試', fn: opts.retry } : undefined });
     return null;
   }
+}
+
+// ---------- 表單的樂觀新增／修改／刪除（按下儲存立刻關視窗、清單立刻反應，背景送出） ----------
+/** 修改（id 找得到）或新增（用暫時 ID 先放進清單）一筆本機資料，回傳 { row, undo } */
+export function upsertLocal(listKey, idField, id, fields) {
+  const list = state.data[listKey] || (state.data[listKey] = []);
+  const row = id ? list.find((r) => r[idField] === id) : null;
+  if (row) {
+    const snap = Object.assign({}, row);
+    Object.assign(row, fields);
+    return { row, undo: () => { Object.keys(row).forEach((k) => delete row[k]); Object.assign(row, snap); } };
+  }
+  const fresh = Object.assign({ [idField]: 'tmp-' + Date.now().toString(36), __pending: true }, fields);
+  list.push(fresh);
+  return { row: fresh, undo: () => { const i = list.indexOf(fresh); if (i >= 0) list.splice(i, 1); } };
+}
+/** 從本機清單移除一筆，回傳還原函式（找不到回傳 null） */
+export function removeLocal(listKey, idField, id) {
+  const list = state.data[listKey] || [];
+  const i = list.findIndex((r) => r[idField] === id);
+  if (i < 0) return null;
+  const [row] = list.splice(i, 1);
+  return () => { list.splice(Math.min(i, list.length), 0, row); };
+}
+/**
+ * 樂觀新增／修改：spec = { list, idField, id?（修改時）, fields?（要寫進本機資料的欄位，預設＝payload）, recalc?（重算統計，回傳還原函式）, toast }
+ * 新增成功後會把暫時 ID 換成後端給的正式 ID；背景重抓 bundle 後整份資料會被正式版取代。
+ */
+export function saveRow(action, payload, spec) {
+  let created = null;
+  const p = write(action, payload, {
+    toast: spec.toast,
+    optimistic: () => {
+      const { row, undo } = upsertLocal(spec.list, spec.idField, spec.id, spec.fields || payload);
+      if (!spec.id) created = row;
+      const undoCalc = spec.recalc ? spec.recalc() : null;
+      return () => { undo(); if (undoCalc) undoCalc(); };
+    },
+    retry: () => saveRow(action, payload, spec),
+  });
+  p.then((r) => { if (r && r.id && created) { created[spec.idField] = r.id; delete created.__pending; } });
+  return p;
+}
+/** 樂觀刪除：spec = { list, idField, id, recalc?, toast } */
+export function deleteRow(action, payload, spec) {
+  return write(action, payload, {
+    toast: spec.toast,
+    optimistic: () => {
+      const undo = removeLocal(spec.list, spec.idField, spec.id);
+      const undoCalc = spec.recalc ? spec.recalc() : null;
+      return () => { if (undo) undo(); if (undoCalc) undoCalc(); };
+    },
+    retry: () => deleteRow(action, payload, spec),
+  });
 }
 
 /** 依「系統索引」分頁的名稱（使用者可在分類管理改名）取得模組顯示名稱 */

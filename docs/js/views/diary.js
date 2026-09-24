@@ -1,7 +1,7 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state, prefs } from '../store.js';
-import { write, systemName } from '../data.js';
+import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { todayStr, dateLabel, MOOD_OPTIONS, FIND_TYPE_OPTIONS, FIND_STATUS_CYCLE } from '../util.js';
 import { pageHead, stats, empty, textField, field, formFooter, errorBanner } from './common.js';
@@ -117,13 +117,17 @@ export function openDiaryForm(dateStr) {
       '今日重要事項': dy ? dy['今日重要事項'] || '' : '', // 這欄表單沒有，但舊資料要原封不動保留
       '發現清單': [...findList.children].map((r) => r._get()).filter((f) => f['內容']),
     };
-    await withBusy(btn, async () => {
-      try { await write('create_diary', payload, { throw: true, toast: '日記已儲存' }); ref.sheet.close(); } catch (e) { err.show(errorText(e)); }
-    });
+    // create_diary 是「同一天就更新」的 upsert：本機也照同樣邏輯找那一天的日記
+    const existing = dy || (state.data.diaries || []).find((x) => x['日期'] === dateStr);
+    const sortDesc = () => { (state.data.diaries || []).sort((a, b) => (b['日期'] || '').localeCompare(a['日期'] || '')); return null; };
+    saveRow('create_diary', payload, { list: 'diaries', idField: '日記ID', id: existing ? existing['日記ID'] : undefined, toast: '日記已儲存', recalc: sortDesc });
+    ref.sheet.close();
   }
   const extra = dy ? [h('button', { class: 'btn btn-danger', type: 'button', 'aria-label': '刪除', onclick: async () => {
     const ok = await confirmDialog({ title: '刪除日記', message: `確定要刪除 ${dateStr} 的日記嗎？此動作無法復原。`, confirmText: '刪除', danger: true });
-    if (ok && await write('delete_diary', { '日記ID': dy['日記ID'] }, { toast: '已刪除' })) ref.sheet.close();
+    if (!ok) return;
+    deleteRow('delete_diary', { '日記ID': dy['日記ID'] }, { list: 'diaries', idField: '日記ID', id: dy['日記ID'], toast: '已刪除' });
+    ref.sheet.close();
   } }, icon('trash'))] : [];
   ref.sheet = openSheet({ title: (dy ? '編輯日記：' : '寫日記：') + dateLabel(dateStr), body, footer: formFooter(ref, save, { extra }), dismissable: false });
 }

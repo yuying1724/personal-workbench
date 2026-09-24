@@ -1,7 +1,7 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state } from '../store.js';
-import { write, systemName } from '../data.js';
+import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { uniqueValues, sortRows } from '../util.js';
 import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, multiChips, formFooter, errorBanner, progress, badge } from './common.js';
@@ -77,17 +77,17 @@ export function openCourseForm(id) {
     if (!payload['課程名稱']) return err.show('請填課程名稱');
     const n = Number(payload['進度']);
     if (payload['進度'] !== '' && (isNaN(n) || n < 0 || n > 100)) return err.show('進度請填 0～100');
-    await withBusy(btn, async () => {
-      try {
-        if (c) await write('update_course', Object.assign(payload, { '課程ID': c['課程ID'] }), { throw: true, toast: '已儲存' });
-        else await write('create_course', payload, { throw: true, toast: '已新增課程' });
-        ref.sheet.close();
-      } catch (e) { err.show(errorText(e)); }
-    });
+    // 本機資料的進度存 0～1（表單是 0～100）
+    const fields = Object.assign({}, payload, { '進度': payload['進度'] === '' ? '' : n / 100 });
+    if (c) saveRow('update_course', Object.assign(payload, { '課程ID': c['課程ID'] }), { list: 'courses', idField: '課程ID', id: c['課程ID'], fields, toast: '已儲存' });
+    else saveRow('create_course', payload, { list: 'courses', idField: '課程ID', fields, toast: '已新增課程' });
+    ref.sheet.close();
   }
   const extra = c ? [h('button', { class: 'btn btn-danger', type: 'button', 'aria-label': '刪除', onclick: async () => {
     const ok = await confirmDialog({ title: '刪除課程', message: `確定要刪除「${c['課程名稱']}」嗎？此動作無法復原。`, confirmText: '刪除', danger: true });
-    if (ok && await write('delete_course', { '課程ID': c['課程ID'] }, { toast: '已刪除' })) ref.sheet.close();
+    if (!ok) return;
+    deleteRow('delete_course', { '課程ID': c['課程ID'] }, { list: 'courses', idField: '課程ID', id: c['課程ID'], toast: '已刪除' });
+    ref.sheet.close();
   } }, icon('trash'))] : [];
   ref.sheet = openSheet({ title: c ? '編輯課程' : '新增課程', body, footer: formFooter(ref, save, { extra }) });
 }

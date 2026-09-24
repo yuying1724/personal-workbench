@@ -1,7 +1,7 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state } from '../store.js';
-import { write, systemName } from '../data.js';
+import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { uniqueValues, sortRows, daysUntilLabel, dateLabel, money } from '../util.js';
 import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, checkField, multiChips, formFooter, errorBanner, badge } from './common.js';
@@ -87,17 +87,18 @@ export function openSubForm(id) {
       '備註': memo.value, '付款URL': url.value.trim(), '分類標籤': tags.value,
     };
     if (!payload['產品']) return err.show('請填產品名稱');
-    await withBusy(btn, async () => {
-      try {
-        if (x) await write('update_subscription', Object.assign(payload, { '訂閱ID': x['訂閱ID'] }), { throw: true, toast: '已儲存' });
-        else await write('create_subscription', payload, { throw: true, toast: '已新增訂閱' });
-        ref.sheet.close();
-      } catch (e) { err.show(errorText(e)); }
-    });
+    // 每月金額／下次付款日等是試算表公式算的，新增的那筆要等背景重抓才會有，先留空
+    const fields = Object.assign({}, payload, { '訂閱費': payload['訂閱費'] === '' ? '' : Number(payload['訂閱費']) },
+      x ? {} : { '每月金額': '', '上次付款日': '', '下次付款日': '', '即將付款': false, '累積訂閱日': '', '總計花費': '', '訂閱費負擔提示': '' });
+    if (x) saveRow('update_subscription', Object.assign(payload, { '訂閱ID': x['訂閱ID'] }), { list: 'subscriptions', idField: '訂閱ID', id: x['訂閱ID'], fields, toast: '已儲存' });
+    else saveRow('create_subscription', payload, { list: 'subscriptions', idField: '訂閱ID', fields, toast: '已新增訂閱' });
+    ref.sheet.close();
   }
   const extra = x ? [h('button', { class: 'btn btn-danger', type: 'button', 'aria-label': '刪除', onclick: async () => {
     const ok = await confirmDialog({ title: '刪除訂閱', message: `確定要刪除「${x['產品']}」嗎？此動作無法復原。（只是不再使用的話，可以勾「已取消訂閱」保留紀錄）`, confirmText: '刪除', danger: true });
-    if (ok && await write('delete_subscription', { '訂閱ID': x['訂閱ID'] }, { toast: '已刪除' })) ref.sheet.close();
+    if (!ok) return;
+    deleteRow('delete_subscription', { '訂閱ID': x['訂閱ID'] }, { list: 'subscriptions', idField: '訂閱ID', id: x['訂閱ID'], toast: '已刪除' });
+    ref.sheet.close();
   } }, icon('trash'))] : [];
   ref.sheet = openSheet({ title: x ? '編輯訂閱' : '新增訂閱', body, footer: formFooter(ref, save, { extra }) });
 }

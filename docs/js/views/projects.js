@@ -1,7 +1,7 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state, subscribe } from '../store.js';
-import { write, systemName } from '../data.js';
+import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { uniqueValues, sortRows, dateLabel, TASK_CLOSED } from '../util.js';
 import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, formFooter, errorBanner, progress, badge } from './common.js';
@@ -109,17 +109,22 @@ export function openProjectForm(id) {
     const payload = { '專案名稱': name.value.trim(), '開始日': start.value, '結束日': end.value, '狀態': status.value, '優先級': pri.value, '備註': notes.value };
     if (!payload['專案名稱']) return err.show('請填專案名稱');
     if (payload['開始日'] && payload['結束日'] && payload['結束日'] < payload['開始日']) return err.show('結束日不能早於開始日');
-    await withBusy(btn, async () => {
-      try {
-        if (p) await write('update_project', Object.assign(payload, { '專案ID': p['專案ID'] }), { throw: true, toast: '已儲存' });
-        else await write('create_project', payload, { throw: true, toast: '已新增專案' });
-        ref.sheet.close();
-      } catch (e) { err.show(errorText(e)); }
-    });
+    const fields = Object.assign({}, payload, p ? {} : { '任務數': 0, '已完成數': 0, '逾期數': 0, '完成度Percent': 0 });
+    if (p) saveRow('update_project', Object.assign(payload, { '專案ID': p['專案ID'] }), { list: 'projects', idField: '專案ID', id: p['專案ID'], fields, toast: '已儲存' });
+    else saveRow('create_project', payload, { list: 'projects', idField: '專案ID', fields, toast: '已新增專案' });
+    ref.sheet.close();
   }
   const extra = p ? [h('button', { class: 'btn btn-danger', type: 'button', 'aria-label': '刪除', onclick: async () => {
     const ok = await confirmDialog({ title: '刪除專案', message: `確定要刪除「${p['專案名稱']}」嗎？底下的任務不會被刪除，只會變回「沒有專案」。`, confirmText: '刪除', danger: true });
-    if (ok && await write('delete_project', { '專案ID': p['專案ID'] }, { toast: '已刪除' })) ref.sheet.close();
+    if (!ok) return;
+    const pid = p['專案ID'];
+    deleteRow('delete_project', { '專案ID': pid }, { list: 'projects', idField: '專案ID', id: pid, toast: '已刪除', recalc: () => {
+      // 底下的任務變回「沒有專案」
+      const moved = (state.data.tasks || []).filter((t) => t['所屬專案'] === pid);
+      moved.forEach((t) => { t['所屬專案'] = ''; });
+      return () => moved.forEach((t) => { t['所屬專案'] = pid; });
+    } });
+    ref.sheet.close();
   } }, icon('trash'))] : [];
   ref.sheet = openSheet({ title: p ? '編輯專案' : '新增專案', body, footer: formFooter(ref, save, { extra }) });
 }

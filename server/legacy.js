@@ -753,18 +753,16 @@ function groupSubtasks_(sheet) {
   return map;
 }
 
-function appendSubtaskRows_(sheet, id, subtasks) {
+function subtaskRows_(id, subtasks) {
+  var rows = [];
   (subtasks || []).forEach(function (st) {
     var content = ((st && st["內容"]) || "").toString().trim();
-    if (!content) return;
-    sheet.appendRow([id, content, st["完成"] === true]);
+    if (content) rows.push([id, content, st["完成"] === true]);
   });
+  return rows;
 }
-
-function replaceSubtaskRows_(sheet, id, subtasks) {
-  deleteRowsWhereIdEquals_(sheet, id);
-  appendSubtaskRows_(sheet, id, subtasks);
-}
+function appendSubtaskRows_(sheet, id, subtasks) { wbAppendRows_(sheet, subtaskRows_(id, subtasks)); }
+function replaceSubtaskRows_(sheet, id, subtasks) { wbReplaceRowsById_(sheet, id, subtaskRows_(id, subtasks)); }
 
 function getTasks_() { return wbMemo_("tasks", getTasksUncached_); }
 function getTasksUncached_() {
@@ -1466,18 +1464,16 @@ function groupDiaryFinds_(sheet) {
   return map;
 }
 
-function appendDiaryFindRows_(sheet, id, finds) {
+function diaryFindRows_(id, finds) {
+  var rows = [];
   (finds || []).forEach(function (f) {
     var content = ((f && f["內容"]) || "").toString().trim();
-    if (!content) return;
-    sheet.appendRow([id, f["類型"] || "", content, f["備註"] || "", f["狀態"] || ""]);
+    if (content) rows.push([id, f["類型"] || "", content, f["備註"] || "", f["狀態"] || ""]);
   });
+  return rows;
 }
-
-function replaceDiaryFindRows_(sheet, id, finds) {
-  deleteRowsWhereIdEquals_(sheet, id);
-  appendDiaryFindRows_(sheet, id, finds);
-}
+function appendDiaryFindRows_(sheet, id, finds) { wbAppendRows_(sheet, diaryFindRows_(id, finds)); }
+function replaceDiaryFindRows_(sheet, id, finds) { wbReplaceRowsById_(sheet, id, diaryFindRows_(id, finds)); }
 
 function getDiaries_() { return wbMemo_("diaries", getDiariesUncached_); }
 function getDiariesUncached_() {
@@ -1788,15 +1784,35 @@ function setSubscriptionFormulas_(sheet, row) {
 
 // ---------------- 對照表（junction table）共用工具 ----------------
 
-function appendJunctionRows_(sheet, id, values) {
-  (values || []).forEach(function (v) {
-    if (v) sheet.appendRow([id, v]);
-  });
+function junctionRows_(id, values) {
+  return (values || []).filter(function (v) { return !!v; }).map(function (v) { return [id, v]; });
 }
+function appendJunctionRows_(sheet, id, values) { wbAppendRows_(sheet, junctionRows_(id, values)); }
+function replaceJunctionRows_(sheet, id, values) { wbReplaceRowsById_(sheet, id, junctionRows_(id, values)); }
 
-function replaceJunctionRows_(sheet, id, values) {
-  deleteRowsWhereIdEquals_(sheet, id);
-  appendJunctionRows_(sheet, id, values);
+// ---- 附屬表（對照表／子任務／發現清單）的批次寫入 ----
+// 2026-09-24 效能調整：原本一列一列 appendRow／deleteRow，每列都是一次跨網路呼叫，一個任務存一次要 5～10 次。
+// 改成：新增＝一次 setValues 寫到表尾；取代＝讀整表一次 → 濾掉該 ID 的列、接上新列 → 清掉舊區域、一次寫回，固定 3 次呼叫。
+// 只用在沒有公式、沒有日期欄的小表（主表仍用 appendRow／deleteRow，避免把公式格覆蓋掉）。
+function wbAppendRows_(sheet, rows) {
+  if (!rows || !rows.length) return;
+  var start = sheet.getLastRow() + 1;
+  var need = start + rows.length - 1 - sheet.getMaxRows();
+  if (need > 0) sheet.insertRowsAfter(sheet.getMaxRows(), need);
+  sheet.getRange(start, 1, rows.length, rows[0].length).setValues(rows);
+}
+function wbReplaceRowsById_(sheet, id, newRows) {
+  var data = sheet.getDataRange().getValues();
+  var width = Math.max(data[0] ? data[0].length : 0, newRows.length ? newRows[0].length : 0);
+  var kept = data.slice(1).filter(function (r) { return r[0] !== id && r[0] !== "" && r[0] !== null && r[0] !== undefined; });
+  var rows = kept.concat(newRows).map(function (r) { r = r.slice(0, width); while (r.length < width) r.push(""); return r; });
+  var oldCount = data.length - 1;
+  if (oldCount > 0) sheet.getRange(2, 1, oldCount, width).clearContent();
+  if (rows.length) {
+    var need = rows.length + 1 - sheet.getMaxRows();
+    if (need > 0) sheet.insertRowsAfter(sheet.getMaxRows(), need);
+    sheet.getRange(2, 1, rows.length, width).setValues(rows);
+  }
 }
 
 // ---------------- 分類管理（設定分頁的下拉選項：增/改名/刪） ----------------
