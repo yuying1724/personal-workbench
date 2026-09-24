@@ -153,7 +153,7 @@ function legacyDoGet_(e) {
         result = getDiaryStats_();
         break;
       case "system_index":
-        result = sheetToObjects_(getSheet_("系統索引"));
+        result = sheetToObjects_("系統索引");
         break;
       case "options":
         result = getOptions_();
@@ -325,7 +325,7 @@ function getAllData_() {
       diaries: getDiaries_(),
       diaryStats: getDiaryStats_(),
       options: getOptions_(),
-      systemIndex: sheetToObjects_(getSheet_("系統索引"))
+      systemIndex: sheetToObjects_("系統索引")
     };
   });
 }
@@ -370,7 +370,72 @@ var WB_READ_MEMO_ = null;
 function withReadMemo_(fn) {
   if (WB_READ_MEMO_) return fn(); // 已經在 memo 區塊裡（巢狀呼叫）就直接沿用
   WB_READ_MEMO_ = {};
-  try { return fn(); } finally { WB_READ_MEMO_ = null; }
+  WB_PRELOAD_ = wbPreloadAll_(); // 一次把整本試算表讀進來（沒有 Sheets 進階服務時是 null → 各分頁各自讀）
+  try { return fn(); } finally { WB_READ_MEMO_ = null; WB_PRELOAD_ = null; }
+}
+
+// ---- 一次讀完整本試算表（Sheets 進階服務）----
+// 2026-09-24 效能調整：SpreadsheetApp 每張分頁 getSheetByName + getDataRange().getValues() 都是跨網路的服務呼叫，
+// 14 張分頁就要 14 趟（bootstrap 光讀表就 10 秒以上）。改用 Sheets API 的 Spreadsheets.get 一次把所有分頁的
+// 儲存格值（含格式型別）拿回來，唯讀請求內的 sheetToObjects_()/wbSheetValues_() 直接用這份。
+// 需要在 Apps Script 專案「服務」加入 Google Sheets API（識別碼 Sheets）；沒加的話 typeof Sheets 是 undefined，
+// 自動退回原本逐張讀取的方式，功能一樣只是慢。
+var WB_PRELOAD_ = null; // { 分頁名稱: values[][] }，只在 withReadMemo_ 區塊內有值
+function wbPreloadAll_() {
+  if (typeof Sheets === "undefined" || !Sheets || !Sheets.Spreadsheets) return null;
+  try {
+    var id = SpreadsheetApp.getActiveSpreadsheet().getId();
+    var res = Sheets.Spreadsheets.get(id, {
+      includeGridData: true,
+      fields: "sheets(properties.title,data(rowData(values(effectiveValue,effectiveFormat.numberFormat.type))))",
+    });
+    var out = {};
+    (res.sheets || []).forEach(function (sh) {
+      var title = sh.properties && sh.properties.title;
+      if (!title) return;
+      var rows = [];
+      var grid = (sh.data && sh.data[0] && sh.data[0].rowData) || [];
+      grid.forEach(function (rd) { rows.push((rd.values || []).map(wbCellValue_)); });
+      // getValues() 回的是整齊的矩形（空格為 ""），API 會省略列尾的空格與空列，這裡補齊
+      var width = 0;
+      rows.forEach(function (r) { if (r.length > width) width = r.length; });
+      rows.forEach(function (r) { while (r.length < width) r.push(""); });
+      if (!rows.length) rows.push([""]);
+      out[title] = rows;
+    });
+    return out;
+  } catch (err) {
+    Logger.log("wbPreloadAll_ 失敗，改為逐張讀取：" + err);
+    return null;
+  }
+}
+// API 的儲存格 → 跟 getValues() 一樣的值：字串／數字／布林；日期與日期時間直接轉成 yyyy-MM-dd 字串
+//（normalizeDate_ 對字串會原樣放行，結果跟原本 Date 物件經 formatYmd_ 相同）
+function wbCellValue_(cell) {
+  var ev = cell && cell.effectiveValue;
+  if (!ev) return "";
+  if (ev.stringValue !== undefined && ev.stringValue !== null) return ev.stringValue;
+  if (ev.boolValue !== undefined && ev.boolValue !== null) return ev.boolValue;
+  if (ev.numberValue !== undefined && ev.numberValue !== null) {
+    var t = cell.effectiveFormat && cell.effectiveFormat.numberFormat && cell.effectiveFormat.numberFormat.type;
+    if (t === "DATE" || t === "DATE_TIME") return wbSerialToYmd_(ev.numberValue);
+    return ev.numberValue;
+  }
+  if (ev.errorValue) return "#" + (ev.errorValue.type || "ERROR") + "!";
+  return "";
+}
+// 試算表的日期序號（1899-12-30 起算的天數，小數是時間）→ yyyy-MM-dd
+function wbSerialToYmd_(n) {
+  var d = new Date(Date.UTC(1899, 11, 30) + Math.floor(n) * 86400000);
+  var m = d.getUTCMonth() + 1, day = d.getUTCDate();
+  return d.getUTCFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+}
+/** 取分頁全部值：唯讀請求內有預載就直接用（不再呼叫 SpreadsheetApp），否則逐張讀。參數可傳分頁名稱或 Sheet 物件 */
+function wbSheetValues_(sheetOrName) {
+  var name = typeof sheetOrName === "string" ? sheetOrName : sheetOrName.getName();
+  if (WB_PRELOAD_ && Object.prototype.hasOwnProperty.call(WB_PRELOAD_, name)) return WB_PRELOAD_[name];
+  var sheet = typeof sheetOrName === "string" ? getSheet_(name) : sheetOrName;
+  return sheet.getDataRange().getValues();
 }
 function wbMemo_(key, fn) {
   if (!WB_READ_MEMO_) return fn();
@@ -386,9 +451,9 @@ function getSheet_(name) {
   return sheet;
 }
 
-// 把一個分頁（含表頭列）轉成物件陣列，日期欄位轉成 yyyy-MM-dd 字串
-function sheetToObjects_(sheet) {
-  var data = sheet.getDataRange().getValues();
+// 把一個分頁（含表頭列）轉成物件陣列，日期欄位轉成 yyyy-MM-dd 字串。參數可傳分頁名稱（唯讀路徑用，能吃到預載）或 Sheet 物件
+function sheetToObjects_(sheetOrName) {
+  var data = wbSheetValues_(sheetOrName);
   if (data.length < 2) return [];
   var headers = data[0];
   return data.slice(1)
@@ -476,9 +541,8 @@ function groupJunction_(sheet, idField, valueField) {
 
 function getCourses_() { return wbMemo_("courses", getCoursesUncached_); }
 function getCoursesUncached_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var courses = sheetToObjects_(ss.getSheetByName("課程"));
-  var catMap = groupJunction_(ss.getSheetByName("課程分類對照"), "課程ID", "分類");
+  var courses = sheetToObjects_("課程");
+  var catMap = groupJunction_("課程分類對照", "課程ID", "分類");
   courses.forEach(function (c) {
     c["分類"] = catMap[c["課程ID"]] || [];
     // 進度存的是 0~1 的小數（例如 0.43），這裡不轉換，前端顯示時自行 *100
@@ -542,9 +606,8 @@ function getCourseStats_() {
 
 function getSubscriptions_() { return wbMemo_("subscriptions", getSubscriptionsUncached_); }
 function getSubscriptionsUncached_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var subs = sheetToObjects_(ss.getSheetByName("訂閱服務"));
-  var tagMap = groupJunction_(ss.getSheetByName("訂閱標籤對照"), "訂閱ID", "分類標籤");
+  var subs = sheetToObjects_("訂閱服務");
+  var tagMap = groupJunction_("訂閱標籤對照", "訂閱ID", "分類標籤");
   subs.forEach(function (s) {
     s["分類標籤"] = tagMap[s["訂閱ID"]] || [];
   });
@@ -712,10 +775,9 @@ function replaceSubtaskRows_(sheet, id, subtasks) {
 
 function getTasks_() { return wbMemo_("tasks", getTasksUncached_); }
 function getTasksUncached_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var tasks = sheetToObjects_(ss.getSheetByName("任務"));
-  var catMap = groupJunction_(ss.getSheetByName("任務分類對照"), "任務ID", "分類");
-  var subMap = groupSubtasks_(ss.getSheetByName("子任務"));
+  var tasks = sheetToObjects_("任務");
+  var catMap = groupJunction_("任務分類對照", "任務ID", "分類");
+  var subMap = groupSubtasks_("子任務");
   tasks.forEach(function (t) {
     t["分類"] = catMap[t["任務ID"]] || [];
     t["子任務"] = subMap[t["任務ID"]] || [];
@@ -901,8 +963,7 @@ function deleteTask_(p) {
 
 function getProjects_() { return wbMemo_("projects", getProjectsUncached_); }
 function getProjectsUncached_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var projects = sheetToObjects_(ss.getSheetByName("專案"));
+  var projects = sheetToObjects_("專案");
   var tasks = getTasks_();
   var statsMap = {};
   var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
@@ -1081,7 +1142,7 @@ function habitTierForValue_(habit, value) {
 }
 
 function getHabitLogs_() {
-  return sheetToObjects_(getSheet_("習慣打卡紀錄"));
+  return sheetToObjects_("習慣打卡紀錄");
 }
 
 // 算某一週（從 weekStart 這天算起的 7 天）裡，這個習慣「完成」了幾天——
@@ -1229,7 +1290,7 @@ function computeWeeklyStreak_(habit, logMap, todayStr) {
 
 function getHabits_() { return wbMemo_("habits", getHabitsUncached_); }
 function getHabitsUncached_() {
-  var habits = sheetToObjects_(getSheet_("習慣"));
+  var habits = sheetToObjects_("習慣");
   var logs = getHabitLogs_();
   var logsByHabit = {};
   logs.forEach(function (l) {
@@ -1427,9 +1488,8 @@ function replaceDiaryFindRows_(sheet, id, finds) {
 
 function getDiaries_() { return wbMemo_("diaries", getDiariesUncached_); }
 function getDiariesUncached_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var diaries = sheetToObjects_(ss.getSheetByName("日記"));
-  var findMap = groupDiaryFinds_(ss.getSheetByName("日記發現清單"));
+  var diaries = sheetToObjects_("日記");
+  var findMap = groupDiaryFinds_("日記發現清單");
   diaries.forEach(function (d) {
     d["發現清單"] = findMap[d["日記ID"]] || [];
   });
@@ -1539,8 +1599,7 @@ function deleteDiary_(p) {
 
 // 把「設定」分頁每一欄轉成 { 欄名: [選項, 選項, ...] }，給前端的新增/編輯表單用
 function getOptions_() {
-  var sheet = getSheet_("設定");
-  var data = sheet.getDataRange().getValues();
+  var data = wbSheetValues_("設定");
   var headers = data[0];
   var result = {};
   headers.forEach(function (h, colIdx) {

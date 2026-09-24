@@ -26,7 +26,7 @@ export function renderHome(root) {
 
   mount(root,
     pageHead('總覽'),
-    h('p', { class: 'muted small', style: { marginTop: '-6px' } }, dateLabel(today) + (state.loadedAt ? '　·　更新於 ' + state.loadedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '')),
+    h('p', { class: 'muted small', style: { marginTop: '-6px' } }, dateLabel(today) + (state.loadedAt ? '　·　更新於 ' + state.loadedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '') + (state.refreshing ? '　·　更新中…' : '')),
 
     h('section', { class: 'section' },
       sectionHead(systemName('任務', '任務'), 'tasks', '#/tasks'),

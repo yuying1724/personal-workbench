@@ -97,7 +97,7 @@ export function taskRow(t, groupKey) {
   const withDots = [];
   meta.forEach((m, i) => { if (i) withDots.push(' · '); withDots.push(m); });
 
-  const check = h('input', { type: 'checkbox', class: 'big-check', checked: isDone, 'aria-label': '完成', onchange: (e) => toggleTaskDone(t, e.target.checked, e.target) });
+  const check = h('input', { type: 'checkbox', class: 'big-check', checked: isDone, 'aria-label': '完成', onchange: (e) => toggleTaskDone(t, e.target.checked) });
   return h('div', { class: 'item task-row' + (isDone ? ' done' : '') },
     check,
     h('button', { type: 'button', class: 'grow item-main', onclick: () => openTaskForm(t['任務ID']) },
@@ -107,12 +107,35 @@ export function taskRow(t, groupKey) {
     canSkipTask(t) ? h('button', { type: 'button', class: 'icon-btn', title: '跳過本次', 'aria-label': '跳過本次', onclick: () => skipTask(t) }, icon('skip')) : null);
 }
 
-/** 打勾／取消：其他欄位原封不動送回去，只改狀態（有重複規則的話後端會自動產生下一筆） */
-export async function toggleTaskDone(t, checked, el) {
-  if (el) el.disabled = true;
-  const r = await write('update_task', taskPayload(t, { '狀態': checked ? '已完成' : '待辦' }), { toast: checked ? '已完成' : '已改回待辦' });
+/** 跟後端 getTaskStats_ 同一套算法，樂觀更新時在本機重算統計 */
+export function computeTaskStats(tasks) {
+  const today = todayStr(0), soon = todayStr(3);
+  let completed = 0, overdue = 0, dueSoon = 0, starredOpen = 0;
+  (tasks || []).forEach((t) => {
+    const isDone = t['狀態'] === '已完成';
+    const isClosed = t['狀態'] === '已取消' || t['狀態'] === '已跳過';
+    if (isDone) completed++;
+    if (t['星標'] === true && !isDone && !isClosed) starredOpen++;
+    if (t['到期日'] && !isDone && !isClosed) {
+      if (t['到期日'] < today) overdue++;
+      else if (t['到期日'] <= soon) dueSoon++;
+    }
+  });
+  return { total: (tasks || []).length, completed, overdue, dueSoon, starredOpen };
+}
+
+/** 打勾／取消：先改畫面、背景送出；其他欄位原封不動送回去，只改狀態（有重複規則的話後端會自動產生下一筆，重抓後才會出現） */
+export async function toggleTaskDone(t, checked) {
+  const r = await write('update_task', taskPayload(t, { '狀態': checked ? '已完成' : '待辦' }), {
+    toast: checked ? '已完成' : '已改回待辦',
+    optimistic: () => {
+      const prev = t['狀態'], prevStats = state.data.taskStats;
+      t['狀態'] = checked ? '已完成' : '待辦';
+      state.data.taskStats = computeTaskStats(state.data.tasks);
+      return () => { t['狀態'] = prev; state.data.taskStats = prevStats; };
+    },
+  });
   if (r && r.nextTaskCreated) setTimeout(() => toast('已自動產生下一次的任務'), 400);
-  if (!r && el) { el.disabled = false; el.checked = !checked; }
 }
 
 export function taskPayload(t, patch) {

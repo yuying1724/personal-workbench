@@ -32,7 +32,7 @@ export function habitRow(hb, opts = {}) {
     const step = (n) => h('button', { type: 'button', class: 'step', 'aria-label': n > 0 ? '加一' : '減一', onclick: () => { inp.value = Math.max(0, (Number(inp.value) || 0) + n) || ''; setHabitCount(id, inp.value); } }, n > 0 ? '+' : '−');
     control = h('div', { class: 'stepper' }, step(-1), inp, step(1));
   } else {
-    control = h('input', { type: 'checkbox', class: 'big-check', checked: !!done, 'aria-label': hb['習慣名稱'] + ' 今日完成', onchange: (e) => toggleHabit(id, e.target.checked, e.target) });
+    control = h('input', { type: 'checkbox', class: 'big-check', checked: !!done, 'aria-label': hb['習慣名稱'] + ' 今日完成', onchange: (e) => toggleHabit(id, e.target.checked) });
   }
 
   const meta = [];
@@ -64,20 +64,52 @@ export function habitsByTime(rows, opts) {
     h('ul', { class: 'list' }, groups[t].map((hb) => h('li', null, habitRow(hb, opts))))));
 }
 
-async function toggleHabit(id, checked, el) {
-  el.disabled = true;
-  const r = await write('set_habit_log', { '習慣ID': id, '數值': checked ? 1 : null }, { toast: checked ? '打卡完成' : '已取消打卡' });
-  if (!r) { el.disabled = false; el.checked = !checked; }
+// ---------- 樂觀更新：打卡先改畫面、背景送出，跟後端 isHabitDoneForDay_／habitTierForValue_ 同一套判斷 ----------
+function habitById(id) { return (state.data.habits || []).find((x) => x['習慣ID'] === id); }
+function hasNum(v) { return v !== '' && v != null; }
+function habitDoneFor(hb, value) {
+  const v = Number(value) || 0;
+  if (hb['類型'] !== '計數') return v >= 1;
+  if (hb['啟用分級'] === true && hasNum(hb['基礎值'])) return v >= (Number(hb['基礎值']) || 0);
+  return v >= (Number(hb['目標值']) || 1);
+}
+function habitTierFor(hb, value) {
+  if (hb['類型'] !== '計數' || hb['啟用分級'] !== true) return null;
+  const v = Number(value) || 0;
+  const target = Number(hb['目標值']) || 0;
+  if (hasNum(hb['超標值']) && v >= Number(hb['超標值'])) return '超標';
+  if (v >= target) return '達標';
+  if (hasNum(hb['基礎值']) && v >= Number(hb['基礎值'])) return '基礎';
+  return null;
+}
+/** 把今日數值套到本機資料（含今日完成／等級／統計的今日完成數），回傳還原函式 */
+function applyHabitValue(hb, value) {
+  const stats = state.data.habitStats || (state.data.habitStats = {});
+  const prev = { v: hb['今日數值'], done: hb['今日已完成'], tier: hb['今日等級'], doneToday: stats.doneTodayCount };
+  const done = habitDoneFor(hb, value);
+  hb['今日數值'] = Number(value) || 0;
+  hb['今日已完成'] = done;
+  hb['今日等級'] = habitTierFor(hb, value);
+  if (hb['今日應做'] && hb['狀態'] !== '封存' && done !== !!prev.done) stats.doneTodayCount = Math.max(0, (stats.doneTodayCount || 0) + (done ? 1 : -1));
+  return () => { hb['今日數值'] = prev.v; hb['今日已完成'] = prev.done; hb['今日等級'] = prev.tier; stats.doneTodayCount = prev.doneToday; };
 }
 
-// 數字連續輸入／連點 +：同一個習慣 500ms 內只送最後一次，避免重複寫入
+function toggleHabit(id, checked) {
+  const hb = habitById(id);
+  if (!hb) return;
+  write('set_habit_log', { '習慣ID': id, '數值': checked ? 1 : null }, { toast: checked ? '打卡完成' : '已取消打卡', optimistic: () => applyHabitValue(hb, checked ? 1 : 0) });
+}
+
+// 數字連續輸入／連點 +：同一個習慣 600ms 內只送最後一次，避免重複寫入（送出時才更新畫面，打字中不會被重畫打斷）
 const timers = {};
 function setHabitCount(id, value) {
   clearTimeout(timers[id]);
   timers[id] = setTimeout(() => {
     delete timers[id];
-    write('set_habit_log', { '習慣ID': id, '數值': value === '' ? null : Number(value) }, { toast: '已記錄' });
-  }, 500);
+    const hb = habitById(id);
+    if (!hb) return;
+    write('set_habit_log', { '習慣ID': id, '數值': value === '' ? null : Number(value) }, { toast: '已記錄', optimistic: () => applyHabitValue(hb, value === '' ? 0 : Number(value)) });
+  }, 600);
 }
 
 export function renderHabits(root) {

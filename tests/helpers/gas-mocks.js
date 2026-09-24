@@ -251,8 +251,42 @@ function createMocks() {
   };
   const Logger = { log: (m) => state.logs.push(String(m)) };
   const MailApp = { sendEmail: (to, subject, body) => { state.mail.push({ to, subject, body }); } };
+  // Sheets 進階服務（只模擬 Spreadsheets.get 含 includeGridData：後端 wbPreloadAll_ 用它一次讀完所有分頁）
+  // 日期序號用試算表時區（Asia/Taipei）的牆上時間算，跟真實 API 一致
+  const cellOf = (v) => {
+    if (v === '' || v === null || v === undefined) return {};
+    if (typeof v === 'string') return { effectiveValue: { stringValue: v } };
+    if (typeof v === 'boolean') return { effectiveValue: { boolValue: v } };
+    if (typeof v === 'number') return { effectiveValue: { numberValue: v } };
+    if (v instanceof Date || Object.prototype.toString.call(v) === '[object Date]') { // vm 另一個 realm 的 Date，instanceof 抓不到
+      const serial = (v.getTime() + 8 * 3600000 - Date.UTC(1899, 11, 30)) / 86400000;
+      return { effectiveValue: { numberValue: serial }, effectiveFormat: { numberFormat: { type: 'DATE_TIME' } } };
+    }
+    return { effectiveValue: { stringValue: String(v) } };
+  };
+  state.sheetsApiCalls = 0;
+  const Sheets = {
+    Spreadsheets: {
+      get: (id, params) => {
+        state.sheetsApiCalls += 1;
+        const ss = state.spreadsheets[id];
+        if (!ss) throw new Error('Requested entity was not found.');
+        if (!params || !params.includeGridData) throw new Error('mock 只支援 includeGridData');
+        return {
+          sheets: ss.sheets.map((sh) => ({
+            properties: { title: sh.name },
+            data: [{ rowData: sh.dump().map((row) => {
+              const values = row.map(cellOf);
+              while (values.length && !values[values.length - 1].effectiveValue) values.pop(); // API 會省略列尾空格
+              return values.length ? { values } : {};
+            }) }],
+          })),
+        };
+      },
+    },
+  };
   const Session = { getScriptTimeZone: () => 'Asia/Taipei', getEffectiveUser: () => ({ getEmail: () => 'owner@example.com' }), getActiveUser: () => ({ getEmail: () => 'owner@example.com' }) };
-  return { state, newSheet, setActive: (ss) => { active = ss; }, globals: { SpreadsheetApp, PropertiesService, CacheService, LockService, Utilities, ContentService, ScriptApp, Logger, MailApp, Session } };
+  return { state, newSheet, setActive: (ss) => { active = ss; }, globals: { SpreadsheetApp, PropertiesService, CacheService, LockService, Utilities, ContentService, ScriptApp, Logger, MailApp, Session, Sheets } };
 }
 
 module.exports = { createMocks, MockSheet, MockSpreadsheet };

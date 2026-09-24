@@ -1,7 +1,7 @@
 import { h, mount } from './dom.js';
 import { icon } from './icons.js';
 import { prefs, state, subscribe, applyTheme } from './store.js';
-import { refresh, systemName } from './data.js';
+import { refresh, loadCache, systemName } from './data.js';
 import * as api from './api.js';
 import { closeAllSheets, toast, errorText } from './ui.js';
 import { renderLogin } from './views/login.js';
@@ -106,6 +106,18 @@ export async function reloadAll(btn) {
 async function start() {
   applyTheme();
   if (!api.hasValidSession()) { renderLogin(app, { onSuccess: start }); return; }
+  // 有上次的快取就先畫出來（秒開），背景再抓最新資料；抓失敗就維持舊資料並提示
+  const cached = loadCache();
+  if (cached) {
+    state.data = cached.data;
+    state.loadedAt = cached.loadedAt;
+    showShell();
+    refresh().catch((e) => {
+      if (e.code === 'AUTH_REQUIRED') return;
+      toast('無法更新資料，目前顯示的是 ' + cached.loadedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) + ' 的資料', { kind: 'bad' });
+    });
+    return;
+  }
   mount(app, h('div', { class: 'boot' }, '載入中…'));
   try {
     await refresh();

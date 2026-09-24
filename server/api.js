@@ -4,7 +4,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.1.0';
+var WB_VERSION = '2.2.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -27,7 +27,7 @@ var WbApi = (function () {
     projects: getProjects_, project_stats: getProjectStats_,
     habits: getHabits_, habit_stats: getHabitStats_,
     diaries: getDiaries_, diary_stats: getDiaryStats_,
-    system_index: function () { return sheetToObjects_(getSheet_('系統索引')); },
+    system_index: function () { return withReadMemo_(function () { return sheetToObjects_('系統索引'); }); },
     options: getOptions_, option_usage: getOptionUsage_,
     all: getAllData_,
     course_bundle: getCourseBundle_, sub_bundle: getSubBundle_, task_bundle: getTaskBundle_,
@@ -37,7 +37,7 @@ var WbApi = (function () {
     admin_bundle: function () {
       // optionUsage 要讀課程/訂閱/任務/專案/習慣，用 withReadMemo_ 讓每張表只讀一次
       return withReadMemo_(function () {
-        return { options: getOptions_(), optionUsage: getOptionUsage_(), systemIndex: sheetToObjects_(getSheet_('系統索引')) };
+        return { options: getOptions_(), optionUsage: getOptionUsage_(), systemIndex: sheetToObjects_('系統索引') };
       });
     },
   };

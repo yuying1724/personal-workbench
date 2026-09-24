@@ -45,15 +45,24 @@ test('整包讀取的分頁快取只在唯讀請求內生效：寫入後再讀�
   assert.equal(bundle.ok, true);
   assert.equal(bundle.data.tasks.length, n0 + 1);
 
-  // 數一次 bootstrap 讀了幾次分頁：每張分頁最多一次（原本 14 張表會讀 40 幾次）
+  // 有 Sheets 進階服務時：一次 bootstrap 只打一次 Sheets API、完全不經過 SpreadsheetApp 逐張讀
   const reads = {};
   for (const sh of b.ss.sheets) {
     const orig = sh.getDataRange.bind(sh);
     sh.getDataRange = () => { reads[sh.getName()] = (reads[sh.getName()] || 0) + 1; return orig(); };
   }
-  b.call('bootstrap');
+  const calls0 = b.state.sheetsApiCalls;
+  const viaApi = b.call('bootstrap');
+  assert.equal(b.state.sheetsApiCalls - calls0, 1, '一次 bootstrap 應該只呼叫一次 Sheets API');
+  assert.deepEqual(reads, {}, '有預載時不該再逐張 getDataRange');
+
+  // 沒有 Sheets 進階服務（沒在專案加入服務）時退回逐張讀：每張分頁最多一次（原本 14 張表會讀 40 幾次），結果要一模一樣
+  b.ctx.Sheets = undefined;
+  const viaSheets = b.call('bootstrap');
   for (const [name, n] of Object.entries(reads)) assert.equal(n, 1, `分頁「${name}」在一次 bootstrap 裡被讀了 ${n} 次`);
   assert.ok(Object.keys(reads).length >= 10, '應該有讀到主要分頁');
+  delete viaApi.data.meta; delete viaSheets.data.meta;
+  assert.deepEqual(viaApi.data, viaSheets.data, 'Sheets API 預載與逐張讀取的結果必須完全相同（日期、數字、布林型別）');
 });
 
 test('PIN 連錯 5 次會鎖定；撤銷裝置後工作階段立即失效', () => {
