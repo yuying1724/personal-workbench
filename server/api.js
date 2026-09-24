@@ -4,7 +4,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.0.0';
+var WB_VERSION = '2.1.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -35,7 +35,10 @@ var WbApi = (function () {
     habit_bundle: getHabitBundle_, diary_bundle: getDiaryBundle_,
     // 分類管理頁：選項＋使用次數＋系統索引（改名/新增/刪除選項後只重抓這些，不必整包 all）
     admin_bundle: function () {
-      return { options: getOptions_(), optionUsage: getOptionUsage_(), systemIndex: sheetToObjects_(getSheet_('系統索引')) };
+      // optionUsage 要讀課程/訂閱/任務/專案/習慣，用 withReadMemo_ 讓每張表只讀一次
+      return withReadMemo_(function () {
+        return { options: getOptions_(), optionUsage: getOptionUsage_(), systemIndex: sheetToObjects_(getSheet_('系統索引')) };
+      });
     },
   };
 

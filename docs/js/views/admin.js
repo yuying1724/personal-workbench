@@ -15,8 +15,12 @@ const GROUPS = [
 
 export function renderAdmin(root) {
   const d = state.data;
-  // 其他頁面新增／修改資料後，「使用中筆數」會變，進來這頁時順便更新一次
-  if (state.adminStale) { state.adminStale = false; reload('admin_bundle').catch(() => {}); }
+  // 「使用中筆數」（optionUsage）登入時不會一起載入（後端算它很慢，只有這頁要用），
+  // 第一次進來、或其他頁面新增／修改資料後（adminStale），用 admin_bundle 抓一次
+  if ((state.adminStale || !d.optionUsage) && !state.adminLoading) {
+    state.adminStale = false; state.adminLoading = true;
+    reload('admin_bundle').catch(() => {}).finally(() => { state.adminLoading = false; });
+  }
 
   const systems = (d.systemIndex || []).map((s) => {
     const name = h('input', { type: 'text', value: s['系統名稱'] || '', 'aria-label': s['主表分頁名稱'] + ' 顯示名稱' });
@@ -58,7 +62,7 @@ function optionCard(fieldName) {
     h('h3', null, fieldName),
     opts.length ? h('ul', { class: 'list' }, opts.map((v) => h('li', null, h('div', { class: 'item compact' },
       h('div', { class: 'grow t' }, String(v)),
-      h('span', { class: 'muted small nowrap' }, `${usage[v] || 0} 筆`),
+      h('span', { class: 'muted small nowrap' }, d.optionUsage ? `${usage[v] || 0} 筆` : '計算中…'),
       h('button', { class: 'icon-btn', type: 'button', title: '重新命名', 'aria-label': `重新命名 ${v}`, onclick: () => renameOption(fieldName, v) }, icon('edit')),
       h('button', { class: 'icon-btn', type: 'button', title: '刪除', 'aria-label': `刪除 ${v}`, onclick: () => deleteOption(fieldName, v, usage[v] || 0) }, icon('trash'))))))
       : h('div', { class: 'muted small' }, '目前沒有選項'),

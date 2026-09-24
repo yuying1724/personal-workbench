@@ -41,7 +41,8 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   e.respondWith(
-    fetch(req).then((res) => {
+    // cache: 'no-cache'：每次都跟 GitHub 確認有沒有新版（不然瀏覽器可能拿 10 分鐘內的舊檔）
+    fetch(req, { cache: 'no-cache' }).then((res) => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req).then((hit) => hit || caches.match('index.html')))

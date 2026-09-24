@@ -1,7 +1,7 @@
 /* Service Worker（由 tools/build-web.js 自動產生，請勿直接編輯）
  * 讓網站可以安裝成 App，離線時至少能開啟外殼。
  * 策略：同網域的檔案「網路優先、失敗才用快取」，更新程式後不會被舊快取卡住；呼叫後端 API（跨網域 POST）完全不經過快取。 */
-const VERSION = 'wb-ff3185cc70';
+const VERSION = 'wb-c829decbc0';
 const SHELL = [
   "./",
   "config.js",
@@ -44,7 +44,8 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   e.respondWith(
-    fetch(req).then((res) => {
+    // cache: 'no-cache'：每次都跟 GitHub 確認有沒有新版（不然瀏覽器可能拿 10 分鐘內的舊檔）
+    fetch(req, { cache: 'no-cache' }).then((res) => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req).then((hit) => hit || caches.match('index.html')))

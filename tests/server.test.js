@@ -19,9 +19,41 @@ test('沒登入不能讀資料；授權碼或 PIN 錯誤會被擋；正確登入
 
   const r = b.call('bootstrap');
   assert.equal(r.ok, true, JSON.stringify(r));
-  for (const k of ['courses', 'subscriptions', 'tasks', 'projects', 'habits', 'diaries', 'options', 'optionUsage', 'systemIndex', 'meta']) assert.ok(k in r.data, k);
+  for (const k of ['courses', 'subscriptions', 'tasks', 'projects', 'habits', 'diaries', 'options', 'systemIndex', 'meta']) assert.ok(k in r.data, k);
+  // optionUsage 只有分類管理頁要用，登入的 bootstrap 不再帶（省一半時間），改由 admin_bundle 提供
+  assert.ok(!('optionUsage' in r.data), 'bootstrap 不應該帶 optionUsage');
   assert.equal(r.data.meta.device, '測試手機');
   assert.deepEqual(r.data.options['任務分類'], ['工作', '生活', '學習']);
+  const admin = b.call('admin_bundle');
+  assert.equal(admin.ok, true, JSON.stringify(admin));
+  for (const k of ['options', 'optionUsage', 'systemIndex']) assert.ok(k in admin.data, k);
+  assert.equal(typeof admin.data.optionUsage['任務分類'], 'object');
+});
+
+test('整包讀取的分頁快取只在唯讀請求內生效：寫入後再讀能拿到新資料，而且每張分頁只讀一次', () => {
+  const b = loadBackend();
+  b.setup();
+  const before = b.call('bootstrap');
+  const n0 = before.data.tasks.length;
+  const created = b.call('create_task', { '任務名稱': '快取測試任務', '狀態': '待辦', '優先順序': '中', '分類': ['工作'], '子任務': [] });
+  assert.equal(created.ok, true, JSON.stringify(created));
+  const after = b.call('bootstrap');
+  assert.equal(after.data.tasks.length, n0 + 1, '寫入後 bootstrap 要看到新任務');
+  assert.equal(after.data.taskStats.total, n0 + 1, 'stats 要跟資料同一份');
+  // 同一份資料被引用兩次（tasks 與 projects 內部用的 tasks），JSON 序列化後仍是正常物件
+  const bundle = b.call('project_task_bundle');
+  assert.equal(bundle.ok, true);
+  assert.equal(bundle.data.tasks.length, n0 + 1);
+
+  // 數一次 bootstrap 讀了幾次分頁：每張分頁最多一次（原本 14 張表會讀 40 幾次）
+  const reads = {};
+  for (const sh of b.ss.sheets) {
+    const orig = sh.getDataRange.bind(sh);
+    sh.getDataRange = () => { reads[sh.getName()] = (reads[sh.getName()] || 0) + 1; return orig(); };
+  }
+  b.call('bootstrap');
+  for (const [name, n] of Object.entries(reads)) assert.equal(n, 1, `分頁「${name}」在一次 bootstrap 裡被讀了 ${n} 次`);
+  assert.ok(Object.keys(reads).length >= 10, '應該有讀到主要分頁');
 });
 
 test('PIN 連錯 5 次會鎖定；撤銷裝置後工作階段立即失效', () => {

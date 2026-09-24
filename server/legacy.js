@@ -303,54 +303,79 @@ function jsonOut_(obj) {
 // 模組越加越多之後，偶爾會有其中幾個請求被擋下來變成回傳 HTML 錯誤頁（不是 JSON），
 // 這就是「載入失敗：Unexpected token '<'」這個錯誤的常見原因。
 // 改成前端只發一個 ?action=all，後端一次算完全部再回傳，就不會再有這種平行請求互相搶著跑的問題。
+// 2026-09-24 效能調整：
+//  1. 整包讀取期間開啟 withReadMemo_()，每張分頁只讀一次（原本各模組的 stats 函式、
+//     getProjects_() 裡的 getTasks_() 都會各自重讀分頁，14 張表被讀了 40 幾次）。
+//  2. 不再帶 optionUsage（各選項被用幾次）——它只有「分類管理」頁會用到，卻要把
+//     課程/訂閱/任務/專案/習慣全部再讀一輪（實測佔了 bootstrap 一半時間）。
+//     前端在打開分類管理頁時才用 admin_bundle 抓。
 function getAllData_() {
-  return {
-    courses: getCourses_(),
-    courseStats: getCourseStats_(),
-    subscriptions: getSubscriptions_(),
-    subscriptionStats: getSubscriptionStats_(),
-    tasks: getTasks_(),
-    taskStats: getTaskStats_(),
-    projects: getProjects_(),
-    projectStats: getProjectStats_(),
-    habits: getHabits_(),
-    habitStats: getHabitStats_(),
-    diaries: getDiaries_(),
-    diaryStats: getDiaryStats_(),
-    options: getOptions_(),
-    optionUsage: getOptionUsage_(),
-    systemIndex: sheetToObjects_(getSheet_("系統索引"))
-  };
+  return withReadMemo_(function () {
+    return {
+      courses: getCourses_(),
+      courseStats: getCourseStats_(),
+      subscriptions: getSubscriptions_(),
+      subscriptionStats: getSubscriptionStats_(),
+      tasks: getTasks_(),
+      taskStats: getTaskStats_(),
+      projects: getProjects_(),
+      projectStats: getProjectStats_(),
+      habits: getHabits_(),
+      habitStats: getHabitStats_(),
+      diaries: getDiaries_(),
+      diaryStats: getDiaryStats_(),
+      options: getOptions_(),
+      systemIndex: sheetToObjects_(getSheet_("系統索引"))
+    };
+  });
 }
 
 // 以下「單一模組打包」端點：只給前端在「儲存／刪除單一模組資料後」用，
 // 只讀該模組需要的分頁，比 getAllData_() 輕很多，用意是新增/刪除/編輯後
 // 不用把全部15種資料重抓一次，減少同時間打到 Apps Script 的執行緒數量。
 function getCourseBundle_() {
-  return { courses: getCourses_(), courseStats: getCourseStats_() };
+  return withReadMemo_(function () { return { courses: getCourses_(), courseStats: getCourseStats_() }; });
 }
 function getSubBundle_() {
-  return { subscriptions: getSubscriptions_(), subscriptionStats: getSubscriptionStats_() };
+  return withReadMemo_(function () { return { subscriptions: getSubscriptions_(), subscriptionStats: getSubscriptionStats_() }; });
 }
 function getTaskBundle_() {
-  return { tasks: getTasks_(), taskStats: getTaskStats_() };
+  return withReadMemo_(function () { return { tasks: getTasks_(), taskStats: getTaskStats_() }; });
 }
 function getProjectBundle_() {
-  return { projects: getProjects_(), projectStats: getProjectStats_() };
+  return withReadMemo_(function () { return { projects: getProjects_(), projectStats: getProjectStats_() }; });
 }
 // 刪除專案會連動清空任務的「所屬專案」欄位，所以刪除專案後前端要用這個，
 // 一次把專案跟任務兩邊都重新抓回來。
 function getProjectTaskBundle_() {
-  return {
-    projects: getProjects_(), projectStats: getProjectStats_(),
-    tasks: getTasks_(), taskStats: getTaskStats_()
-  };
+  return withReadMemo_(function () {
+    return {
+      projects: getProjects_(), projectStats: getProjectStats_(),
+      tasks: getTasks_(), taskStats: getTaskStats_()
+    };
+  });
 }
 function getHabitBundle_() {
-  return { habits: getHabits_(), habitStats: getHabitStats_() };
+  return withReadMemo_(function () { return { habits: getHabits_(), habitStats: getHabitStats_() }; });
 }
 function getDiaryBundle_() {
-  return { diaries: getDiaries_(), diaryStats: getDiaryStats_() };
+  return withReadMemo_(function () { return { diaries: getDiaries_(), diaryStats: getDiaryStats_() }; });
+}
+
+// ---- 唯讀請求的分頁快取（只活在同一次執行裡） ----
+// 只在 withReadMemo_() 包住的區塊裡生效：getCourses_()/getTasks_() 等第一次算完就記住，
+// 同一次請求裡再呼叫直接回傳同一份結果。寫入類的 action 不會經過 withReadMemo_，
+// 所以「先寫再讀」的函式（updateTask_ 之後重讀對照表等）不受影響、不會讀到舊資料。
+var WB_READ_MEMO_ = null;
+function withReadMemo_(fn) {
+  if (WB_READ_MEMO_) return fn(); // 已經在 memo 區塊裡（巢狀呼叫）就直接沿用
+  WB_READ_MEMO_ = {};
+  try { return fn(); } finally { WB_READ_MEMO_ = null; }
+}
+function wbMemo_(key, fn) {
+  if (!WB_READ_MEMO_) return fn();
+  if (!Object.prototype.hasOwnProperty.call(WB_READ_MEMO_, key)) WB_READ_MEMO_[key] = fn();
+  return WB_READ_MEMO_[key];
 }
 
 // ---------------- 內部工具 ----------------
@@ -382,13 +407,44 @@ function sheetToObjects_(sheet) {
 // getValues() 讀回來的型別不太穩定：可能是 Date 物件、可能是 ISO 字串，
 // 也可能是「功能上是日期但 instanceof Date 抓不到」的怪物件（Apps Script
 // 已知的 realm 問題）。這裡用三層判斷把它們統一處理掉。
+// 2026-09-24 效能調整：原本每一格日期都各呼叫一次 Session.getScriptTimeZone() +
+// Utilities.formatDate()（兩個都是服務呼叫，資料一多就很慢）。改成：
+//  - 時區每次執行只查一次（wbScriptTz_）
+//  - 若 JS 執行環境的時區偏移跟指令碼時區一致（Apps Script V8 正常都是），直接用
+//    getFullYear/getMonth/getDate 拼出 yyyy-MM-dd，結果跟 formatDate 完全相同但快很多；
+//    偏移不一致（例如本機測試環境）就退回原本的 Utilities.formatDate，保證結果不變。
+var WB_TZ_ = null;
+var WB_FAST_YMD_ = null;
+function wbScriptTz_() {
+  if (WB_TZ_ === null) WB_TZ_ = Session.getScriptTimeZone();
+  return WB_TZ_;
+}
+function wbLocalYmd_(d) {
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+}
+function wbFastYmdOk_() {
+  if (WB_FAST_YMD_ === null) {
+    var probe = new Date();
+    var z = String(Utilities.formatDate(probe, wbScriptTz_(), "Z")); // 例如 +0800
+    var m = /^([+-])(\d{2})(\d{2})$/.exec(z);
+    var scriptOffsetMin = m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : NaN;
+    WB_FAST_YMD_ = isFinite(scriptOffsetMin) && scriptOffsetMin === -probe.getTimezoneOffset();
+  }
+  return WB_FAST_YMD_;
+}
+function formatYmd_(d) {
+  if (wbFastYmdOk_()) return wbLocalYmd_(d);
+  return Utilities.formatDate(d, wbScriptTz_(), "yyyy-MM-dd");
+}
+
 function normalizeDate_(v) {
   var looksLikeDate =
     v instanceof Date ||
     Object.prototype.toString.call(v) === "[object Date]";
 
   if (looksLikeDate) {
-    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    return formatYmd_(v);
   }
   if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
     return v.slice(0, 10);
@@ -396,7 +452,7 @@ function normalizeDate_(v) {
   // 保底：物件功能上像日期（有 getTime），但前面兩種檢查都沒認出來
   if (v && typeof v === "object" && typeof v.getTime === "function") {
     try {
-      return Utilities.formatDate(new Date(v.getTime()), Session.getScriptTimeZone(), "yyyy-MM-dd");
+      return formatYmd_(new Date(v.getTime()));
     } catch (err) {
       return v;
     }
@@ -418,7 +474,8 @@ function groupJunction_(sheet, idField, valueField) {
 
 // ---------------- 課程 ----------------
 
-function getCourses_() {
+function getCourses_() { return wbMemo_("courses", getCoursesUncached_); }
+function getCoursesUncached_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var courses = sheetToObjects_(ss.getSheetByName("課程"));
   var catMap = groupJunction_(ss.getSheetByName("課程分類對照"), "課程ID", "分類");
@@ -483,7 +540,8 @@ function getCourseStats_() {
 
 // ---------------- 訂閱服務 ----------------
 
-function getSubscriptions_() {
+function getSubscriptions_() { return wbMemo_("subscriptions", getSubscriptionsUncached_); }
+function getSubscriptionsUncached_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var subs = sheetToObjects_(ss.getSheetByName("訂閱服務"));
   var tagMap = groupJunction_(ss.getSheetByName("訂閱標籤對照"), "訂閱ID", "分類標籤");
@@ -652,7 +710,8 @@ function replaceSubtaskRows_(sheet, id, subtasks) {
   appendSubtaskRows_(sheet, id, subtasks);
 }
 
-function getTasks_() {
+function getTasks_() { return wbMemo_("tasks", getTasksUncached_); }
+function getTasksUncached_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var tasks = sheetToObjects_(ss.getSheetByName("任務"));
   var catMap = groupJunction_(ss.getSheetByName("任務分類對照"), "任務ID", "分類");
@@ -840,7 +899,8 @@ function deleteTask_(p) {
 // 跟「子任務」不一樣：子任務是單一任務底下的小勾選清單，專案底下掛的是完整的任務。
 // 對應「專案」分頁欄位：A專案ID B專案名稱 C開始日 D結束日 E狀態 F優先級 G備註 H建立時間 I更新時間
 
-function getProjects_() {
+function getProjects_() { return wbMemo_("projects", getProjectsUncached_); }
+function getProjectsUncached_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var projects = sheetToObjects_(ss.getSheetByName("專案"));
   var tasks = getTasks_();
@@ -1167,7 +1227,8 @@ function computeWeeklyStreak_(habit, logMap, todayStr) {
   };
 }
 
-function getHabits_() {
+function getHabits_() { return wbMemo_("habits", getHabitsUncached_); }
+function getHabitsUncached_() {
   var habits = sheetToObjects_(getSheet_("習慣"));
   var logs = getHabitLogs_();
   var logsByHabit = {};
@@ -1364,7 +1425,8 @@ function replaceDiaryFindRows_(sheet, id, finds) {
   appendDiaryFindRows_(sheet, id, finds);
 }
 
-function getDiaries_() {
+function getDiaries_() { return wbMemo_("diaries", getDiariesUncached_); }
+function getDiariesUncached_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var diaries = sheetToObjects_(ss.getSheetByName("日記"));
   var findMap = groupDiaryFinds_(ss.getSheetByName("日記發現清單"));
