@@ -4,7 +4,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.2.0';
+var WB_VERSION = '2.2.1';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -27,7 +27,7 @@ var WbApi = (function () {
     projects: getProjects_, project_stats: getProjectStats_,
     habits: getHabits_, habit_stats: getHabitStats_,
     diaries: getDiaries_, diary_stats: getDiaryStats_,
-    system_index: function () { return withReadMemo_(function () { return sheetToObjects_('系統索引'); }); },
+    system_index: function () { return sheetToObjects_('系統索引'); },
     options: getOptions_, option_usage: getOptionUsage_,
     all: getAllData_,
     course_bundle: getCourseBundle_, sub_bundle: getSubBundle_, task_bundle: getTaskBundle_,
@@ -38,7 +38,7 @@ var WbApi = (function () {
       // optionUsage 要讀課程/訂閱/任務/專案/習慣，用 withReadMemo_ 讓每張表只讀一次
       return withReadMemo_(function () {
         return { options: getOptions_(), optionUsage: getOptionUsage_(), systemIndex: sheetToObjects_('系統索引') };
-      });
+      }, true);
     },
   };
 
@@ -69,7 +69,9 @@ var WbApi = (function () {
   H.login = { auth: false, fn: function (p) { return WbAuth.login(p.token, p.pin, {}); } };
   H.bootstrap = {
     fn: function (p, env) {
-      var all = getAllData_();
+      WB_NO_PRELOAD_ = !!(p && p.noPreload);
+      var all;
+      try { all = getAllData_(); } finally { WB_NO_PRELOAD_ = false; }
       all.meta = { version: WB_VERSION, device: env.device, sheetUrl: sheetUrl(), today: Utilities.formatDate(new Date(env.now), Session.getScriptTimeZone(), 'yyyy-MM-dd') };
       return all;
     },
@@ -81,7 +83,8 @@ var WbApi = (function () {
       return { success: true };
     },
   };
-  Object.keys(READS).forEach(function (k) { H[k] = { fn: function () { return READS[k](); } }; });
+  // params.noPreload=true：強制不用 Sheets API 預載、逐張讀（比對兩條路徑結果用）
+  Object.keys(READS).forEach(function (k) { H[k] = { fn: function (p) { WB_NO_PRELOAD_ = !!(p && p.noPreload); try { return READS[k](); } finally { WB_NO_PRELOAD_ = false; } } }; });
   Object.keys(WRITES).forEach(function (k) {
     if (SELF_LOCKING[k]) return;
     H[k] = { fn: function (p) { return withLock(function () { return WRITES[k](p); }); } };

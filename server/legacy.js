@@ -327,7 +327,7 @@ function getAllData_() {
       options: getOptions_(),
       systemIndex: sheetToObjects_("系統索引")
     };
-  });
+  }, true);
 }
 
 // 以下「單一模組打包」端點：只給前端在「儲存／刪除單一模組資料後」用，
@@ -367,41 +367,44 @@ function getDiaryBundle_() {
 // 同一次請求裡再呼叫直接回傳同一份結果。寫入類的 action 不會經過 withReadMemo_，
 // 所以「先寫再讀」的函式（updateTask_ 之後重讀對照表等）不受影響、不會讀到舊資料。
 var WB_READ_MEMO_ = null;
-function withReadMemo_(fn) {
+// preload=true（bootstrap/all、admin_bundle 這種要讀十幾張表的請求）才一次預載整本；
+// 只讀 1～3 張表的 bundle 逐張讀反而比較快，不預載。
+function withReadMemo_(fn, preload) {
   if (WB_READ_MEMO_) return fn(); // 已經在 memo 區塊裡（巢狀呼叫）就直接沿用
   WB_READ_MEMO_ = {};
-  WB_PRELOAD_ = wbPreloadAll_(); // 一次把整本試算表讀進來（沒有 Sheets 進階服務時是 null → 各分頁各自讀）
+  WB_PRELOAD_ = preload && !WB_NO_PRELOAD_ ? wbPreloadAll_() : null; // 沒有 Sheets 進階服務時是 null → 各分頁各自讀
   try { return fn(); } finally { WB_READ_MEMO_ = null; WB_PRELOAD_ = null; }
 }
 
-// ---- 一次讀完整本試算表（Sheets 進階服務）----
+// ---- 一次讀完所有分頁（Sheets 進階服務）----
 // 2026-09-24 效能調整：SpreadsheetApp 每張分頁 getSheetByName + getDataRange().getValues() 都是跨網路的服務呼叫，
-// 14 張分頁就要 14 趟（bootstrap 光讀表就 10 秒以上）。改用 Sheets API 的 Spreadsheets.get 一次把所有分頁的
-// 儲存格值（含格式型別）拿回來，唯讀請求內的 sheetToObjects_()/wbSheetValues_() 直接用這份。
+// 14 張分頁就要 14 趟（bootstrap 光讀表就 10 秒以上）。改用 Sheets API 的 Values.batchGet 一次把所有分頁的
+// 值拿回來（只拿值、不拿格式，回應小、快），唯讀請求內的 sheetToObjects_()/wbSheetValues_() 直接用這份。
 // 需要在 Apps Script 專案「服務」加入 Google Sheets API（識別碼 Sheets）；沒加的話 typeof Sheets 是 undefined，
-// 自動退回原本逐張讀取的方式，功能一樣只是慢。
+// 或 API 呼叫失敗（例如分頁改名），都自動退回原本逐張讀取的方式，功能一樣只是慢。
+// 之後新增分頁（例如人員模組）要記得加進 WB_PRELOAD_SHEETS_，不加也能用，只是那幾張會逐張讀。
+var WB_PRELOAD_SHEETS_ = ["課程", "課程分類對照", "訂閱服務", "訂閱標籤對照", "任務", "任務分類對照", "子任務", "專案",
+  "習慣", "習慣打卡紀錄", "日記", "日記發現清單", "系統索引", "設定"];
 var WB_PRELOAD_ = null; // { 分頁名稱: values[][] }，只在 withReadMemo_ 區塊內有值
+var WB_NO_PRELOAD_ = false; // 請求帶 params.noPreload=true 可強制逐張讀（用來比對兩條路徑的結果是否一致）
 function wbPreloadAll_() {
-  if (typeof Sheets === "undefined" || !Sheets || !Sheets.Spreadsheets) return null;
+  if (typeof Sheets === "undefined" || !Sheets || !Sheets.Spreadsheets || !Sheets.Spreadsheets.Values) return null;
   try {
     var id = SpreadsheetApp.getActiveSpreadsheet().getId();
-    var res = Sheets.Spreadsheets.get(id, {
-      includeGridData: true,
-      fields: "sheets(properties.title,data(rowData(values(effectiveValue,effectiveFormat.numberFormat.type))))",
+    var res = Sheets.Spreadsheets.Values.batchGet(id, {
+      ranges: WB_PRELOAD_SHEETS_.map(function (n) { return "'" + n + "'"; }),
+      valueRenderOption: "UNFORMATTED_VALUE",   // 數字就是數字（進度 0.5 不會變 "50%"）、布林就是布林
+      dateTimeRenderOption: "FORMATTED_STRING", // 日期依儲存格格式輸出成字串，下面 wbCellValue_ 再統一成 yyyy-MM-dd
     });
     var out = {};
-    (res.sheets || []).forEach(function (sh) {
-      var title = sh.properties && sh.properties.title;
-      if (!title) return;
-      var rows = [];
-      var grid = (sh.data && sh.data[0] && sh.data[0].rowData) || [];
-      grid.forEach(function (rd) { rows.push((rd.values || []).map(wbCellValue_)); });
-      // getValues() 回的是整齊的矩形（空格為 ""），API 會省略列尾的空格與空列，這裡補齊
+    (res.valueRanges || []).forEach(function (vr, i) {
+      var rows = (vr.values || []).map(function (r) { return r.map(wbCellValue_); });
+      // getValues() 回的是整齊的矩形（空格為 ""），API 會省略列尾的空格，這裡補齊
       var width = 0;
       rows.forEach(function (r) { if (r.length > width) width = r.length; });
       rows.forEach(function (r) { while (r.length < width) r.push(""); });
       if (!rows.length) rows.push([""]);
-      out[title] = rows;
+      out[WB_PRELOAD_SHEETS_[i]] = rows;
     });
     return out;
   } catch (err) {
@@ -409,26 +412,16 @@ function wbPreloadAll_() {
     return null;
   }
 }
-// API 的儲存格 → 跟 getValues() 一樣的值：字串／數字／布林；日期與日期時間直接轉成 yyyy-MM-dd 字串
-//（normalizeDate_ 對字串會原樣放行，結果跟原本 Date 物件經 formatYmd_ 相同）
-function wbCellValue_(cell) {
-  var ev = cell && cell.effectiveValue;
-  if (!ev) return "";
-  if (ev.stringValue !== undefined && ev.stringValue !== null) return ev.stringValue;
-  if (ev.boolValue !== undefined && ev.boolValue !== null) return ev.boolValue;
-  if (ev.numberValue !== undefined && ev.numberValue !== null) {
-    var t = cell.effectiveFormat && cell.effectiveFormat.numberFormat && cell.effectiveFormat.numberFormat.type;
-    if (t === "DATE" || t === "DATE_TIME") return wbSerialToYmd_(ev.numberValue);
-    return ev.numberValue;
+// API 回的值 → 跟 getValues()+normalizeDate_ 一樣的結果：日期／日期時間字串（"2026/9/24"、"2026-09-24 上午 10:43:00"…）
+// 統一成 yyyy-MM-dd；其他字串、數字、布林原樣。null（空格）→ ""
+var WB_DATE_STR_RE_ = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:\s*(?:上午|下午|AM|PM)?\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:上午|下午|AM|PM)?)?$/;
+function wbCellValue_(v) {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") {
+    var m = WB_DATE_STR_RE_.exec(v);
+    if (m) return m[1] + "-" + (m[2].length < 2 ? "0" : "") + m[2] + "-" + (m[3].length < 2 ? "0" : "") + m[3];
   }
-  if (ev.errorValue) return "#" + (ev.errorValue.type || "ERROR") + "!";
-  return "";
-}
-// 試算表的日期序號（1899-12-30 起算的天數，小數是時間）→ yyyy-MM-dd
-function wbSerialToYmd_(n) {
-  var d = new Date(Date.UTC(1899, 11, 30) + Math.floor(n) * 86400000);
-  var m = d.getUTCMonth() + 1, day = d.getUTCDate();
-  return d.getUTCFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+  return v;
 }
 /** 取分頁全部值：唯讀請求內有預載就直接用（不再呼叫 SpreadsheetApp），否則逐張讀。參數可傳分頁名稱或 Sheet 物件 */
 function wbSheetValues_(sheetOrName) {
