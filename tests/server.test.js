@@ -272,3 +272,25 @@ test('備份：複製到「個人工作台備份」資料夾、只保留最近 8
   const items = b.state.ui.menus.at(-1).items.map((x) => x[1]);
   assert.ok(items.includes('menuBackupNow') && items.includes('menuToggleWeeklyBackup'));
 });
+
+test('習慣熱力圖：habits 帶近一年的「打卡紀錄」，可以補記過去的日子，太舊的不帶', () => {
+  const b = loadBackend();
+  b.setup();
+  const hid = b.call('create_habit', { '習慣名稱': '閱讀', '類型': '打勾', '頻率類型': 'daily' }).data.id;
+  const tw = (offset) => { const d = new Date(Date.now() + 8 * 3600000); d.setUTCDate(d.getUTCDate() + offset); return d.toISOString().slice(0, 10); };
+  b.call('set_habit_log', { '習慣ID': hid, '數值': 1 }); // 今天
+  b.call('set_habit_log', { '習慣ID': hid, '日期': tw(-1), '數值': 1 }); // 補打卡：昨天
+  b.call('set_habit_log', { '習慣ID': hid, '日期': tw(-3), '數值': 1 });
+  b.call('set_habit_log', { '習慣ID': hid, '日期': tw(-400), '數值': 1 }); // 超過一年，不帶
+  let h = b.call('habits').data[0];
+  assert.deepEqual(Object.keys(h['打卡紀錄']).sort(), [tw(-3), tw(-1), tw(0)]);
+  assert.equal(h['連續天數'], 2, '補記昨天後連續 2 天（前天沒做）');
+  b.call('set_habit_log', { '習慣ID': hid, '日期': tw(-2), '數值': 1 }); // 補前天 → 連起來
+  h = b.call('habits').data[0];
+  assert.equal(h['連續天數'], 4);
+  b.call('set_habit_log', { '習慣ID': hid, '日期': tw(-1), '數值': null }); // 取消昨天
+  h = b.call('habits').data[0];
+  assert.ok(!(tw(-1) in h['打卡紀錄']));
+  // bootstrap 也帶（前端快取秒開要用）
+  assert.ok('打卡紀錄' in b.call('bootstrap').data.habits[0]);
+});

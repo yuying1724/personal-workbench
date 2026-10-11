@@ -1,9 +1,10 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
-import { state } from '../store.js';
+import { state, subscribe } from '../store.js';
 import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
-import { habitFreqLabel, uniqueValues, HABIT_TIME_OPTIONS, HABIT_TIME_ICON } from '../util.js';
+import { habitFreqLabel, uniqueValues, HABIT_TIME_OPTIONS, HABIT_TIME_ICON, todayStr, dateLabel, pct } from '../util.js';
+import { heatmap, heatLegend, isRequiredDay, valueText, doneDays } from './heatmap.js';
 import {
   pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, checkField, segField, weekdayPicker, formFooter, errorBanner,
 } from './common.js';
@@ -47,7 +48,8 @@ export function habitRow(hb, opts = {}) {
   const withDots = [];
   meta.forEach((m, i) => { if (i) withDots.push(' · '); withDots.push(m); });
 
-  const main = h(opts.showEdit ? 'button' : 'div', { type: opts.showEdit ? 'button' : null, class: 'grow item-main', onclick: opts.showEdit ? () => openHabitForm(id) : null },
+  // 管理頁點整列＝編輯；打卡頁／首頁點名稱＝看打卡月曆（可補打卡）
+  const main = h('button', { type: 'button', class: 'grow item-main', onclick: () => (opts.showEdit ? openHabitForm(id) : openHabitHistory(id)) },
     h('div', { class: 't wraptext' }, hb['習慣名稱'] || '', hb['狀態'] === '封存' ? h('span', { class: 'muted' }, '（已封存）') : null),
     h('div', { class: 's wraptext' }, withDots));
   return h('div', { class: 'item habit-row' + (done ? ' done' : '') }, opts.showEdit && hb['狀態'] === '封存' ? null : control, main,
@@ -121,7 +123,84 @@ export function renderHabits(root) {
     pageHead(systemName('習慣', '習慣'), h('a', { class: 'btn btn-sm', href: '#/habit-admin' }, icon('tools'), '管理')),
     stats([['總習慣數', s.total ?? 0], ['今日進度', s.doneTodayCount ?? 0, ` / ${s.dueTodayCount ?? 0}`], ['近7天平均完成率', s.avgRate7 ?? 0, '%']]),
     h('h2', { class: 'section-title' }, '今日打卡'),
-    sorted.length ? habitsByTime(sorted, {}) : h('div', { class: 'card' }, empty((d.habits || []).length ? '今天沒有排定要做的習慣' : '還沒有習慣，到「習慣管理」新增', '🌱')));
+    sorted.length ? habitsByTime(sorted, {}) : h('div', { class: 'card' }, empty((d.habits || []).length ? '今天沒有排定要做的習慣' : '還沒有習慣，到「習慣管理」新增', '🌱')),
+    heatSection(d.habits || []));
+}
+
+// ---------- 打卡月曆（熱力圖） ----------
+function heatSection(habits) {
+  const active = habits.filter((hb) => hb['狀態'] !== '封存');
+  if (!active.length) return null;
+  return [
+    h('h2', { class: 'section-title' }, icon('calendar'), ' 打卡月曆', h('span', { class: 'muted small', style: { fontWeight: 400 } }, '（點一下看整年、補打卡）')),
+    h('div', { class: 'card' }, active.map((hb) => h('button', { type: 'button', class: 'hm-item', onclick: () => openHabitHistory(hb['習慣ID']) },
+      h('div', { class: 'hm-title' }, h('span', { class: 't wraptext' }, hb['習慣名稱'] || ''),
+        h('span', { class: 'muted small nowrap' }, `近30天 ${pct(hb['近30天完成率'])}%`)),
+      heatmap(hb, { weeks: 53 })))), // 手機會自動捲到最右（最近幾週），電腦版寬度夠就整年都看得到
+  ];
+}
+
+/** 單一習慣的整年熱力圖＋點某一天補打卡／修改 */
+export function openHabitHistory(id) {
+  let selected = todayStr();
+  const body = h('div');
+  const render = () => {
+    const hb = habitById(id);
+    if (!hb) { ref.close(); return; }
+    const old = body.querySelector('.hm-scroll');
+    const keepScroll = old ? old.scrollLeft : null; // 重畫時維持捲動位置（點了很久以前的格子不要跳回最右邊）
+    const isWeekly = hb['頻率類型'] === 'weeklyCount';
+    const unit = isWeekly ? '週' : '天';
+    mount(body,
+      h('p', { class: 'muted small', style: { margin: '-6px 0 10px' } }, [hb['分類'], habitFreqLabel(hb)].filter(Boolean).join(' · ')),
+      h('div', { class: 'hm-stats' }, stats([['目前連續', hb['連續天數'] || 0, ' ' + unit], ['最長連續', hb['最長連續'] || 0, ' ' + unit],
+        ['近30天完成率', pct(hb['近30天完成率']), '%'], ['近一年完成', doneDays(hb, 365, habitDoneFor), ' 天']])),
+      heatmap(hb, { weeks: 53, size: 'lg', labels: true, selected, onPick: (ds) => { selected = ds; render(); } }),
+      heatLegend(),
+      dayPanel(hb, selected, render));
+    if (keepScroll !== null) requestAnimationFrame(() => { const sc = body.querySelector('.hm-scroll'); if (sc) sc.scrollLeft = keepScroll; });
+  };
+  const ref = openSheet({ title: (habitById(id) || {})['習慣名稱'] || '打卡月曆', body, onClose: () => unsub() });
+  // 背景重抓資料後（連續天數等統計由後端重算）自動更新這個視窗
+  const unsub = subscribe(() => { if (body.isConnected) render(); });
+  render();
+}
+
+function dayPanel(hb, ds, rerender) {
+  const id = hb['習慣ID'];
+  const log = hb['打卡紀錄'] || {};
+  const v = Number(log[ds]) || 0;
+  const isToday = ds === todayStr();
+  const head = h('div', null, h('b', null, isToday ? '今天 ' + dateLabel(ds) : dateLabel(ds)), '　',
+    h('span', { class: 'muted' }, !v && !isRequiredDay(hb, ds) ? '不用做的日子' : valueText(hb, v)));
+  const save = (value) => {
+    write('set_habit_log', { '習慣ID': id, '日期': ds, '數值': value ? value : null }, {
+      toast: value ? (isToday ? '已記錄' : `已補記 ${dateLabel(ds)}`) : '已取消打卡',
+      optimistic: () => {
+        const cur = habitById(id);
+        if (!cur) return null;
+        const map = cur['打卡紀錄'] = Object.assign({}, cur['打卡紀錄'] || {});
+        const prev = map[ds];
+        if (value) map[ds] = value; else delete map[ds];
+        const undoToday = isToday ? applyHabitValue(cur, value || 0) : null;
+        return () => { if (prev === undefined) delete map[ds]; else map[ds] = prev; if (undoToday) undoToday(); };
+      },
+    });
+    rerender();
+  };
+  let control;
+  if (hb['類型'] === '計數') {
+    const inp = h('input', { type: 'number', min: 0, class: 'count-input', value: v || '', placeholder: '0', inputmode: 'numeric', 'aria-label': '數值' });
+    const step = (n) => h('button', { type: 'button', class: 'step', 'aria-label': n > 0 ? '加一' : '減一', onclick: () => { inp.value = Math.max(0, (Number(inp.value) || 0) + n) || ''; } }, n > 0 ? '+' : '−');
+    control = [h('div', { class: 'stepper' }, step(-1), inp, step(1)), hb['單位'] ? h('span', { class: 'muted' }, hb['單位']) : null,
+      h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => save(Number(inp.value) || 0) }, '儲存')];
+  } else {
+    control = v
+      ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => save(0) }, '取消打卡')
+      : h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => save(1) }, icon('check'), isToday ? ' 打卡' : ' 補打卡');
+  }
+  return h('div', { class: 'hm-day' }, head, h('div', { class: 'row-flex' }, control),
+    h('div', { class: 'muted small', style: { marginTop: '6px' } }, '點上面任何一格可以查看或補記那一天。'));
 }
 
 export function renderHabitAdmin(root) {
@@ -202,7 +281,7 @@ export function openHabitForm(id) {
     const dow = new Date().getDay();
     const dueToday = freq.value === 'weekday' ? wd.value.includes(dow) : true;
     const fields = Object.assign({}, payload, hb ? {} : {
-      '今日數值': 0, '今日應做': dueToday, '今日已完成': false, '今日等級': null, '連續天數': 0, '最長連續': 0, '近7天完成率': 0, '近30天完成率': 0,
+      '今日數值': 0, '今日應做': dueToday, '今日已完成': false, '今日等級': null, '連續天數': 0, '最長連續': 0, '近7天完成率': 0, '近30天完成率': 0, '打卡紀錄': {},
     });
     if (hb) saveRow('update_habit', Object.assign(payload, { '習慣ID': hb['習慣ID'] }), { list: 'habits', idField: '習慣ID', id: hb['習慣ID'], fields, toast: '已儲存' });
     else saveRow('create_habit', payload, { list: 'habits', idField: '習慣ID', fields, toast: '已新增習慣' });

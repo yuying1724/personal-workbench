@@ -1290,6 +1290,10 @@ function getHabitsUncached_() {
     logsByHabit[hid][l["日期"]] = Number(l["數值"]) || 0;
   });
   var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  // 前端熱力圖用：近一年（371 天，剛好涵蓋 53 週的格子）有打卡的日子 { 'yyyy-MM-dd': 數值 }
+  var histFromDate = parseDateStr_(todayStr);
+  histFromDate.setDate(histFromDate.getDate() - 371);
+  var histFrom = formatDateStr_(histFromDate);
 
   habits.forEach(function (h) {
     h["星期幾"] = parseWeekdaysField_(h["星期幾"]);
@@ -1306,6 +1310,9 @@ function getHabitsUncached_() {
     h["最長連續"] = stats.longestStreak;
     h["近7天完成率"] = stats.rate7;
     h["近30天完成率"] = stats.rate30;
+    var hist = {};
+    Object.keys(logMap).forEach(function (ds) { if (ds >= histFrom && ds <= todayStr) hist[ds] = logMap[ds]; });
+    h["打卡紀錄"] = hist;
   });
   return habits;
 }

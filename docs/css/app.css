@@ -326,3 +326,32 @@ input[type=checkbox].big-check { width: 24px; height: 24px; border-radius: 7px; 
 input[type=checkbox].big-check::after { width: 6px; height: 12px; }
 .check input[type=checkbox] { width: 20px; height: 20px; }
 a.btn { text-decoration: none; }
+
+/* ---------- 習慣熱力圖 ---------- */
+.hm-scroll { --cell: 11px; --gap: 3px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.hm-scroll.hm-lg { --cell: 13px; }
+.hm-grid { display: grid; grid-template-rows: repeat(7, var(--cell)); grid-auto-flow: column; grid-auto-columns: var(--cell); gap: var(--gap); width: max-content; }
+.hm-cell { display: block; width: var(--cell, 11px); height: var(--cell, 11px); border-radius: 3px; border: 0; padding: 0; background: color-mix(in srgb, var(--sub) 16%, var(--card)); }
+.hm-cell.l1 { background: color-mix(in srgb, var(--accent) 30%, var(--card)); }
+.hm-cell.l2 { background: color-mix(in srgb, var(--accent) 55%, var(--card)); }
+.hm-cell.l3 { background: color-mix(in srgb, var(--accent) 80%, var(--card)); }
+.hm-cell.l4 { background: var(--accent-strong); }
+.hm-cell.off { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.hm-cell.future { visibility: hidden; }
+.hm-cell.today { box-shadow: inset 0 0 0 1.5px var(--text); }
+.hm-cell.sel { outline: 2px solid var(--warn); outline-offset: 1px; }
+button.hm-cell { cursor: pointer; }
+.hm-wrap { display: flex; gap: 4px; width: max-content; }
+.hm-wd { position: sticky; left: 0; z-index: 1; background: var(--card); padding-right: 2px; display: grid; grid-template-rows: repeat(7, var(--cell)); gap: var(--gap); margin-top: 17px; font-size: 10px; line-height: var(--cell); color: var(--sub); }
+.hm-months { display: grid; grid-auto-flow: column; grid-auto-columns: var(--cell); gap: var(--gap); height: 14px; margin-bottom: 3px; }
+.hm-month { font-size: 10px; line-height: 14px; color: var(--sub); white-space: nowrap; overflow: visible; }
+.hm-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.hm-legend .hm-cell { --cell: 11px; }
+.hm-item { display: block; width: 100%; background: none; border: 0; padding: 10px 0; text-align: left; color: inherit; border-top: 1px solid var(--line); }
+.hm-item:first-child { border-top: 0; padding-top: 0; }
+.hm-item .hm-title { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; }
+.hm-item .hm-title .t { font-weight: 600; flex: 1; min-width: 0; }
+.hm-day { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.hm-day .row-flex { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.hm-stats .stat-grid { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 700px) { .hm-stats .stat-grid { grid-template-columns: repeat(4, 1fr); } }
