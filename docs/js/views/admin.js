@@ -44,6 +44,14 @@ export function renderAdmin(root) {
       h('div', { class: 'option-grid' }, g.fields.map((f) => optionCard(f))))));
 }
 
+// 程式靠這幾個值判斷（完成統計、逾期、重複任務…），改名或刪掉會讓功能壞掉，所以鎖住
+const RESERVED = {
+  '任務狀態': ['待辦', '已完成', '已取消', '已跳過'],
+  '狀態': ['已完成'],
+  '專案狀態': ['已完成'],
+};
+const isReserved = (fieldName, v) => (RESERVED[fieldName] || []).includes(String(v));
+
 function optionCard(fieldName) {
   const d = state.data;
   const opts = (d.options && d.options[fieldName]) || [];
@@ -63,8 +71,10 @@ function optionCard(fieldName) {
     opts.length ? h('ul', { class: 'list' }, opts.map((v) => h('li', null, h('div', { class: 'item compact' },
       h('div', { class: 'grow t' }, String(v)),
       h('span', { class: 'muted small nowrap' }, d.optionUsage ? `${usage[v] || 0} 筆` : '計算中…'),
-      h('button', { class: 'icon-btn', type: 'button', title: '重新命名', 'aria-label': `重新命名 ${v}`, onclick: () => renameOption(fieldName, v) }, icon('edit')),
-      h('button', { class: 'icon-btn', type: 'button', title: '刪除', 'aria-label': `刪除 ${v}`, onclick: () => deleteOption(fieldName, v, usage[v] || 0) }, icon('trash'))))))
+      isReserved(fieldName, v)
+        ? h('span', { class: 'badge mute', title: '系統會用這個值判斷完成、逾期、重複任務等，不能改名或刪除' }, icon('lock'), ' 系統保留')
+        : [h('button', { class: 'icon-btn', type: 'button', title: '重新命名', 'aria-label': `重新命名 ${v}`, onclick: () => renameOption(fieldName, v) }, icon('edit')),
+          h('button', { class: 'icon-btn', type: 'button', title: '刪除', 'aria-label': `刪除 ${v}`, onclick: () => deleteOption(fieldName, v, usage[v] || 0) }, icon('trash'))]))))
       : h('div', { class: 'muted small' }, '目前沒有選項'),
     h('div', { class: 'row-flex', style: { marginTop: '8px' } }, input, add));
 }

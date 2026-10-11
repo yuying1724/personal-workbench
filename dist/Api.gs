@@ -10,7 +10,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.5.0';
+var WB_VERSION = '2.6.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -52,7 +52,7 @@ var WbApi = (function () {
   var WRITES = {
     create_course: createCourse_, update_course: updateCourse_, delete_course: deleteCourse_,
     create_subscription: createSubscription_, update_subscription: updateSubscription_, delete_subscription: deleteSubscription_,
-    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_,
+    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_, set_task_status: setTaskStatus_,
     create_project: createProject_, update_project: updateProject_, delete_project: deleteProject_,
     create_habit: createHabit_, update_habit: updateHabit_, delete_habit: deleteHabit_,
     create_diary: createDiary_, update_diary: updateDiary_, delete_diary: deleteDiary_,
@@ -62,7 +62,27 @@ var WbApi = (function () {
   // 這幾個函式內部自己已經用 LockService 鎖住了，外層不能再鎖一次（同一把鎖重複 waitLock 會卡住）
   var SELF_LOCKING = { set_habit_log: setHabitLog_, create_diary: createDiary_ };
 
-  function sheetUrl() { try { return SpreadsheetApp.getActiveSpreadsheet().getUrl(); } catch (e) { return ''; } }
+  // 寫入成功後順便回傳該模組的最新資料（前端就不用再打一次 *_bundle，省一次約 1.4 秒的請求）
+  var RELOAD_AFTER = {
+    course: 'course_bundle', subscription: 'sub_bundle', task: 'project_task_bundle', task_status: 'project_task_bundle',
+    project: 'project_task_bundle', habit: 'habit_bundle', habit_log: 'habit_bundle', diary: 'diary_bundle',
+    option: 'admin_bundle', system: 'admin_bundle',
+  };
+  function reloadFor(action) {
+    if (action === 'rename_option') return null; // 改選項名稱會連動各模組，前端自己整包重抓
+    if (!Object.prototype.hasOwnProperty.call(WRITES, action) && !Object.prototype.hasOwnProperty.call(SELF_LOCKING, action)) return null;
+    return RELOAD_AFTER[action.replace(/^(create|update|delete|skip|set|add|rename)_/, '')] || null;
+  }
+
+  // 試算表網址不會變：第一次查到就存在指令碼屬性，之後每次登入載入都省一次服務呼叫
+  function sheetUrl() {
+    try {
+      var props = PropertiesService.getScriptProperties();
+      var u = props.getProperty('SHEET_URL');
+      if (!u) { u = SpreadsheetApp.getActiveSpreadsheet().getUrl(); props.setProperty('SHEET_URL', u); }
+      return u;
+    } catch (e) { return ''; }
+  }
 
   function withLock(fn) {
     var lock = LockService.getScriptLock();
@@ -83,8 +103,9 @@ var WbApi = (function () {
     },
   };
   H.changePin = {
-    fn: function (p) {
-      if (!WbAuth.checkPin(p.oldPin)) throw WbFail('AUTH_FAILED', '目前的 PIN 不正確');
+    fn: function (p, env) {
+      // 跟登入共用失敗次數與鎖定（不然可以用變更 PIN 這條路無限次猜 PIN）
+      WbAuth.guardedPinCheck(env.session.deviceId, p.oldPin, {}, env.now, '目前的 PIN 不正確');
       WbAuth.setPin(p.newPin);
       return { success: true };
     },
@@ -117,6 +138,10 @@ var WbApi = (function () {
       var params = body.params && typeof body.params === 'object' && !Array.isArray(body.params) ? body.params : {};
       var data = h.fn(params, env);
       var out = { ok: true, data: data === undefined ? null : data };
+      var rb = reloadFor(body.action);
+      if (rb && params.reload !== false) {
+        try { out.reload = { name: rb, data: H[rb].fn({}, env) }; } catch (e2) { /* 讀不到就讓前端自己重抓 */ }
+      }
       if (sess) { var ns = WbAuth.refreshIfNeeded(sess, now); if (ns) out.session = ns; }
       return out;
     } catch (e) {
@@ -245,6 +270,37 @@ var WbAuth = (function () {
     return payload + '.' + hmacHex(payload, hmacKey());
   }
 
+  /**
+   * 檢查 PIN，並計算連續失敗次數（超過就鎖定一段時間）。登入與變更 PIN 共用同一個計數。
+   * 「讀失敗次數 → 判斷 → 寫回」用 LockService 鎖住，同時送很多個請求也不能多猜幾次。
+   */
+  function guardedPinCheck(deviceId, pin, settings, now, wrongMsg) {
+    var cache = CacheService.getScriptCache();
+    var maxFails = numSetting(settings, '失敗鎖定次數', 5, 3, 20);
+    var lockSec = numSetting(settings, '鎖定分鐘', 15, 1, 360) * 60;
+    var lockKey = 'lock:' + deviceId, failKey = 'fail:' + deviceId;
+    var lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      var until = Number(cache.get(lockKey) || 0);
+      if (until > now) {
+        var wait = Math.ceil((until - now) / 60000);
+        throw WbFail('LOCKED', '嘗試次數過多，請 ' + wait + ' 分鐘後再試', { retryAfterSec: Math.ceil((until - now) / 1000) });
+      }
+      if (checkPin(pin)) { cache.remove(failKey); return true; }
+      var fails = Number(cache.get(failKey) || 0) + 1;
+      if (fails >= maxFails) {
+        cache.put(lockKey, String(now + lockSec * 1000), lockSec);
+        cache.remove(failKey);
+        throw WbFail('LOCKED', '輸入錯誤次數過多，已鎖定 ' + Math.round(lockSec / 60) + ' 分鐘', { retryAfterSec: lockSec });
+      }
+      cache.put(failKey, String(fails), lockSec);
+      throw WbFail('AUTH_FAILED', wrongMsg + '（還可以再試 ' + (maxFails - fails) + ' 次）', { remaining: maxFails - fails });
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
   function login(token, pin, settings) {
     var now = WbClock.now();
     var tok = normalizeToken(token);
@@ -256,27 +312,8 @@ var WbAuth = (function () {
       Utilities.sleep(700); // 拖慢亂猜
       throw WbFail('AUTH_FAILED', '授權碼或 PIN 錯誤');
     }
-    var cache = CacheService.getScriptCache();
-    var maxFails = numSetting(settings, '失敗鎖定次數', 5, 3, 20);
-    var lockSec = numSetting(settings, '鎖定分鐘', 15, 1, 360) * 60;
-    var lockKey = 'lock:' + match.id, failKey = 'fail:' + match.id;
-    var until = Number(cache.get(lockKey) || 0);
-    if (until > now) {
-      var wait = Math.ceil((until - now) / 60000);
-      throw WbFail('LOCKED', '嘗試次數過多，請 ' + wait + ' 分鐘後再試', { retryAfterSec: Math.ceil((until - now) / 1000) });
-    }
     if (!hasPin()) throw WbFail('NOT_INITIALIZED', 'PIN 尚未設定：請在試算表選單「個人工作台 → 設定或變更 PIN」');
-    if (!checkPin(pin)) {
-      var fails = Number(cache.get(failKey) || 0) + 1;
-      if (fails >= maxFails) {
-        cache.put(lockKey, String(now + lockSec * 1000), lockSec);
-        cache.remove(failKey);
-        throw WbFail('LOCKED', '輸入錯誤次數過多，已鎖定 ' + Math.round(lockSec / 60) + ' 分鐘', { retryAfterSec: lockSec });
-      }
-      cache.put(failKey, String(fails), lockSec);
-      throw WbFail('AUTH_FAILED', '授權碼或 PIN 錯誤（還可以再試 ' + (maxFails - fails) + ' 次）', { remaining: maxFails - fails });
-    }
-    cache.remove(failKey);
+    guardedPinCheck(match.id, pin, settings, now, '授權碼或 PIN 錯誤');
     var ttlMs = numSetting(settings, '閒置登出分鐘', 60, 5, 720) * 60000;
     return { session: issueSession(match, ttlMs, now), device: { id: match.id, name: match.name }, ttlMinutes: Math.round(ttlMs / 60000) };
   }
@@ -307,7 +344,7 @@ var WbAuth = (function () {
 
   return {
     addDevice: addDevice, listDevices: listDevices, revokeDevice: revokeDevice, setPin: setPin, hasPin: hasPin, checkPin: checkPin,
-    pinPolicyError: pinPolicyError, signOutAll: signOutAll, ensureKey: ensureKey, login: login, verifySession: verifySession, refreshIfNeeded: refreshIfNeeded,
+    pinPolicyError: pinPolicyError, guardedPinCheck: guardedPinCheck, signOutAll: signOutAll, ensureKey: ensureKey, login: login, verifySession: verifySession, refreshIfNeeded: refreshIfNeeded,
     randomHex: randomHex, generateToken: generateToken, constEq: constEq, MIN_PIN_LENGTH: MIN_PIN_LENGTH,
   };
 })();
@@ -316,296 +353,12 @@ var WbAuth = (function () {
 /*
  * ====================================================================
  * 各模組的資料邏輯（課程／訂閱／任務／專案／習慣／日記／分類管理／系統索引）
- * 取自 2026-09-21 線上版 Api.gs（備份在 backup/Api.gs），內容原封不動，
- * 只把原本的 doGet/doPost 改名成 legacyDoGet_/legacyDoPost_：
- * 新版入口在 server/main.js，會先驗證「裝置授權碼＋PIN」登入的工作階段，
+ * 源自 2026-09-21 的線上版 Api.gs（備份在 backup/Api.gs），之後陸續做了效能與正確性修改。
+ * 入口在 server/main.js（doGet/doPost）→ server/api.js（驗證「裝置授權碼＋PIN」的工作階段、分派），
  * 再呼叫這裡的 getXxx_/createXxx_/updateXxx_ 等函式。
- * 舊版 API_TOKEN 入口只在「指令碼屬性」還有 API_TOKEN 時才有效（過渡期用），
- * 新版網站上線後把 API_TOKEN 刪掉，舊入口就自動關閉。
+ * 2026-10-11：舊版 API_TOKEN 入口（legacyDoGet_/legacyDoPost_）已移除。
  * ====================================================================
  */
-/**
- * 個人工作台 - 後端 API
- * 部署為網頁應用程式（Deploy → New deployment → Web app）後，
- * 前端用 fetch(WEB_APP_URL + "?action=xxx") 就能拿到 JSON 資料。
- *
- * 這個檔案要用「新增檔案」加進同一個 Apps Script 專案，
- * 跟 Code.gs（7 個訂閱計算函數）放在一起，不要覆蓋掉它。
- *
- * 支援的 action：
- *   ?action=courses            全部課程（含分類陣列）
- *   ?action=course_stats       課程統計：整體/依分類/依平台/依狀態
- *   ?action=subscriptions      全部訂閱（含標籤陣列、7 個計算欄位）
- *   ?action=subscription_stats 訂閱統計：每月總支出、即將付款清單、費用提醒清單、依標籤分攤
- *   ?action=tasks              全部任務（含分類陣列、子任務清單、所屬專案）
- *   ?action=task_stats         任務統計：總數/已完成/逾期/3天內到期/星標未完成
- *   ?action=projects           全部專案（含底下任務數/已完成數/逾期數/完成度）
- *   ?action=project_stats      專案統計：總數/依狀態分組
- *   ?action=habits             全部習慣（含今日是否已打卡/連續天數/最長連續/近7天30天完成率）
- *   ?action=habit_stats        習慣統計：總數/今天應打卡數/今天已完成數/平均近7天完成率
- *   ?action=diaries            全部日記（含發現清單，依日期新到舊排序）
- *   ?action=diary_stats        日記統計：總篇數/今天寫了沒/連續寫日記天數
- *   ?action=system_index       系統索引分頁內容（給前端做選單用）
- *   ?action=options            「設定」分頁的下拉選項清單（新增/編輯表單用）
- *   ?action=option_usage       每個選項目前被幾筆課程/訂閱/任務資料用到（分類管理頁用）
- *   ?action=all                上面 courses~system_index 全部包在一個回應裡一次回傳，
- *                              前端首頁載入用這個，不用再同時發一堆平行請求
- *   ?action=course_bundle / sub_bundle / task_bundle / project_bundle / habit_bundle / diary_bundle
- *                              只回傳「該模組的資料＋統計」兩樣，給前端在單一模組
- *                              新增/編輯/刪除後用，不用像 all 一樣把 15 種資料整包重抓
- *   ?action=project_task_bundle 專案＋任務（含各自統計）一起回傳；因為刪除專案會
- *                              連動清空任務的所屬專案欄位，刪除專案後兩邊都要更新
- *   （不帶 action，預設回傳 system_index）
- *
- * 新增／編輯／刪除是用 POST 呼叫（doPost），因為要改動試算表：
- *   body（text/plain，內容是 JSON 字串）：
- *   { "token": "...", "action": "create_course" | "update_course" | "delete_course"
- *              | "create_subscription" | "update_subscription" | "delete_subscription"
- *              | "create_task" | "update_task" | "delete_task" | "skip_task"
- *              | "create_project" | "update_project" | "delete_project"
- *              | "create_habit" | "update_habit" | "delete_habit" | "set_habit_log"
- *              | "create_diary" | "update_diary" | "delete_diary"
- *              | "add_option" | "rename_option" | "delete_option" | "update_system",
- *     "payload": { ...欄位資料... } }
- *   skip_task payload: { 任務ID } —— 這一筆本身標記成「已跳過」（不算完成，
- *   也不會一直卡在逾期清單裡），但如果有看得懂的重複規則，還是會照規則產生
- *   下一輪的待辦任務；只有自訂文字標籤的重複規則（不會自動延續）沒辦法跳過，
- *   呼叫這個 action 會丟出錯誤。
- *   create_diary / update_diary payload 欄位:
- *     日期（yyyy-MM-dd，create 不帶就是今天）, 心情, 感恩, 放手, 今日重要事項, 小故事,
- *     發現清單（[{類型,內容,備註,狀態}, ...] 陣列，內容空白的項目會被忽略；狀態＝""(待整理)/"已整理"/"不需整理"）。
- *     create_diary 是 upsert：如果那天已經寫過日記，會直接改成更新那一篇，不會產生重複日期。
- *   set_habit_log payload: { 習慣ID, 日期（yyyy-MM-dd，不帶就是今天）, 數值 }——
- *   數值不帶（null/undefined/空字串）代表取消打卡，帶數字就新增或更新那一天的紀錄。
- *   create_habit / update_habit payload 欄位:
- *     習慣名稱, 分類, 類型（"打勾"｜"計數"）, 目標值（計數型的「達標」門檻）, 單位,
- *     啟用分級（true/false，只有計數型有意義）, 基礎值, 超標值（啟用分級才會用到，
- *     基礎值必須小於目標值，超標值必須大於目標值）,
- *     頻率類型（"daily"｜"weekday"｜"weeklyCount"）,
- *     星期幾（頻率=weekday 時才用，0~6 的陣列，0=週日），
- *     每週次數（頻率=weeklyCount 時才用，不指定是星期幾，只看一週內完成幾天）,
- *     狀態（"啟用"｜"封存"）,
- *     時段（"早上"｜"中午"｜"晚上"｜"不限"，給「今日待辦」畫面分組排序用，不填預設"不限"）
- *   add_option/delete_option payload: { field, value }
- *   rename_option payload: { field, oldValue, newValue } — 改名字時會自動
- *   連動更新所有已經用到這個選項的課程/訂閱/任務資料，資料不會因為改名而對不起來。
- *   update_system payload: { 主表分頁名稱, 系統名稱, icon } — 改選單上顯示的
- *   名稱跟圖示，不會動到底下的資料結構。
- *   前端用 Content-Type: text/plain 送出（不是 application/json），是刻意的：
- *   Apps Script 的網頁應用程式不支援瀏覽器的 CORS 預檢請求（preflight），
- *   如果用 application/json 當 Content-Type，瀏覽器送出 POST 前會先送一個
- *   OPTIONS 預檢請求，Apps Script 沒辦法正確回應，會直接失敗。改用
- *   text/plain（瀏覽器認定的「單純請求」，不用預檢）就能繞開這個限制，
- *   後端一樣把收到的內容當 JSON 字串解析，資料內容完全不受影響。
- *
- * 存取權限：
- *   部署設定「誰可以存取」要選「任何人」，不能選「只有我自己」——
- *   後者會讓 Google 在回應前先跳轉一次登入驗證頁，那個跳轉頁不會帶
- *   CORS 標頭，瀏覽器的 fetch() 會直接擋下來（在網址列直接貼網址開
- *   沒事，是因為那是「直接導覽」不受 CORS 限制，跟 fetch 是兩回事）。
- *   改用下面這組自訂 token 驗證取代 Google 原生的存取限制，效果一樣
- *   是「只有知道密語的人拿得到資料」。
- *
- * 第一次設定 token（只需要做一次）：
- *   1. 左側選單「專案設定」(齒輪圖示) → 往下捲到「指令碼屬性」
- *   2. 新增屬性：屬性 = API_TOKEN，值 = 你自己想的一串亂碼密語（越長越好）
- *   3. 儲存
- *   前端網頁要記得帶同一組 token 才抓得到資料。
- */
-
-var API_TOKEN_PROPERTY = "API_TOKEN";
-
-function checkToken_(e) {
-  // 還沒設定指令碼屬性 API_TOKEN 的話，required 會是 null，一律視為驗證失敗，
-  // 避免忘記設定 token 就變成任何人都能拿到資料
-  var required = PropertiesService.getScriptProperties().getProperty(API_TOKEN_PROPERTY);
-  var provided = (e && e.parameter && e.parameter.token) || "";
-  return !!required && provided === required;
-}
-
-function legacyDoGet_(e) {
-  if (!checkToken_(e)) {
-    return jsonOut_({ error: "unauthorized：token 不對或沒帶 token" });
-  }
-  var action = (e && e.parameter && e.parameter.action) || "system_index";
-  var result;
-  try {
-    switch (action) {
-      case "courses":
-        result = getCourses_();
-        break;
-      case "course_stats":
-        result = getCourseStats_();
-        break;
-      case "subscriptions":
-        result = getSubscriptions_();
-        break;
-      case "subscription_stats":
-        result = getSubscriptionStats_();
-        break;
-      case "tasks":
-        result = getTasks_();
-        break;
-      case "task_stats":
-        result = getTaskStats_();
-        break;
-      case "projects":
-        result = getProjects_();
-        break;
-      case "project_stats":
-        result = getProjectStats_();
-        break;
-      case "habits":
-        result = getHabits_();
-        break;
-      case "habit_stats":
-        result = getHabitStats_();
-        break;
-      case "diaries":
-        result = getDiaries_();
-        break;
-      case "diary_stats":
-        result = getDiaryStats_();
-        break;
-      case "system_index":
-        result = sheetToObjects_("系統索引");
-        break;
-      case "options":
-        result = getOptions_();
-        break;
-      case "option_usage":
-        result = getOptionUsage_();
-        break;
-      case "all":
-        result = getAllData_();
-        break;
-      case "course_bundle":
-        result = getCourseBundle_();
-        break;
-      case "sub_bundle":
-        result = getSubBundle_();
-        break;
-      case "task_bundle":
-        result = getTaskBundle_();
-        break;
-      case "project_bundle":
-        result = getProjectBundle_();
-        break;
-      case "project_task_bundle":
-        result = getProjectTaskBundle_();
-        break;
-      case "habit_bundle":
-        result = getHabitBundle_();
-        break;
-      case "diary_bundle":
-        result = getDiaryBundle_();
-        break;
-      default:
-        result = { error: "unknown action: " + action };
-    }
-  } catch (err) {
-    result = { error: err.message };
-  }
-  return jsonOut_(result);
-}
-
-// 新增／編輯／刪除：改動試算表內容，所以用 POST
-function legacyDoPost_(e) {
-  var body;
-  try {
-    body = JSON.parse(e && e.postData && e.postData.contents);
-  } catch (err) {
-    return jsonOut_({ error: "無法解析請求內容" });
-  }
-  if (!checkToken_({ parameter: { token: body && body.token } })) {
-    return jsonOut_({ error: "unauthorized：token 不對或沒帶 token" });
-  }
-  var action = body.action;
-  var payload = body.payload || {};
-  var result;
-  try {
-    switch (action) {
-      case "create_course":
-        result = createCourse_(payload);
-        break;
-      case "update_course":
-        result = updateCourse_(payload);
-        break;
-      case "delete_course":
-        result = deleteCourse_(payload);
-        break;
-      case "create_subscription":
-        result = createSubscription_(payload);
-        break;
-      case "update_subscription":
-        result = updateSubscription_(payload);
-        break;
-      case "delete_subscription":
-        result = deleteSubscription_(payload);
-        break;
-      case "create_task":
-        result = createTask_(payload);
-        break;
-      case "update_task":
-        result = updateTask_(payload);
-        break;
-      case "delete_task":
-        result = deleteTask_(payload);
-        break;
-      case "skip_task":
-        result = skipTask_(payload);
-        break;
-      case "create_project":
-        result = createProject_(payload);
-        break;
-      case "update_project":
-        result = updateProject_(payload);
-        break;
-      case "delete_project":
-        result = deleteProject_(payload);
-        break;
-      case "create_habit":
-        result = createHabit_(payload);
-        break;
-      case "update_habit":
-        result = updateHabit_(payload);
-        break;
-      case "delete_habit":
-        result = deleteHabit_(payload);
-        break;
-      case "set_habit_log":
-        result = setHabitLog_(payload);
-        break;
-      case "create_diary":
-        result = createDiary_(payload);
-        break;
-      case "update_diary":
-        result = updateDiary_(payload);
-        break;
-      case "delete_diary":
-        result = deleteDiary_(payload);
-        break;
-      case "add_option":
-        result = addOption_(payload);
-        break;
-      case "rename_option":
-        result = renameOption_(payload);
-        break;
-      case "delete_option":
-        result = deleteOption_(payload);
-        break;
-      case "update_system":
-        result = updateSystemIndex_(payload);
-        break;
-      default:
-        result = { error: "unknown action: " + action };
-    }
-  } catch (err) {
-    result = { error: err.message };
-  }
-  return jsonOut_(result);
-}
-
 function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
@@ -918,8 +671,41 @@ function getSubscriptionsUncached_() {
   var tagMap = groupJunction_("訂閱標籤對照", "訂閱ID", "分類標籤");
   subs.forEach(function (s) {
     s["分類標籤"] = tagMap[s["訂閱ID"]] || [];
+    wbComputeSubscription_(s);
   });
   return subs;
+}
+
+// 2026-10-11：K～Q 欄（每月金額、上次／下次付款日、即將付款、累積訂閱日、總計花費、負擔提示）
+// 原本直接讀試算表自訂函數算出來的值，但 Google 只有在「參數改變」時才會重算自訂函數，
+// 裡面用到的 new Date()（今天）不會每天更新 → 下次付款日會停在最後一次編輯那天。
+// 改成每次讀取時用同一套函數（個人工作台-計算函數.gs）以「今天」重新計算；
+// 試算表裡的公式保留給直接開試算表看的時候用。任何一列算失敗就沿用試算表原本的值。
+function wbParseYmd_(v) {
+  if (!v) return null;
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+function wbComputeSubscription_(s) {
+  if (typeof MONTHLY_AMOUNT !== "function") return;
+  try {
+    var cycle = s["訂閱週期"];
+    var start = wbParseYmd_(s["訂閱開始日"]);
+    var cancel = wbParseYmd_(s["取消訂閱日"]);
+    var canceled = s["取消訂閱"] === true;
+    var monthly = MONTHLY_AMOUNT(s["訂閱費"], cycle);
+    var last = start ? LAST_PAYMENT_DATE(start, cycle) : "";
+    var next = start ? NEXT_PAYMENT_DATE(start, cycle, canceled) : "";
+    s["每月金額"] = monthly;
+    s["上次付款日"] = last ? formatYmd_(new Date(last)) : "";
+    s["下次付款日"] = next ? formatYmd_(new Date(next)) : "";
+    s["即將付款"] = next ? UPCOMING_PAYMENT(next) : false;
+    s["累積訂閱日"] = start ? SUBSCRIBED_DAYS(start, cancel) : "";
+    s["總計花費"] = start ? TOTAL_SPENT(s["訂閱費"], cycle, start, cancel) : 0;
+    s["訂閱費負擔提示"] = COST_WARNING(monthly);
+  } catch (err) {
+    // 保留試算表原本的值
+  }
 }
 
 function getSubscriptionStats_() {
@@ -1127,19 +913,19 @@ function createTask_(p) {
   var sheet = ss.getSheetByName("任務");
   var id = nextId_(sheet, "T");
   var now = new Date();
-  sheet.appendRow([
+  sheet.appendRow(wbSafeRow_([
     id,
-    p["任務名稱"] || "",
+    wbText_(p["任務名稱"]),
     p["優先順序"] || "",
     p["狀態"] || "",
     p["到期日"] || "",
     p["星標"] === true,
     p["重複規則"] || "",
-    p["備註"] || "",
+    wbText_(p["備註"]),
     now,                   // I 建立時間
     now,                   // J 更新時間
     p["所屬專案"] || ""     // K 所屬專案（存專案ID，可留空）
-  ]);
+  ]));
   appendJunctionRows_(ss.getSheetByName("任務分類對照"), id, p["分類"]);
   appendSubtaskRows_(ss.getSheetByName("子任務"), id, p["子任務"]);
   return { success: true, id: id };
@@ -1159,18 +945,18 @@ function updateTask_(p) {
   var newStatus = p["狀態"] || "";
   var now = new Date();
 
-  sheet.getRange(row, 2, 1, 10).setValues([[
-    p["任務名稱"] || "",
+  sheet.getRange(row, 2, 1, 10).setValues([wbSafeRow_([
+    wbText_(p["任務名稱"]),
     p["優先順序"] || "",
     newStatus,
     p["到期日"] || "",
     p["星標"] === true,
     p["重複規則"] || "",
-    p["備註"] || "",
+    wbText_(p["備註"]),
     createdAt,            // I 建立時間：保留
     now,                  // J 更新時間：這次才是真的更新時間
     p["所屬專案"] || ""     // K 所屬專案
-  ]]);
+  ])]);
   replaceJunctionRows_(ss.getSheetByName("任務分類對照"), id, p["分類"]);
   replaceSubtaskRows_(ss.getSheetByName("子任務"), id, p["子任務"]);
 
@@ -1197,6 +983,14 @@ function createNextOccurrence_(base, repeatRuleRaw, dueDate) {
   var rule = parseRepeatRule_(repeatRuleRaw);
   var endCheck = applyRepeatEnd_(rule, repeatRuleRaw, nextDue);
   if (endCheck.stop) return false;
+  // 防止重複產生：打勾 → 取消 → 再打勾時，下一輪那筆已經存在了，就不要再產生一次
+  var name = base["任務名稱"] || "";
+  var pid = base["所屬專案"] || "";
+  var dup = sheetToObjects_("任務").some(function (t) {
+    return (t["任務名稱"] || "") === name && t["到期日"] === nextDue && (t["所屬專案"] || "") === pid &&
+      t["狀態"] !== "已取消";
+  });
+  if (dup) return false;
   var nextSubtasks = (base["子任務"] || []).map(function (st) {
     return { "內容": st["內容"], "完成": false };
   });
@@ -1248,6 +1042,40 @@ function skipTask_(p) {
 
   sheet.getRange(row, 4).setValue("已跳過");    // D欄：狀態
   sheet.getRange(row, 10).setValue(new Date()); // J欄：更新時間
+  return { success: true, id: id, nextTaskCreated: nextTaskCreated };
+}
+
+// 只改狀態（任務清單打勾／取消打勾用）：不帶整筆任務過來，避免用某台裝置的舊資料
+// 蓋掉另一台裝置剛改過的名稱、備註、子任務、分類。
+// 從「非已完成」改成「已完成」且有重複規則時，跟 updateTask_ 一樣自動產生下一輪。
+function setTaskStatus_(p) {
+  var id = p["任務ID"];
+  if (!id) throw new Error("缺少任務ID");
+  var newStatus = p["狀態"] || "";
+  if (!newStatus) throw new Error("缺少狀態");
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("任務");
+  var row = findRowByIdText_(sheet, id);
+  if (row === -1) throw new Error("找不到任務：" + id);
+  var existing = sheet.getRange(row, 1, 1, 11).getValues()[0]; // A~K
+  var previousStatus = existing[3];
+  sheet.getRange(row, 4).setValue(newStatus);   // D欄：狀態
+  sheet.getRange(row, 10).setValue(new Date()); // J欄：更新時間
+  var nextTaskCreated = false;
+  var repeatRuleRaw = existing[6];
+  if (newStatus === "已完成" && previousStatus !== "已完成" && repeatRuleRaw) {
+    var catMap = groupJunction_(ss.getSheetByName("任務分類對照"), "任務ID", "分類");
+    var subMap = groupSubtasks_(ss.getSheetByName("子任務"));
+    nextTaskCreated = createNextOccurrence_({
+      "任務名稱": existing[1],
+      "優先順序": existing[2],
+      "星標": existing[5],
+      "備註": existing[7],
+      "分類": catMap[id] || [],
+      "所屬專案": existing[10],
+      "子任務": subMap[id] || []
+    }, repeatRuleRaw, normalizeDate_(existing[4]));
+  }
   return { success: true, id: id, nextTaskCreated: nextTaskCreated };
 }
 
@@ -1311,17 +1139,17 @@ function createProject_(p) {
   var sheet = ss.getSheetByName("專案");
   var id = nextId_(sheet, "PJ");
   var now = new Date();
-  sheet.appendRow([
+  sheet.appendRow(wbSafeRow_([
     id,
-    p["專案名稱"] || "",
+    wbText_(p["專案名稱"]),
     p["開始日"] || "",
     p["結束日"] || "",
     p["狀態"] || "",
     p["優先級"] || "",
-    p["備註"] || "",
+    wbText_(p["備註"]),
     now,
     now
-  ]);
+  ]));
   return { success: true, id: id };
 }
 
@@ -1334,16 +1162,16 @@ function updateProject_(p) {
   if (row === -1) throw new Error("找不到專案：" + id);
   var existing = sheet.getRange(row, 1, 1, 9).getValues()[0];
   var now = new Date();
-  sheet.getRange(row, 2, 1, 8).setValues([[
-    p["專案名稱"] || "",
+  sheet.getRange(row, 2, 1, 8).setValues([wbSafeRow_([
+    wbText_(p["專案名稱"]),
     p["開始日"] || "",
     p["結束日"] || "",
     p["狀態"] || "",
     p["優先級"] || "",
-    p["備註"] || "",
+    wbText_(p["備註"]),
     existing[7], // 建立時間：保留
     now          // 更新時間
-  ]]);
+  ])]);
   return { success: true, id: id };
 }
 
@@ -1381,7 +1209,7 @@ function parseDateStr_(s) {
   return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
 }
 function formatDateStr_(d) {
-  return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  return formatYmd_(d); // 走本地 getter 的快速路徑（連續天數計算每天都會呼叫，避免每次跨服務呼叫）
 }
 
 // 「星期幾」欄位存的是 JSON 字串（例如 "[1,3,5]"），這裡轉回陣列給計算邏輯用
@@ -1654,12 +1482,12 @@ function createHabit_(p) {
   var id = nextId_(sheet, "H");
   var now = new Date();
   var tiered = p["啟用分級"] === true;
-  sheet.appendRow([
+  sheet.appendRow(wbSafeRow_([
     id,
-    p["習慣名稱"] || "",
+    wbText_(p["習慣名稱"]),
     p["類型"] || "打勾",
     p["目標值"] || "",
-    p["單位"] || "",
+    wbText_(p["單位"]),
     p["分類"] || "",
     p["頻率類型"] || "daily",
     p["頻率類型"] === "weekday" ? JSON.stringify(p["星期幾"] || []) : "",
@@ -1671,7 +1499,7 @@ function createHabit_(p) {
     now,
     now,
     p["時段"] || "不限" // P欄：時段（早上／中午／晚上／不限），給「今日待辦」分組排序用
-  ]);
+  ]));
   return { success: true, id: id };
 }
 
@@ -1685,11 +1513,11 @@ function updateHabit_(p) {
   var existing = sheet.getRange(row, 1, 1, 16).getValues()[0];
   var now = new Date();
   var tiered = p["啟用分級"] === true;
-  sheet.getRange(row, 2, 1, 15).setValues([[
-    p["習慣名稱"] || "",
+  sheet.getRange(row, 2, 1, 15).setValues([wbSafeRow_([
+    wbText_(p["習慣名稱"]),
     p["類型"] || "打勾",
     p["目標值"] || "",
-    p["單位"] || "",
+    wbText_(p["單位"]),
     p["分類"] || "",
     p["頻率類型"] || "daily",
     p["頻率類型"] === "weekday" ? JSON.stringify(p["星期幾"] || []) : "",
@@ -1701,7 +1529,7 @@ function updateHabit_(p) {
     existing[13], // N欄：建立時間，保留原值
     now,          // O欄：更新時間
     p["時段"] || "不限" // P欄：時段
-  ]]);
+  ])]);
   return { success: true, id: id };
 }
 
@@ -1755,10 +1583,10 @@ function setHabitLog_(p) {
 
     var value = Number(p["數值"]) || 0;
     if (foundRow !== -1) {
-      sheet.getRange(foundRow, 3, 1, 2).setValues([[dateStr, value]]); // C日期 D數值（保留原本的紀錄ID跟建立時間）
+      sheet.getRange(foundRow, 3, 1, 2).setValues([wbSafeRow_([dateStr, value])]); // C日期 D數值（保留原本的紀錄ID跟建立時間）
     } else {
       var id = nextId_(sheet, "HL");
-      sheet.appendRow([id, habitId, dateStr, value, new Date()]);
+      sheet.appendRow(wbSafeRow_([id, habitId, dateStr, value, new Date()]));
     }
     return { success: true };
   } finally {
@@ -1859,19 +1687,19 @@ function createDiary_(p) {
     if (row !== -1) {
       var id = sheet.getRange(row, 1).getValue();
       var createdAt = sheet.getRange(row, 8).getValue();
-      sheet.getRange(row, 2, 1, 8).setValues([[
-        dateStr, p["心情"] || "", p["感恩"] || "", p["放手"] || "",
-        p["今日重要事項"] || "", p["小故事"] || "", createdAt, now
-      ]]);
+      sheet.getRange(row, 2, 1, 8).setValues([wbSafeRow_([
+        dateStr, p["心情"] || "", wbText_(p["感恩"]), wbText_(p["放手"]),
+        wbText_(p["今日重要事項"]), wbText_(p["小故事"]), createdAt, now
+      ])]);
       replaceDiaryFindRows_(ss.getSheetByName("日記發現清單"), id, p["發現清單"]);
       return { success: true, id: id };
     }
 
     var newId = nextId_(sheet, "J");
-    sheet.appendRow([
-      newId, dateStr, p["心情"] || "", p["感恩"] || "", p["放手"] || "",
-      p["今日重要事項"] || "", p["小故事"] || "", now, now
-    ]);
+    sheet.appendRow(wbSafeRow_([
+      newId, dateStr, p["心情"] || "", wbText_(p["感恩"]), wbText_(p["放手"]),
+      wbText_(p["今日重要事項"]), wbText_(p["小故事"]), now, now
+    ]));
     replaceDiaryFindRows_(ss.getSheetByName("日記發現清單"), newId, p["發現清單"]);
     return { success: true, id: newId };
   } finally {
@@ -1889,10 +1717,10 @@ function updateDiary_(p) {
   var existing = sheet.getRange(row, 1, 1, 9).getValues()[0];
   var dateStr = p["日期"] || existing[1];
   var now = new Date();
-  sheet.getRange(row, 2, 1, 8).setValues([[
-    dateStr, p["心情"] || "", p["感恩"] || "", p["放手"] || "",
-    p["今日重要事項"] || "", p["小故事"] || "", existing[7], now
-  ]]);
+  sheet.getRange(row, 2, 1, 8).setValues([wbSafeRow_([
+    dateStr, p["心情"] || "", wbText_(p["感恩"]), wbText_(p["放手"]),
+    wbText_(p["今日重要事項"]), wbText_(p["小故事"]), existing[7], now
+  ])]);
   replaceDiaryFindRows_(ss.getSheetByName("日記發現清單"), id, p["發現清單"]);
   return { success: true, id: id };
 }
@@ -1966,22 +1794,22 @@ function createCourse_(p) {
   var sheet = ss.getSheetByName("課程");
   var id = nextId_(sheet, "C");
   var now = new Date();
-  sheet.appendRow([
+  sheet.appendRow(wbSafeRow_([
     id,
-    p["課程名稱"] || "",
-    p["平台"] || "",
-    p["講師"] || "",
+    wbText_(p["課程名稱"]),
+    wbText_(p["平台"]),
+    wbText_(p["講師"]),
     progressToFraction_(p["進度"]),
     p["狀態"] || "",
     p["優先順序"] || "",
-    p["課程連結"] || "",
+    wbText_(p["課程連結"]),
     p["開始日期"] || "",
     "", // 目標完成日：前端不管理，留空（要設定的話仍可直接在試算表填）
     "", // 費用：前端不管理，留空
-    p["心得筆記"] || "",
+    wbText_(p["心得筆記"]),
     now,
     now
-  ]);
+  ]));
   var row = sheet.getLastRow();
   sheet.getRange(row, 5).setNumberFormat("0%");
   appendJunctionRows_(ss.getSheetByName("課程分類對照"), id, p["分類"]);
@@ -1998,21 +1826,21 @@ function updateCourse_(p) {
   var now = new Date();
   // 目標完成日／費用／建立時間 前端不編輯，讀出原值原封不動寫回去
   var existing = sheet.getRange(row, 1, 1, 14).getValues()[0];
-  sheet.getRange(row, 2, 1, 13).setValues([[
-    p["課程名稱"] || "",
-    p["平台"] || "",
-    p["講師"] || "",
+  sheet.getRange(row, 2, 1, 13).setValues([wbSafeRow_([
+    wbText_(p["課程名稱"]),
+    wbText_(p["平台"]),
+    wbText_(p["講師"]),
     progressToFraction_(p["進度"]),
     p["狀態"] || "",
     p["優先順序"] || "",
-    p["課程連結"] || "",
+    wbText_(p["課程連結"]),
     p["開始日期"] || "",
     existing[9],  // 目標完成日
     existing[10], // 費用
-    p["心得筆記"] || "",
+    wbText_(p["心得筆記"]),
     existing[12], // 建立時間
     now           // 更新時間
-  ]]);
+  ])]);
   sheet.getRange(row, 5).setNumberFormat("0%");
   replaceJunctionRows_(ss.getSheetByName("課程分類對照"), id, p["分類"]);
   return { success: true, id: id };
@@ -2041,19 +1869,19 @@ function createSubscription_(p) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("訂閱服務");
   var id = nextId_(sheet, "S");
-  sheet.appendRow([
+  sheet.appendRow(wbSafeRow_([
     id,
-    p["產品"] || "",
+    wbText_(p["產品"]),
     p["訂閱費"] === "" || p["訂閱費"] == null ? "" : Number(p["訂閱費"]),
     p["訂閱週期"] || "",
     p["訂閱開始日"] || "",
     p["取消訂閱"] === true,
     p["取消訂閱日"] || "",
     p["重要性"] || "",
-    p["備註"] || "",
-    p["付款URL"] || "",
+    wbText_(p["備註"]),
+    wbText_(p["付款URL"]),
     "", "", "", "", "", "", "" // K~Q 先留空，緊接著補上公式（flag 欄已刪除，欄位往前移一格）
-  ]);
+  ]));
   var row = sheet.getLastRow();
   setSubscriptionFormulas_(sheet, row);
   appendJunctionRows_(ss.getSheetByName("訂閱標籤對照"), id, p["分類標籤"]);
@@ -2067,17 +1895,17 @@ function updateSubscription_(p) {
   if (!id) throw new Error("缺少訂閱ID");
   var row = findRowByIdText_(sheet, id);
   if (row === -1) throw new Error("找不到訂閱：" + id);
-  sheet.getRange(row, 2, 1, 9).setValues([[
-    p["產品"] || "",
+  sheet.getRange(row, 2, 1, 9).setValues([wbSafeRow_([
+    wbText_(p["產品"]),
     p["訂閱費"] === "" || p["訂閱費"] == null ? "" : Number(p["訂閱費"]),
     p["訂閱週期"] || "",
     p["訂閱開始日"] || "",
     p["取消訂閱"] === true,
     p["取消訂閱日"] || "",
     p["重要性"] || "",
-    p["備註"] || "",
-    p["付款URL"] || ""
-  ]]);
+    wbText_(p["備註"]),
+    wbText_(p["付款URL"])
+  ])]);
   // K~Q（每月金額等 7 個計算欄）是公式，欄位值一改公式會自動重新計算，不用動它
   replaceJunctionRows_(ss.getSheetByName("訂閱標籤對照"), id, p["分類標籤"]);
   return { success: true, id: id };
@@ -2116,8 +1944,27 @@ function replaceJunctionRows_(sheet, id, values) { wbReplaceRowsById_(sheet, id,
 // 2026-09-24 效能調整：原本一列一列 appendRow／deleteRow，每列都是一次跨網路呼叫，一個任務存一次要 5～10 次。
 // 改成：新增＝一次 setValues 寫到表尾；取代＝讀整表一次 → 濾掉該 ID 的列、接上新列 → 清掉舊區域、一次寫回，固定 3 次呼叫。
 // 只用在沒有公式、沒有日期欄的小表（主表仍用 appendRow／deleteRow，避免把公式格覆蓋掉）。
+// ---- 寫進試算表前的文字保護 ----
+// 試算表會「猜」字串的型別：= + @ 開頭變公式、1/2 變日期、007 變 7。
+// 前面加一個單引號 ' 就會原樣當成文字存（試算表不會顯示這個單引號，讀回來也沒有）。
+// wbText_：自由文字欄位（名稱、備註、內容…）——公式開頭、或整串看起來像數字／日期，都當文字存。
+// wbSafeRow_／wbSafeRows_：整列寫入時，任何欄位只要是 = + @ 開頭的字串就當文字（數字、日期欄不受影響）。
+function wbText_(v) {
+  if (v === null || v === undefined) return "";
+  if (typeof v !== "string") return v;
+  var t = v.trim();
+  if (/^[=+\-@]/.test(v) || (t !== "" && /^[\d\s.,\/:%$+\-]+$/.test(t))) return "'" + v;
+  return v;
+}
+function wbFormulaSafe_(v) { return typeof v === "string" && /^[=+@]/.test(v) ? "'" + v : v; }
+function wbSafeRow_(row) { return row.map(wbFormulaSafe_); }
+function wbSafeRows_(rows) { return rows.map(wbSafeRow_); }
+// 附屬表（對照表／子任務／發現清單）都是文字欄（加上布林），字串一律用 wbText_
+function wbTextRows_(rows) { return rows.map(function (r) { return r.map(function (v) { return typeof v === "string" ? wbText_(v) : v; }); }); }
+
 function wbAppendRows_(sheet, rows) {
   if (!rows || !rows.length) return;
+  rows = wbTextRows_(rows);
   var start = sheet.getLastRow() + 1;
   var need = start + rows.length - 1 - sheet.getMaxRows();
   if (need > 0) sheet.insertRowsAfter(sheet.getMaxRows(), need);
@@ -2127,7 +1974,7 @@ function wbReplaceRowsById_(sheet, id, newRows) {
   var data = sheet.getDataRange().getValues();
   var width = Math.max(data[0] ? data[0].length : 0, newRows.length ? newRows[0].length : 0);
   var kept = data.slice(1).filter(function (r) { return r[0] !== id && r[0] !== "" && r[0] !== null && r[0] !== undefined; });
-  var rows = kept.concat(newRows).map(function (r) { r = r.slice(0, width); while (r.length < width) r.push(""); return r; });
+  var rows = wbTextRows_(kept.concat(newRows).map(function (r) { r = r.slice(0, width); while (r.length < width) r.push(""); return r; }));
   var oldCount = data.length - 1;
   if (oldCount > 0) sheet.getRange(2, 1, oldCount, width).clearContent();
   if (rows.length) {
@@ -2222,13 +2069,14 @@ function addOption_(p) {
     if (colValues[i] !== "" && colValues[i] !== null && colValues[i] !== undefined) targetRow = i + 3;
   }
   if (targetRow > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 1);
-  sheet.getRange(targetRow, col).setValue(value);
+  sheet.getRange(targetRow, col).setValue(wbText_(value));
   return { success: true };
 }
 
 function deleteOption_(p) {
   var field = p["field"];
   var value = (p["value"] || "").toString().trim();
+  wbAssertNotReserved_(p["field"], value);
   if (!field || !value) throw new Error("缺少欄位名稱或選項內容");
 
   var sheet = getSheet_("設定");
@@ -2251,9 +2099,16 @@ function deleteOption_(p) {
   return { success: true };
 }
 
+// 程式靠這幾個值判斷（完成統計、逾期、重複任務…），不能改名或刪除
+var WB_RESERVED_OPTIONS_ = { "任務狀態": ["待辦", "已完成", "已取消", "已跳過"], "狀態": ["已完成"], "專案狀態": ["已完成"] };
+function wbAssertNotReserved_(field, value) {
+  if ((WB_RESERVED_OPTIONS_[field] || []).indexOf(String(value)) !== -1) throw new Error("「" + value + "」是系統保留的選項，不能改名或刪除");
+}
+
 function renameOption_(p) {
   var field = p["field"];
   var oldValue = (p["oldValue"] || "").toString().trim();
+  wbAssertNotReserved_(field, oldValue);
   var newValue = (p["newValue"] || "").toString().trim();
   if (!field || !oldValue || !newValue) throw new Error("缺少必要參數");
   if (oldValue === newValue) return { success: true };
@@ -2270,7 +2125,7 @@ function renameOption_(p) {
   var found = false;
   for (var i = 0; i < values.length; i++) {
     if (values[i][0] === oldValue) {
-      sheet.getRange(i + 2, col).setValue(newValue);
+      sheet.getRange(i + 2, col).setValue(wbText_(newValue));
       found = true;
       break;
     }
@@ -2322,8 +2177,6 @@ function round2_(n) {
 var WB_MAX_BODY_BYTES = 300000;
 
 function doGet(e) {
-  // 過渡期：舊版網站（帶 ?token=）仍然走舊入口；指令碼屬性刪掉 API_TOKEN 後自動失效
-  if (e && e.parameter && e.parameter.token) return legacyDoGet_(e);
   return jsonOut_({ ok: true, data: { name: 'personal-workbench', version: WB_VERSION, message: '後端運作中。請用網頁版登入使用。' } });
 }
 
@@ -2336,8 +2189,6 @@ function doPost(e) {
   } catch (err) {
     return jsonOut_({ ok: false, error: { code: 'BAD_REQUEST', message: '請求格式錯誤' } });
   }
-  // 舊版網站送的是 { token, action, payload }，沒有 session → 交給舊入口（同樣只在 API_TOKEN 還存在時有效）
-  if (body && body.token !== undefined && body.session === undefined && body.params === undefined) return legacyDoPost_(e);
   return jsonOut_(WbApi.handle(body));
 }
 
@@ -2350,7 +2201,6 @@ function onOpen() {
     .addItem('新增裝置授權碼', 'menuAddDevice')
     .addItem('查看或撤銷裝置', 'menuManageDevices')
     .addItem('登出所有裝置', 'menuSignOutAll')
-    .addItem('關閉舊版網站入口（刪除 API_TOKEN）', 'menuDisableLegacy')
     .addItem('檢查目前狀態', 'menuStatus')
     .addSeparator()
     .addItem('立即備份一次', 'menuBackupNow')
@@ -2427,23 +2277,15 @@ function menuSignOutAll() {
   wbAlert_('已登出所有裝置', '所有裝置都需要重新輸入 PIN。');
 }
 
-function menuDisableLegacy() {
-  var u = wbUi_();
-  var ok = u.alert('關閉舊版網站入口', '確認新版網站已經可以正常登入使用了嗎？\n\n按「確定」會刪除指令碼屬性 API_TOKEN，舊版網站（用 API_TOKEN 的那個）之後就讀不到資料。', u.ButtonSet.OK_CANCEL);
-  if (ok !== u.Button.OK) return;
-  PropertiesService.getScriptProperties().deleteProperty('API_TOKEN');
-  wbAlert_('已關閉', '舊版入口已關閉，現在只能用「裝置授權碼＋PIN」登入。');
-}
-
 function menuStatus() {
   var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('API_TOKEN')) props.deleteProperty('API_TOKEN'); // 舊版入口已移除，殘留的屬性順手清掉
   var devices = WbAuth.listDevices();
   wbWarmUp_();
   wbAlert_('目前狀態', [
     '版本：' + WB_VERSION,
     'PIN：' + (WbAuth.hasPin() ? '已設定' : '尚未設定'),
     '裝置：' + (devices.length ? devices.map(function (d) { return d.id + ' ' + d.name; }).join('、') : '無'),
-    '舊版 API_TOKEN 入口：' + (props.getProperty('API_TOKEN') ? '仍開啟（新版確認沒問題後可從選單關閉）' : '已關閉'),
     '每週自動備份：' + (wbBackupTrigger_() ? '已開啟（每週日凌晨 3～4 點）' : '未開啟'),
     '最近一次備份：' + (props.getProperty('BACKUP_LAST') || '還沒有'),
   ].join('\n'));

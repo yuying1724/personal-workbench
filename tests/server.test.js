@@ -213,18 +213,16 @@ test('變更 PIN：舊 PIN 錯誤會拒絕；成功後要用新 PIN 登入', () 
   assert.equal(b.post({ action: 'login', params: { token: b.token, pin: '135790' } }).ok, true);
 });
 
-test('過渡期：舊版 API_TOKEN 入口在屬性存在時可用，刪掉後失效；新版入口不受影響', () => {
+test('舊版 API_TOKEN 入口已移除：就算屬性還在，帶 token 的請求也拿不到資料、不能寫入', () => {
   const b = loadBackend();
   b.setup();
   b.state.props.API_TOKEN = 'old-secret';
-  const oldGet = b.get({ action: 'task_stats', token: 'old-secret' });
-  assert.equal(oldGet.total, 0);
+  const oldGet = b.get({ action: 'tasks', token: 'old-secret' });
+  assert.equal(oldGet.ok, true);
+  assert.ok(!('data' in oldGet && Array.isArray(oldGet.data)), '只回健康檢查，不回資料');
   const oldPost = JSON.parse(b.ctx.doPost({ postData: { contents: JSON.stringify({ token: 'old-secret', action: 'create_task', payload: { '任務名稱': '舊版新增' } }) } }).getContent());
-  assert.equal(oldPost.success, true);
-  delete b.state.props.API_TOKEN;
-  assert.match(b.get({ action: 'tasks', token: 'old-secret' }).error, /unauthorized/);
-  assert.equal(b.get({}).ok, true, '不帶 token 的 GET 是健康檢查');
-  assert.equal(b.call('tasks').data.length, 1);
+  assert.equal(oldPost.ok, false);
+  assert.equal(b.call('tasks').data.length, 0);
 });
 
 test('不支援的 action、壞掉的 body 都回傳錯誤而不是丟例外', () => {
@@ -293,4 +291,110 @@ test('習慣熱力圖：habits 帶近一年的「打卡紀錄」，可以補記�
   assert.ok(!(tw(-1) in h['打卡紀錄']));
   // bootstrap 也帶（前端快取秒開要用）
   assert.ok('打卡紀錄' in b.call('bootstrap').data.habits[0]);
+});
+
+test('訂閱：下次付款日等欄位每次讀取都用「今天」重算，不靠試算表公式的快取值', () => {
+  const b = loadBackend();
+  b.setup();
+  const tw = (offset) => { const d = new Date(Date.now() + 8 * 3600000); d.setUTCDate(d.getUTCDate() + offset); return d.toISOString().slice(0, 10); };
+  // 開始日 = 40 天前、每月 → 上次付款 ≈ 9～10 天前，下次付款 ≈ 20～21 天後（不在 14 天內）
+  b.call('create_subscription', { '產品': 'A', '訂閱費': 300, '訂閱週期': '每月', '訂閱開始日': tw(-40) });
+  // 開始日 = 25 天前、每月 → 下次付款約 5～6 天後（14 天內）
+  b.call('create_subscription', { '產品': 'B', '訂閱費': 1200, '訂閱週期': '每年', '訂閱開始日': tw(-360) });
+  b.call('create_subscription', { '產品': 'C', '訂閱費': 600, '訂閱週期': '每月', '訂閱開始日': tw(-100), '取消訂閱': true, '取消訂閱日': tw(-10) });
+  // 試算表裡的公式快取值是舊的（模擬 Google 沒重算）
+  const sh = b.ss.sheet('訂閱服務');
+  [2, 3, 4].forEach((r) => { sh.formulaResults[`${r},13`] = '2020-01-01'; sh.formulaResults[`${r},14`] = true; sh.formulaResults[`${r},11`] = 999; });
+  const subs = b.call('subscriptions').data;
+  const by = (n) => subs.find((x) => x['產品'] === n);
+  const a = by('A');
+  assert.equal(a['每月金額'], 300);
+  assert.ok(a['下次付款日'] > tw(14) && a['下次付款日'] <= tw(22), a['下次付款日']);
+  assert.ok(a['上次付款日'] <= tw(0) && a['上次付款日'] >= tw(-11), a['上次付款日']);
+  assert.equal(a['即將付款'], false);
+  assert.equal(a['總計花費'], 600, '開始日＋一個月後各付一次');
+  assert.ok(a['累積訂閱日'] >= 39 && a['累積訂閱日'] <= 41);
+  const bb = by('B');
+  assert.equal(bb['每月金額'], 100);
+  assert.equal(bb['即將付款'], true, '年繳 360 天前開始 → 5 天內要付');
+  assert.equal(by('C')['下次付款日'], '', '已取消沒有下次付款');
+  assert.equal(by('C')['即將付款'], false);
+  const st = b.call('subscription_stats').data;
+  assert.equal(st.totalMonthlySpend, 400);
+  assert.deepEqual(st.upcomingPayments.map((x) => x['產品']), ['B']);
+});
+
+test('任務：set_task_status 只改狀態（不蓋掉其他欄位）；重複任務 打勾→取消→再打勾 只產生一筆下一次', () => {
+  const b = loadBackend();
+  b.setup();
+  const id = b.call('create_task', { '任務名稱': '繳費', '狀態': '待辦', '到期日': '2026-03-10', '重複規則': JSON.stringify({ freq: 'month', interval: 1 }), '備註': '原本', '分類': ['生活'], '子任務': [{ '內容': 'a', '完成': true }] }).data.id;
+  // 另一台裝置改了備註
+  const t0 = b.call('tasks').data.find((x) => x['任務ID'] === id);
+  b.call('update_task', Object.assign({}, t0, { '備註': '別台改的' }));
+  // 這台用舊資料打勾 → 只送狀態
+  let r = b.call('set_task_status', { '任務ID': id, '狀態': '已完成' });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.data.nextTaskCreated, true);
+  let tasks = b.call('tasks').data;
+  const t1 = tasks.find((x) => x['任務ID'] === id);
+  assert.equal(t1['狀態'], '已完成');
+  assert.equal(t1['備註'], '別台改的', '備註不能被蓋掉');
+  const next = tasks.filter((x) => x['任務名稱'] === '繳費' && x['到期日'] === '2026-04-10');
+  assert.equal(next.length, 1);
+  assert.deepEqual(next[0]['分類'], ['生活']);
+  assert.equal(next[0]['子任務'][0]['完成'], false);
+  // 取消再打勾 → 不會多一筆
+  b.call('set_task_status', { '任務ID': id, '狀態': '待辦' });
+  r = b.call('set_task_status', { '任務ID': id, '狀態': '已完成' });
+  assert.equal(r.data.nextTaskCreated, false);
+  tasks = b.call('tasks').data;
+  assert.equal(tasks.filter((x) => x['到期日'] === '2026-04-10').length, 1, '下一次只能有一筆');
+  assert.equal(b.call('set_task_status', { '任務ID': 'T999', '狀態': '已完成' }).ok, false);
+});
+
+test('寫入的回應直接附上該模組最新資料（reload），前端不用再打一次 bundle', () => {
+  const b = loadBackend();
+  b.setup();
+  const r = b.call('create_task', { '任務名稱': '附資料測試', '狀態': '待辦' });
+  assert.equal(r.ok, true);
+  assert.equal(r.reload.name, 'project_task_bundle');
+  assert.ok(r.reload.data.tasks.some((t) => t['任務名稱'] === '附資料測試'));
+  assert.ok('projects' in r.reload.data);
+  const hid = b.call('create_habit', { '習慣名稱': 'x', '類型': '打勾', '頻率類型': 'daily' }).data.id;
+  const r2 = b.call('set_habit_log', { '習慣ID': hid, '數值': 1 });
+  assert.equal(r2.reload.name, 'habit_bundle');
+  assert.equal(r2.reload.data.habits[0]['今日已完成'], true);
+  assert.equal(b.call('rename_option', { '欄位': '任務分類', '舊名稱': '工作', '新名稱': '公事' }).reload, undefined, '改名不附（前端整包重抓）');
+  assert.equal(b.call('bootstrap').reload, undefined, '讀取不附');
+});
+
+test('文字保護：= 開頭不會變公式、007／1/2 不會被改成數字或日期（主表與子任務、分類對照都一樣）', () => {
+  const b = loadBackend();
+  b.setup();
+  const id = b.call('create_task', { '任務名稱': '=SUM(A1)', '狀態': '待辦', '備註': '007', '分類': ['工作'], '子任務': [{ '內容': '1/2', '完成': false }, { '內容': '+886', '完成': true }] }).data.id;
+  const sheet = b.ss.sheet('任務');
+  assert.equal(sheet.getRange(2, 2).getFormulas()[0][0], '', '不能變成公式');
+  let t = b.call('tasks').data.find((x) => x['任務ID'] === id);
+  assert.equal(t['任務名稱'], '=SUM(A1)');
+  assert.equal(t['備註'], '007');
+  assert.deepEqual(t['子任務'].map((x) => x['內容']), ['1/2', '+886']);
+  // 再存一次（子任務表整批重寫）也不會跑掉
+  b.call('update_task', Object.assign({}, t, { '子任務': t['子任務'].concat([{ '內容': '2026-01-01', '完成': false }]) }));
+  b.call('create_task', { '任務名稱': '另一筆', '狀態': '待辦', '子任務': [{ '內容': 'x', '完成': false }] }); // 觸發附屬表整批重寫
+  t = b.call('tasks').data.find((x) => x['任務ID'] === id);
+  assert.deepEqual(t['子任務'].map((x) => x['內容']), ['1/2', '+886', '2026-01-01']);
+  // 數字欄、日期欄仍然是數字／日期
+  const hid = b.call('create_habit', { '習慣名稱': '2026', '類型': '計數', '目標值': '8', '頻率類型': 'daily' }).data.id;
+  const hb = b.call('habits').data.find((x) => x['習慣ID'] === hid);
+  assert.equal(hb['習慣名稱'], '2026');
+  assert.equal(Number(hb['目標值']), 8);
+});
+
+test('變更 PIN 跟登入共用失敗次數：一直猜舊 PIN 會被鎖定', () => {
+  const b = loadBackend();
+  b.setup();
+  let last;
+  for (let i = 0; i < 5; i++) last = b.call('changePin', { oldPin: '000000', newPin: '135790' });
+  assert.equal(last.error.code, 'LOCKED');
+  assert.equal(b.call('changePin', { oldPin: b.pin, newPin: '135790' }).error.code, 'LOCKED', '鎖定期間就算對也不行');
 });

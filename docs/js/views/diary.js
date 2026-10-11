@@ -5,7 +5,7 @@ import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { todayStr, dateLabel, MOOD_OPTIONS, FIND_TYPE_OPTIONS, FIND_STATUS_CYCLE } from '../util.js';
 import { pageHead, stats, empty, textField, field, formFooter, errorBanner } from './common.js';
-import { taskPayload } from './tasks.js';
+import { toggleTaskDone } from './tasks.js';
 
 const findStatusIcon = (s) => icon(s === '已整理' ? 'checkCircle' : s === '不需整理' ? 'dashCircle' : 'circle');
 const findStatusLabel = (s) => (s === '已整理' ? '已整理' : s === '不需整理' ? '不需整理' : '待整理') + '（點一下切換）';
@@ -73,8 +73,7 @@ export function openDiaryForm(dateStr) {
     mount(refTasks, list.length
       ? [h('div', { class: 'lbl' }, '今天最重要的任務（打星標的任務，勾選會直接標記完成）'), list.map((t) => h('label', { class: 'check' },
         h('input', { type: 'checkbox', checked: t['狀態'] === '已完成', onchange: async (e) => {
-          e.target.disabled = true;
-          await write('update_task', taskPayload(t, { '狀態': e.target.checked ? '已完成' : '待辦' }), { toast: e.target.checked ? '任務已完成' : '已改回待辦' });
+          await toggleTaskDone(t, e.target.checked, { toast: e.target.checked ? '任務已完成' : '已改回待辦' });
           drawRefTasks();
         } }), icon('starFill', 'star'), t['任務名稱'] || ''))]
       : h('div', { class: 'muted small' }, '這天沒有打星標的重要任務。想在這裡追蹤，可以先到「任務」把該做的事打上星標。'));
@@ -105,7 +104,33 @@ export function openDiaryForm(dateStr) {
   };
   (dy ? dy['發現清單'] : []).forEach(addFind);
 
-  const body = h('div', null, err.el,
+  // ---------- 草稿：打字中自動存在這台裝置，關掉、返回鍵、儲存失敗都不會不見 ----------
+  const draftKey = 'diary-draft-' + dateStr;
+  const snapshot = () => JSON.stringify({ mood, g: gratitude.value, l: letGo.value, s: story.value, f: [...findList.children].map((r) => r._get()) });
+  let initial = snapshot();
+  const isDirty = () => snapshot() !== initial;
+  const draftNotice = h('div', { class: 'notice', style: { display: 'none', marginBottom: '10px' } });
+  const draft = prefs.getView(draftKey, null);
+  if (draft && draft.data && JSON.stringify(draft.data) !== initial) {
+    const dd = JSON.parse(JSON.stringify(draft.data));
+    const restore = (x) => {
+      mood = x.mood || ''; moodBtns.forEach((b, i) => b.classList.toggle('on', MOOD_OPTIONS[i] === mood));
+      gratitude.input.value = x.g || ''; letGo.input.value = x.l || ''; story.input.value = x.s || '';
+      mount(findList); (x.f || []).forEach(addFind);
+    };
+    const saved = JSON.parse(initial);
+    restore(dd);
+    mount(draftNotice, '已恢復上次沒儲存的內容（' + new Date(draft.at).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '）　',
+      h('button', { type: 'button', class: 'link-btn', onclick: () => { restore(saved); prefs.setView(draftKey, null); draftNotice.style.display = 'none'; } }, '捨棄草稿'));
+    draftNotice.style.display = '';
+  }
+  let draftTimer = null;
+  const saveDraft = () => {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => { if (isDirty()) prefs.setView(draftKey, { at: Date.now(), data: JSON.parse(snapshot()) }); }, 400);
+  };
+
+  const body = h('div', null, draftNotice, err.el,
     field('心情', h('div', { class: 'mood-row' }, moodBtns)),
     refTasks, gratitude.el, letGo.el, story.el,
     field('發現有趣的東西', h('div', null, findList, h('button', { type: 'button', class: 'btn btn-sm', style: { marginTop: '8px' }, onclick: () => addFind({}).querySelector('input').focus() }, icon('plus'), '新增項目'))));
@@ -120,14 +145,28 @@ export function openDiaryForm(dateStr) {
     // create_diary 是「同一天就更新」的 upsert：本機也照同樣邏輯找那一天的日記
     const existing = dy || (state.data.diaries || []).find((x) => x['日期'] === dateStr);
     const sortDesc = () => { (state.data.diaries || []).sort((a, b) => (b['日期'] || '').localeCompare(a['日期'] || '')); return null; };
-    saveRow('create_diary', payload, { list: 'diaries', idField: '日記ID', id: existing ? existing['日記ID'] : undefined, toast: '日記已儲存', recalc: sortDesc });
-    ref.sheet.close();
+    clearTimeout(draftTimer);
+    prefs.setView(draftKey, { at: Date.now(), data: JSON.parse(snapshot()) }); // 先留草稿，後端確認存好才刪
+    saveRow('create_diary', payload, { list: 'diaries', idField: '日記ID', id: existing ? existing['日記ID'] : undefined, toast: '日記已儲存', recalc: sortDesc })
+      .then((r) => { if (r) prefs.setView(draftKey, null); });
+    ref.sheet.close({ force: true });
   }
   const extra = dy ? [h('button', { class: 'btn btn-danger', type: 'button', 'aria-label': '刪除', onclick: async () => {
     const ok = await confirmDialog({ title: '刪除日記', message: `確定要刪除 ${dateStr} 的日記嗎？此動作無法復原。`, confirmText: '刪除', danger: true });
     if (!ok) return;
     deleteRow('delete_diary', { '日記ID': dy['日記ID'] }, { list: 'diaries', idField: '日記ID', id: dy['日記ID'], toast: '已刪除' });
-    ref.sheet.close();
+    prefs.setView(draftKey, null);
+    ref.sheet.close({ force: true });
   } }, icon('trash'))] : [];
-  ref.sheet = openSheet({ title: (dy ? '編輯日記：' : '寫日記：') + dateLabel(dateStr), body, footer: formFooter(ref, save, { extra }), dismissable: false });
+  body.addEventListener('input', saveDraft);
+  body.addEventListener('click', saveDraft); // 心情按鈕、整理狀態、刪除項目
+  ref.sheet = openSheet({
+    title: (dy ? '編輯日記：' : '寫日記：') + dateLabel(dateStr), body, footer: formFooter(ref, save, { extra }), dismissable: false,
+    beforeClose: async () => {
+      if (!isDirty()) { prefs.setView(draftKey, null); return true; }
+      const leave = await confirmDialog({ title: '還沒儲存', message: '這篇日記還沒儲存。要直接離開嗎？（內容會先存成草稿留在這台裝置，下次打開這天的日記會自動恢復）', confirmText: '離開' });
+      if (leave) { clearTimeout(draftTimer); prefs.setView(draftKey, { at: Date.now(), data: JSON.parse(snapshot()) }); }
+      return leave;
+    },
+  });
 }

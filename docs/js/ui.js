@@ -49,7 +49,11 @@ window.addEventListener('popstate', () => {
   if (stack.length) ensureMarker();
 });
 
-export function openSheet({ title, body, footer, dismissable = true, onClose }) {
+/**
+ * 開啟底部視窗。beforeClose（選用）：使用者要關閉時（X、取消、返回鍵）先問，回傳 false／Promise<false> 就不關；
+ * 程式自己關（例如儲存後）用 close({ force: true })。
+ */
+export function openSheet({ title, body, footer, dismissable = true, onClose, beforeClose }) {
   const id = ++seq;
   const closeBtn = h('button', { class: 'icon-btn', 'aria-label': '關閉', onclick: () => api.close() }, icon('x'));
   const sheet = h('div', { class: 'sheet' + (footer ? ' has-foot' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '' },
@@ -66,6 +70,16 @@ export function openSheet({ title, body, footer, dismissable = true, onClose }) 
     id, el: sheet, overlay,
     close(opts = {}) {
       if (!overlay.isConnected) return;
+      if (beforeClose && !opts.force) {
+        if (api.asking) return;
+        api.asking = true;
+        Promise.resolve(beforeClose()).then((ok) => {
+          api.asking = false;
+          if (ok) api.close({ force: true });
+          else if (opts.fromPop) ensureMarker(); // 按返回鍵但選擇留下：補回歷史紀錄，下次返回仍然先關視窗
+        });
+        return;
+      }
       overlay.remove();
       document.removeEventListener('keydown', onKey);
       const i = stack.indexOf(api); if (i >= 0) stack.splice(i, 1);

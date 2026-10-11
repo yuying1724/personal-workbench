@@ -37,6 +37,7 @@ export function tabLabel(t) { return t.sys ? systemName(t.sys, t.label) : t.labe
 
 let viewRoot = null;
 let fabBtn = null;
+let syncPill = null;
 let lastActive = Date.now();
 
 export function parseRoute() {
@@ -76,6 +77,7 @@ function showShell() {
   });
   viewRoot = h('main', { class: 'main', id: 'view' });
   fabBtn = h('button', { class: 'fab', 'aria-label': '新增' }, icon('plus'));
+  syncPill = h('div', { class: 'sync-pill', role: 'status', 'aria-live': 'polite' });
   const shell = h('div', { class: 'shell' },
     h('aside', { class: 'sidebar' },
       h('div', { class: 'brand' }, icon('clipboard'), '個人工作台'),
@@ -83,8 +85,9 @@ function showShell() {
       h('button', { class: 'navlike', onclick: () => lock('已鎖定') }, icon('lock'), '鎖定')),
     viewRoot,
     h('nav', { class: 'tabbar', 'aria-label': '主選單' }, TABS.filter((t) => t.mobile || t.mobileOnly).map(link)),
-    fabBtn);
+    fabBtn, syncPill);
   mount(app, shell);
+  updateSyncPill();
   renderView();
 }
 
@@ -132,7 +135,37 @@ async function start() {
 }
 
 api.setAuthLostHandler(() => { if (state.data || viewRoot) lock('登入已過期，請重新輸入 PIN'); });
-subscribe(renderView);
+
+// 同步狀態小標示：有寫入在路上＝「同步中」，背景更新＝「更新中」，沒網路＝「離線」
+function updateSyncPill() {
+  if (!syncPill) return;
+  const text = navigator.onLine === false ? '離線中，修改可能無法儲存' : state.pendingWrites > 0 ? '同步中…' : state.refreshing ? '更新中…' : '';
+  syncPill.textContent = text;
+  syncPill.classList.toggle('show', !!text);
+  syncPill.classList.toggle('bad', navigator.onLine === false);
+}
+window.addEventListener('online', updateSyncPill);
+window.addEventListener('offline', updateSyncPill);
+
+// 背景更新時如果正在畫面上的輸入框打字（搜尋、計數…），先不要整頁重畫（會失焦、鍵盤收起來），離開輸入框再畫
+let renderWaiting = false;
+function onDataChange() {
+  updateSyncPill();
+  const a = document.activeElement;
+  if (viewRoot && a && viewRoot.contains(a) && a.matches('input:not([type=checkbox]):not([type=radio]), textarea, select')) {
+    if (!renderWaiting) {
+      renderWaiting = true;
+      a.addEventListener('blur', () => { renderWaiting = false; setTimeout(renderView, 0); }, { once: true });
+    }
+    return;
+  }
+  renderView();
+}
+subscribe(onDataChange);
+
+// 過了午夜（或從背景切回來時已經換日）：今天的習慣／任務都要重算，自動重新整理
+function dayChanged() { const t = state.data && state.data.meta && state.data.meta.today; return !!(t && t !== todayStr(0)); }
+function refreshIfDayChanged() { if (viewRoot && !state.refreshing && dayChanged()) refresh().catch(() => {}); }
 window.addEventListener('hashchange', () => { closeAllSheets(); renderView(); window.scrollTo(0, 0); });
 
 // 閒置太久自動鎖定（時間取自後端的工作階段效期）
@@ -141,16 +174,23 @@ setInterval(() => {
   const s = prefs.session;
   if (!s || !viewRoot) return;
   if (Date.now() - lastActive > (s.ttl || 60) * 60000) lock('閒置太久，已自動鎖定');
+  else refreshIfDayChanged();
 }, 30000);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !viewRoot) return;
   if (!api.hasValidSession()) lock('登入已過期，請重新輸入 PIN');
   // 從背景切回來超過 5 分鐘：可能在別台裝置改過資料，自動重新整理一次
-  else if (state.loadedAt && Date.now() - state.loadedAt > 5 * 60000) refresh().catch(() => {});
+  else if (dayChanged() || (state.loadedAt && Date.now() - state.loadedAt > 5 * 60000)) refresh().catch(() => {});
 });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+  // 新版 Service Worker 接手（代表網站有更新、新版檔案已經下載好）→ 提示重新載入
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return; // 第一次安裝不用提示
+    toast('已下載新版本', { ms: 15000, action: { label: '重新載入', fn: () => location.reload() } });
+  });
 }
 window.addEventListener('unhandledrejection', (e) => { console.error(e.reason); });
 

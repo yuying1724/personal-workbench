@@ -22,7 +22,7 @@ const RETRYABLE = new Set([
   'bootstrap', 'all', 'admin_bundle', 'course_bundle', 'sub_bundle', 'task_bundle', 'project_bundle', 'project_task_bundle', 'habit_bundle', 'diary_bundle',
   'update_course', 'delete_course', 'update_subscription', 'delete_subscription', 'update_task', 'delete_task',
   'update_project', 'delete_project', 'update_habit', 'delete_habit', 'set_habit_log',
-  'create_diary', 'update_diary', 'delete_diary', 'delete_option', 'update_system',
+  'create_diary', 'update_diary', 'delete_diary', 'delete_option', 'update_system', 'set_task_status',
 ]);
 
 /** 呼叫後端。Apps Script 網頁應用程式用 text/plain 送 JSON（避免瀏覽器的 CORS 預檢）。 */
@@ -72,5 +72,6 @@ async function once(url, action, params, opts) {
     if (err.code === 'AUTH_REQUIRED') { clearSession(); onAuthLost(); }
     throw new ApiError(err.code || 'ERROR', err.message || (typeof body.error === 'string' ? body.error : '發生錯誤'), err.details);
   }
-  return body.data;
+  // opts.meta：連同寫入後順便帶回來的模組資料（reload）一起回傳
+  return opts.meta ? { data: body.data, reload: body.reload || null } : body.data;
 }

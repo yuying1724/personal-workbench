@@ -132,3 +132,9 @@ export function sortRows(rows, key, dir = 1) {
 
 export const money = (n) => '$' + (Number(n) || 0).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
 export const pct = (n) => Math.round(Number(n) || 0);
+
+/** 只允許 http(s) 連結（避免資料裡的 javascript: 之類網址被點開執行） */
+export function safeUrl(u) {
+  const v = String(u || '').trim();
+  return /^https?:\/\//i.test(v) ? v : null;
+}

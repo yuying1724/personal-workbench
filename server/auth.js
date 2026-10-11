@@ -115,6 +115,37 @@ var WbAuth = (function () {
     return payload + '.' + hmacHex(payload, hmacKey());
   }
 
+  /**
+   * 檢查 PIN，並計算連續失敗次數（超過就鎖定一段時間）。登入與變更 PIN 共用同一個計數。
+   * 「讀失敗次數 → 判斷 → 寫回」用 LockService 鎖住，同時送很多個請求也不能多猜幾次。
+   */
+  function guardedPinCheck(deviceId, pin, settings, now, wrongMsg) {
+    var cache = CacheService.getScriptCache();
+    var maxFails = numSetting(settings, '失敗鎖定次數', 5, 3, 20);
+    var lockSec = numSetting(settings, '鎖定分鐘', 15, 1, 360) * 60;
+    var lockKey = 'lock:' + deviceId, failKey = 'fail:' + deviceId;
+    var lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      var until = Number(cache.get(lockKey) || 0);
+      if (until > now) {
+        var wait = Math.ceil((until - now) / 60000);
+        throw WbFail('LOCKED', '嘗試次數過多，請 ' + wait + ' 分鐘後再試', { retryAfterSec: Math.ceil((until - now) / 1000) });
+      }
+      if (checkPin(pin)) { cache.remove(failKey); return true; }
+      var fails = Number(cache.get(failKey) || 0) + 1;
+      if (fails >= maxFails) {
+        cache.put(lockKey, String(now + lockSec * 1000), lockSec);
+        cache.remove(failKey);
+        throw WbFail('LOCKED', '輸入錯誤次數過多，已鎖定 ' + Math.round(lockSec / 60) + ' 分鐘', { retryAfterSec: lockSec });
+      }
+      cache.put(failKey, String(fails), lockSec);
+      throw WbFail('AUTH_FAILED', wrongMsg + '（還可以再試 ' + (maxFails - fails) + ' 次）', { remaining: maxFails - fails });
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
   function login(token, pin, settings) {
     var now = WbClock.now();
     var tok = normalizeToken(token);
@@ -126,27 +157,8 @@ var WbAuth = (function () {
       Utilities.sleep(700); // 拖慢亂猜
       throw WbFail('AUTH_FAILED', '授權碼或 PIN 錯誤');
     }
-    var cache = CacheService.getScriptCache();
-    var maxFails = numSetting(settings, '失敗鎖定次數', 5, 3, 20);
-    var lockSec = numSetting(settings, '鎖定分鐘', 15, 1, 360) * 60;
-    var lockKey = 'lock:' + match.id, failKey = 'fail:' + match.id;
-    var until = Number(cache.get(lockKey) || 0);
-    if (until > now) {
-      var wait = Math.ceil((until - now) / 60000);
-      throw WbFail('LOCKED', '嘗試次數過多，請 ' + wait + ' 分鐘後再試', { retryAfterSec: Math.ceil((until - now) / 1000) });
-    }
     if (!hasPin()) throw WbFail('NOT_INITIALIZED', 'PIN 尚未設定：請在試算表選單「個人工作台 → 設定或變更 PIN」');
-    if (!checkPin(pin)) {
-      var fails = Number(cache.get(failKey) || 0) + 1;
-      if (fails >= maxFails) {
-        cache.put(lockKey, String(now + lockSec * 1000), lockSec);
-        cache.remove(failKey);
-        throw WbFail('LOCKED', '輸入錯誤次數過多，已鎖定 ' + Math.round(lockSec / 60) + ' 分鐘', { retryAfterSec: lockSec });
-      }
-      cache.put(failKey, String(fails), lockSec);
-      throw WbFail('AUTH_FAILED', '授權碼或 PIN 錯誤（還可以再試 ' + (maxFails - fails) + ' 次）', { remaining: maxFails - fails });
-    }
-    cache.remove(failKey);
+    guardedPinCheck(match.id, pin, settings, now, '授權碼或 PIN 錯誤');
     var ttlMs = numSetting(settings, '閒置登出分鐘', 60, 5, 720) * 60000;
     return { session: issueSession(match, ttlMs, now), device: { id: match.id, name: match.name }, ttlMinutes: Math.round(ttlMs / 60000) };
   }
@@ -177,7 +189,7 @@ var WbAuth = (function () {
 
   return {
     addDevice: addDevice, listDevices: listDevices, revokeDevice: revokeDevice, setPin: setPin, hasPin: hasPin, checkPin: checkPin,
-    pinPolicyError: pinPolicyError, signOutAll: signOutAll, ensureKey: ensureKey, login: login, verifySession: verifySession, refreshIfNeeded: refreshIfNeeded,
+    pinPolicyError: pinPolicyError, guardedPinCheck: guardedPinCheck, signOutAll: signOutAll, ensureKey: ensureKey, login: login, verifySession: verifySession, refreshIfNeeded: refreshIfNeeded,
     randomHex: randomHex, generateToken: generateToken, constEq: constEq, MIN_PIN_LENGTH: MIN_PIN_LENGTH,
   };
 })();

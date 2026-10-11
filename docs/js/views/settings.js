@@ -1,8 +1,8 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
-import { prefs, state, notify } from '../store.js';
+import { prefs, state, notify, wipeDeviceData } from '../store.js';
 import * as api from '../api.js';
-import { openSheet, toast, errorText, withBusy } from '../ui.js';
+import { openSheet, toast, errorText, withBusy, confirmDialog } from '../ui.js';
 import { lock } from '../app.js';
 import { pageHead } from './common.js';
 
@@ -18,8 +18,10 @@ export function renderSettings(root) {
       h('div', { class: 'card' }, h('h2', null, '安全'),
         h('div', { class: 'row-flex wrap' },
           h('button', { class: 'btn btn-sm', onclick: openChangePin }, icon('lock'), '變更 PIN'),
-          h('button', { class: 'btn btn-sm', onclick: () => lock('已鎖定') }, icon('logout'), '鎖定並登出')),
-        h('p', { class: 'muted small', style: { marginBottom: 0 } }, `這台裝置：${meta.device || '（未命名）'}。要新增或撤銷裝置（例如家裡電腦、新手機），請在試算表選單「個人工作台」操作。`)),
+          h('button', { class: 'btn btn-sm', onclick: () => lock('已鎖定') }, icon('logout'), '鎖定並登出'),
+          h('button', { class: 'btn btn-sm btn-danger', onclick: wipeThisDevice }, icon('trash'), '清除這台裝置的資料')),
+        h('p', { class: 'muted small', style: { marginBottom: 0 } }, `這台裝置：${meta.device || '（未命名）'}。要新增或撤銷裝置（例如家裡電腦、新手機），請在試算表選單「個人工作台」操作。`),
+        h('p', { class: 'muted small', style: { marginBottom: 0 } }, '「鎖定並登出」之後，資料快取和裝置授權碼還留在這台裝置（下次只要輸入 PIN、而且秒開）。在公司或別人的電腦上用完，建議按「清除這台裝置的資料」。')),
       h('div', { class: 'card' }, h('h2', null, '資料'),
         meta.sheetUrl ? h('a', { class: 'btn btn-sm', href: meta.sheetUrl, target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '開啟試算表') : null,
         h('p', { class: 'muted small', style: { marginBottom: 0 } }, '最後更新：' + (state.loadedAt ? state.loadedAt.toLocaleString('zh-TW') : '—'))),
@@ -52,4 +54,12 @@ function openChangePin() {
   } }, '變更');
   const sheet = openSheet({ title: '變更 PIN', dismissable: false, body: h('div', null, banner, inp('目前的 PIN', 'oldPin'), inp('新的 PIN（至少 6 碼）', 'newPin'), inp('再輸入一次新的 PIN', 'again')),
     footer: [h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, '取消'), save] });
+}
+
+async function wipeThisDevice() {
+  const ok = await confirmDialog({ title: '清除這台裝置的資料', message: '會刪除這台裝置上的裝置授權碼、登入狀態、資料快取、日記草稿與畫面設定，然後回到登入畫面。試算表裡的資料不受影響；之後要再用這台裝置，需要重新輸入裝置授權碼和 PIN。確定要清除嗎？', confirmText: '清除', danger: true });
+  if (!ok) return;
+  wipeDeviceData();
+  try { if (window.caches) (await caches.keys()).forEach((k) => caches.delete(k)); } catch (e) { /* 忽略 */ }
+  location.reload();
 }

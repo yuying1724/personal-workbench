@@ -1,6 +1,6 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
-import { state } from '../store.js';
+import { state, notify } from '../store.js';
 import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText, toast } from '../ui.js';
 import {
@@ -131,10 +131,11 @@ export function recalcTaskStats() {
   return () => { state.data.taskStats = prev; };
 }
 
-/** 打勾／取消：先改畫面、背景送出；其他欄位原封不動送回去，只改狀態（有重複規則的話後端會自動產生下一筆，重抓後才會出現） */
-export async function toggleTaskDone(t, checked) {
-  const r = await write('update_task', taskPayload(t, { '狀態': checked ? '已完成' : '待辦' }), {
-    toast: checked ? '已完成' : '已改回待辦',
+/** 打勾／取消：先改畫面、背景送出；後端只改狀態（不會用這台裝置的舊資料蓋掉別台改過的內容）。有重複規則的話後端會自動產生下一筆 */
+export async function toggleTaskDone(t, checked, opts = {}) {
+  if (String(t['任務ID']).startsWith('tmp-')) { toast('這筆任務還在儲存中，請等幾秒再打勾'); notify(); return; }
+  const r = await write('set_task_status', { '任務ID': t['任務ID'], '狀態': checked ? '已完成' : '待辦' }, {
+    toast: opts.toast || (checked ? '已完成' : '已改回待辦'),
     optimistic: () => {
       const prev = t['狀態'], prevStats = state.data.taskStats;
       t['狀態'] = checked ? '已完成' : '待辦';
@@ -244,6 +245,7 @@ export function openTaskForm(id, defaults = {}) {
     };
     if (!payload['任務名稱']) { err.show('請填任務名稱'); return; }
     if (freq.value === 'week' && !wd.value.length) { err.show('每週重複請至少選一個星期幾，或改選「不重複」'); return; }
+    if (!['none', 'custom'].includes(freq.value) && !payload['到期日']) { err.show('設定重複時請填到期日（下一次的日期是從到期日往後推算的）'); return; }
     const spec = { list: 'tasks', idField: '任務ID', recalc: recalcTaskStats };
     if (t) saveRow('update_task', Object.assign(payload, { '任務ID': t['任務ID'] }), Object.assign(spec, { id: t['任務ID'], toast: '已儲存' }));
     else saveRow('create_task', payload, Object.assign(spec, { toast: '已新增任務' }));

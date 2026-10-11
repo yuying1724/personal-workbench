@@ -1,8 +1,8 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
-import { state, subscribe } from '../store.js';
+import { state, subscribe, notify } from '../store.js';
 import { write, saveRow, deleteRow, systemName } from '../data.js';
-import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
+import { openSheet, confirmDialog, withBusy, errorText, toast } from '../ui.js';
 import { habitFreqLabel, uniqueValues, HABIT_TIME_OPTIONS, HABIT_TIME_ICON, todayStr, dateLabel, pct } from '../util.js';
 import { heatmap, heatLegend, isRequiredDay, valueText, doneDays } from './heatmap.js';
 import {
@@ -96,10 +96,17 @@ function applyHabitValue(hb, value) {
   return () => { hb['今日數值'] = prev.v; hb['今日已完成'] = prev.done; hb['今日等級'] = prev.tier; stats.doneTodayCount = prev.doneToday; };
 }
 
+function pendingHabit(id) {
+  if (!String(id).startsWith('tmp-')) return false;
+  toast('這個習慣還在儲存中，請等幾秒再打卡');
+  notify();
+  return true;
+}
+
 function toggleHabit(id, checked) {
   const hb = habitById(id);
-  if (!hb) return;
-  write('set_habit_log', { '習慣ID': id, '數值': checked ? 1 : null }, { toast: checked ? '打卡完成' : '已取消打卡', optimistic: () => applyHabitValue(hb, checked ? 1 : 0) });
+  if (!hb || pendingHabit(id)) return;
+  write('set_habit_log', { '習慣ID': id, '日期': todayStr(), '數值': checked ? 1 : null }, { toast: checked ? '打卡完成' : '已取消打卡', optimistic: () => applyHabitValue(hb, checked ? 1 : 0) });
 }
 
 // 數字連續輸入／連點 +：同一個習慣 600ms 內只送最後一次，避免重複寫入（送出時才更新畫面，打字中不會被重畫打斷）
@@ -109,8 +116,8 @@ function setHabitCount(id, value) {
   timers[id] = setTimeout(() => {
     delete timers[id];
     const hb = habitById(id);
-    if (!hb) return;
-    write('set_habit_log', { '習慣ID': id, '數值': value === '' ? null : Number(value) }, { toast: '已記錄', optimistic: () => applyHabitValue(hb, value === '' ? 0 : Number(value)) });
+    if (!hb || pendingHabit(id)) return;
+    write('set_habit_log', { '習慣ID': id, '日期': todayStr(), '數值': value === '' ? null : Number(value) }, { toast: '已記錄', optimistic: () => applyHabitValue(hb, value === '' ? 0 : Number(value)) });
   }, 600);
 }
 
@@ -136,8 +143,19 @@ function heatSection(habits) {
     h('div', { class: 'card' }, active.map((hb) => h('button', { type: 'button', class: 'hm-item', onclick: () => openHabitHistory(hb['習慣ID']) },
       h('div', { class: 'hm-title' }, h('span', { class: 't wraptext' }, hb['習慣名稱'] || ''),
         h('span', { class: 'muted small nowrap' }, `近30天 ${pct(hb['近30天完成率'])}%`)),
-      heatmap(hb, { weeks: 53 })))), // 手機會自動捲到最右（最近幾週），電腦版寬度夠就整年都看得到
+      heatmap(hb, { weeks: compactWeeks(hb) })))),
   ];
+}
+
+/** 小圖顯示幾週：從建立習慣（或最早一筆打卡）那週開始，至少 12 週、最多 53 週，剛開始的習慣不會一大片空格 */
+function compactWeeks(hb) {
+  const days = Object.keys(hb['打卡紀錄'] || {});
+  const created = String(hb['建立時間'] || '').slice(0, 10);
+  const first = [created, ...days].filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).sort()[0];
+  if (!first) return 12;
+  const [y, m, d] = first.split('-').map(Number);
+  const weeks = Math.ceil((Date.now() - new Date(y, m - 1, d).getTime()) / (7 * 86400000)) + 1;
+  return Math.max(12, Math.min(53, weeks));
 }
 
 /** 單一習慣的整年熱力圖＋點某一天補打卡／修改 */
@@ -162,7 +180,12 @@ export function openHabitHistory(id) {
   };
   const ref = openSheet({ title: (habitById(id) || {})['習慣名稱'] || '打卡月曆', body, onClose: () => unsub() });
   // 背景重抓資料後（連續天數等統計由後端重算）自動更新這個視窗
-  const unsub = subscribe(() => { if (body.isConnected) render(); });
+  const unsub = subscribe(() => {
+    if (!body.isConnected) return;
+    const a = document.activeElement;
+    if (a && body.contains(a) && a.tagName === 'INPUT') return; // 正在輸入數值時不重畫
+    render();
+  });
   render();
 }
 

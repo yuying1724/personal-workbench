@@ -101,6 +101,7 @@ class MockSheet {
     cell.f = null;
     if (val === null || val === undefined || val === '') { cell.v = ''; return; }
     if (typeof val === 'string' && cell.fmt !== '@') {
+      if (val.startsWith("'")) { cell.v = val.slice(1); return; } // 單引號開頭＝強制文字（試算表不保留這個單引號）
       if (val.startsWith('=')) { cell.f = val; cell.v = ''; return; }
       let m;
       if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val))) { cell.v = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) - TZ_MS); return; }

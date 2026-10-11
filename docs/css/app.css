@@ -1,8 +1,8 @@
 /* 個人工作台：與「財務管理」同一套設計（暖米色底、鼠尾草綠強調色、14px 圓角卡片、淺色／深色、手機底部分頁列＋電腦側邊欄） */
 :root {
-  --bg: #f6efdd; --card: #fdf8ee; --sidebar-bg: #efe3c8; --text: #4a3a28; --sub: #9c8a70; --line: #e6d9bb;
-  --accent: #8fac97; --accent-strong: #6f9079; --accent-soft: #eaf1ec; --on-accent: #ffffff;
-  --good: #7fa887; --bad: #d98a86; --warn: #dba86a;
+  --bg: #f6efdd; --card: #fdf8ee; --sidebar-bg: #efe3c8; --text: #4a3a28; --sub: #76664e; --line: #e6d9bb;
+  --accent: #8fac97; --accent-strong: #5b7d66; --accent-soft: #eaf1ec; --on-accent: #ffffff;
+  --good: #7fa887; --bad: #d98a86; --warn: #dba86a; --bad-text: #b0524c;
   --shadow-sm: 0 1px 3px rgba(74,58,40,.08), 0 1px 2px rgba(74,58,40,.05);
   --shadow-md: 0 10px 24px rgba(74,58,40,.14), 0 2px 8px rgba(74,58,40,.07);
   --overlay: rgba(40, 30, 18, .45);
@@ -15,7 +15,7 @@
 :root[data-theme="dark"] {
   --bg: #221c15; --card: #2e2620; --sidebar-bg: #251f17; --text: #ece0cf; --sub: #b3a58c; --line: #3d3226;
   --accent: #9fc2a8; --accent-strong: #b5d3bc; --accent-soft: #2f3b32; --on-accent: #1e1c18;
-  --good: #8fbf97; --bad: #e0948f; --warn: #e0ab72;
+  --good: #8fbf97; --bad: #e0948f; --warn: #e0ab72; --bad-text: #e0948f;
   --shadow-sm: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2); --shadow-md: 0 12px 28px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
   --overlay: rgba(0, 0, 0, .6);
   color-scheme: dark;
@@ -24,7 +24,7 @@
   :root:not([data-theme="light"]) {
     --bg: #221c15; --card: #2e2620; --sidebar-bg: #251f17; --text: #ece0cf; --sub: #b3a58c; --line: #3d3226;
     --accent: #9fc2a8; --accent-strong: #b5d3bc; --accent-soft: #2f3b32; --on-accent: #1e1c18;
-    --good: #8fbf97; --bad: #e0948f; --warn: #e0ab72;
+    --good: #8fbf97; --bad: #e0948f; --warn: #e0ab72; --bad-text: #e0948f;
     --shadow-sm: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2); --shadow-md: 0 12px 28px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
     --overlay: rgba(0, 0, 0, .6);
     color-scheme: dark;
@@ -90,8 +90,8 @@ svg.i { width: 1.2em; height: 1.2em; fill: currentColor; vertical-align: -0.2em;
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-weight: 550; }
 .btn:active { transform: translateY(1px); }
 .btn[disabled] { opacity: .55; cursor: default; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.btn-danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.btn-primary { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--on-accent); }
+.btn-danger { color: var(--bad-text); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--accent-strong); }
 .btn-block { width: 100%; }
 .btn-sm { padding: 6px 12px; min-height: 34px; font-size: 13.5px; border-radius: 9px; }
@@ -107,7 +107,7 @@ select { background-image: linear-gradient(45deg, transparent 50%, var(--sub) 50
 textarea { min-height: 70px; resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 0; border-color: var(--accent); }
 .field.err input, .field.err select { border-color: var(--bad); }
-.field .msg { color: var(--bad); font-size: 12.5px; margin-top: 3px; }
+.field .msg { color: var(--bad-text); font-size: 12.5px; margin-top: 3px; }
 .amount-input { font-size: 30px !important; font-weight: 650; text-align: right; padding: 8px 12px !important; min-height: 56px !important; }
 .two { display: grid; grid-template-columns: 1fr 110px; gap: 10px; }
 .check { display: flex; align-items: center; gap: 8px; }
@@ -244,7 +244,7 @@ details.adv summary { cursor: pointer; padding: 6px 0; }
 .item .t.wraptext, .item .s.wraptext, .wraptext { white-space: normal; overflow-wrap: anywhere; }
 .nowrap { white-space: nowrap; }
 .prewrap { white-space: pre-wrap; }
-.bad-text { color: var(--bad); font-weight: 600; }
+.bad-text { color: var(--bad-text); font-weight: 600; }
 .big-check { width: 22px; height: 22px; flex: none; accent-color: var(--accent-strong); margin: 0; }
 .task-row.done .t, .habit-row.done .t { color: var(--sub); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--sub) 60%, transparent); }
 svg.i.star { color: #d9a441; }
@@ -355,3 +355,11 @@ button.hm-cell { cursor: pointer; }
 .hm-day .row-flex { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
 .hm-stats .stat-grid { grid-template-columns: repeat(2, 1fr); }
 @media (min-width: 700px) { .hm-stats .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+
+/* 同步狀態小標示 */
+.sync-pill { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translate(-50%, -6px); z-index: 60; padding: 3px 12px; border-radius: 999px; font-size: 12.5px; background: var(--text); color: var(--card); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+.sync-pill.show { opacity: .88; transform: translate(-50%, 0); }
+.sync-pill.bad { background: var(--bad); color: #2a1a18; }
+
+/* 鍵盤操作時看得到目前在哪個按鈕／連結（滑鼠點擊不會出現） */
+button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }

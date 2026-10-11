@@ -5,8 +5,6 @@
 var WB_MAX_BODY_BYTES = 300000;
 
 function doGet(e) {
-  // 過渡期：舊版網站（帶 ?token=）仍然走舊入口；指令碼屬性刪掉 API_TOKEN 後自動失效
-  if (e && e.parameter && e.parameter.token) return legacyDoGet_(e);
   return jsonOut_({ ok: true, data: { name: 'personal-workbench', version: WB_VERSION, message: '後端運作中。請用網頁版登入使用。' } });
 }
 
@@ -19,8 +17,6 @@ function doPost(e) {
   } catch (err) {
     return jsonOut_({ ok: false, error: { code: 'BAD_REQUEST', message: '請求格式錯誤' } });
   }
-  // 舊版網站送的是 { token, action, payload }，沒有 session → 交給舊入口（同樣只在 API_TOKEN 還存在時有效）
-  if (body && body.token !== undefined && body.session === undefined && body.params === undefined) return legacyDoPost_(e);
   return jsonOut_(WbApi.handle(body));
 }
 
@@ -33,7 +29,6 @@ function onOpen() {
     .addItem('新增裝置授權碼', 'menuAddDevice')
     .addItem('查看或撤銷裝置', 'menuManageDevices')
     .addItem('登出所有裝置', 'menuSignOutAll')
-    .addItem('關閉舊版網站入口（刪除 API_TOKEN）', 'menuDisableLegacy')
     .addItem('檢查目前狀態', 'menuStatus')
     .addSeparator()
     .addItem('立即備份一次', 'menuBackupNow')
@@ -110,23 +105,15 @@ function menuSignOutAll() {
   wbAlert_('已登出所有裝置', '所有裝置都需要重新輸入 PIN。');
 }
 
-function menuDisableLegacy() {
-  var u = wbUi_();
-  var ok = u.alert('關閉舊版網站入口', '確認新版網站已經可以正常登入使用了嗎？\n\n按「確定」會刪除指令碼屬性 API_TOKEN，舊版網站（用 API_TOKEN 的那個）之後就讀不到資料。', u.ButtonSet.OK_CANCEL);
-  if (ok !== u.Button.OK) return;
-  PropertiesService.getScriptProperties().deleteProperty('API_TOKEN');
-  wbAlert_('已關閉', '舊版入口已關閉，現在只能用「裝置授權碼＋PIN」登入。');
-}
-
 function menuStatus() {
   var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('API_TOKEN')) props.deleteProperty('API_TOKEN'); // 舊版入口已移除，殘留的屬性順手清掉
   var devices = WbAuth.listDevices();
   wbWarmUp_();
   wbAlert_('目前狀態', [
     '版本：' + WB_VERSION,
     'PIN：' + (WbAuth.hasPin() ? '已設定' : '尚未設定'),
     '裝置：' + (devices.length ? devices.map(function (d) { return d.id + ' ' + d.name; }).join('、') : '無'),
-    '舊版 API_TOKEN 入口：' + (props.getProperty('API_TOKEN') ? '仍開啟（新版確認沒問題後可從選單關閉）' : '已關閉'),
     '每週自動備份：' + (wbBackupTrigger_() ? '已開啟（每週日凌晨 3～4 點）' : '未開啟'),
     '最近一次備份：' + (props.getProperty('BACKUP_LAST') || '還沒有'),
   ].join('\n'));

@@ -3,7 +3,7 @@ import { icon } from '../icons.js';
 import { state } from '../store.js';
 import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
-import { uniqueValues, sortRows, daysUntilLabel, dateLabel, money } from '../util.js';
+import { uniqueValues, sortRows, daysUntilLabel, dateLabel, money, safeUrl } from '../util.js';
 import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, checkField, multiChips, formFooter, errorBanner, badge } from './common.js';
 
 const SORTS = [['下次付款日', '下次付款日'], ['每月金額', '每月金額（高→低）'], ['總計花費', '總計花費（高→低）'], ['產品', '名稱']];
@@ -77,7 +77,7 @@ export function openSubForm(id) {
   const url = textField('付款網址', x ? x['付款URL'] : '', { type: 'url', placeholder: 'https://…' });
   const tags = multiChips('分類標籤', d.options['分類標籤'], x ? x['分類標籤'] : []);
   const body = h('div', null, err.el, product.el, h('div', { class: 'grid-2' }, fee.el, cycle.el), start.el, canceled.el, cancelDate.el, importance.el, tags.el, memo.el, url.el,
-    x && x['付款URL'] ? h('a', { class: 'btn btn-sm', href: x['付款URL'], target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '開啟付款頁面') : null);
+    x && safeUrl(x['付款URL']) ? h('a', { class: 'btn btn-sm', href: safeUrl(x['付款URL']), target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '開啟付款頁面') : null);
 
   async function save(btn) {
     err.show('');

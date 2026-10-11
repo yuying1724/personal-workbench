@@ -4,7 +4,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.5.0';
+var WB_VERSION = '2.6.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -46,7 +46,7 @@ var WbApi = (function () {
   var WRITES = {
     create_course: createCourse_, update_course: updateCourse_, delete_course: deleteCourse_,
     create_subscription: createSubscription_, update_subscription: updateSubscription_, delete_subscription: deleteSubscription_,
-    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_,
+    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_, set_task_status: setTaskStatus_,
     create_project: createProject_, update_project: updateProject_, delete_project: deleteProject_,
     create_habit: createHabit_, update_habit: updateHabit_, delete_habit: deleteHabit_,
     create_diary: createDiary_, update_diary: updateDiary_, delete_diary: deleteDiary_,
@@ -56,7 +56,27 @@ var WbApi = (function () {
   // 這幾個函式內部自己已經用 LockService 鎖住了，外層不能再鎖一次（同一把鎖重複 waitLock 會卡住）
   var SELF_LOCKING = { set_habit_log: setHabitLog_, create_diary: createDiary_ };
 
-  function sheetUrl() { try { return SpreadsheetApp.getActiveSpreadsheet().getUrl(); } catch (e) { return ''; } }
+  // 寫入成功後順便回傳該模組的最新資料（前端就不用再打一次 *_bundle，省一次約 1.4 秒的請求）
+  var RELOAD_AFTER = {
+    course: 'course_bundle', subscription: 'sub_bundle', task: 'project_task_bundle', task_status: 'project_task_bundle',
+    project: 'project_task_bundle', habit: 'habit_bundle', habit_log: 'habit_bundle', diary: 'diary_bundle',
+    option: 'admin_bundle', system: 'admin_bundle',
+  };
+  function reloadFor(action) {
+    if (action === 'rename_option') return null; // 改選項名稱會連動各模組，前端自己整包重抓
+    if (!Object.prototype.hasOwnProperty.call(WRITES, action) && !Object.prototype.hasOwnProperty.call(SELF_LOCKING, action)) return null;
+    return RELOAD_AFTER[action.replace(/^(create|update|delete|skip|set|add|rename)_/, '')] || null;
+  }
+
+  // 試算表網址不會變：第一次查到就存在指令碼屬性，之後每次登入載入都省一次服務呼叫
+  function sheetUrl() {
+    try {
+      var props = PropertiesService.getScriptProperties();
+      var u = props.getProperty('SHEET_URL');
+      if (!u) { u = SpreadsheetApp.getActiveSpreadsheet().getUrl(); props.setProperty('SHEET_URL', u); }
+      return u;
+    } catch (e) { return ''; }
+  }
 
   function withLock(fn) {
     var lock = LockService.getScriptLock();
@@ -77,8 +97,9 @@ var WbApi = (function () {
     },
   };
   H.changePin = {
-    fn: function (p) {
-      if (!WbAuth.checkPin(p.oldPin)) throw WbFail('AUTH_FAILED', '目前的 PIN 不正確');
+    fn: function (p, env) {
+      // 跟登入共用失敗次數與鎖定（不然可以用變更 PIN 這條路無限次猜 PIN）
+      WbAuth.guardedPinCheck(env.session.deviceId, p.oldPin, {}, env.now, '目前的 PIN 不正確');
       WbAuth.setPin(p.newPin);
       return { success: true };
     },
@@ -111,6 +132,10 @@ var WbApi = (function () {
       var params = body.params && typeof body.params === 'object' && !Array.isArray(body.params) ? body.params : {};
       var data = h.fn(params, env);
       var out = { ok: true, data: data === undefined ? null : data };
+      var rb = reloadFor(body.action);
+      if (rb && params.reload !== false) {
+        try { out.reload = { name: rb, data: H[rb].fn({}, env) }; } catch (e2) { /* 讀不到就讓前端自己重抓 */ }
+      }
       if (sess) { var ns = WbAuth.refreshIfNeeded(sess, now); if (ns) out.session = ns; }
       return out;
     } catch (e) {

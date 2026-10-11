@@ -22,6 +22,21 @@ export const prefs = {
 export function applyTheme() {
   const root = document.documentElement;
   if (prefs.theme === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', prefs.theme);
+  // 手機狀態列顏色跟著 App 的主題（不是只跟系統設定）
+  const dark = prefs.theme === 'dark' || (prefs.theme === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m, i) => {
+    if (i > 0) { m.remove(); return; }
+    m.removeAttribute('media');
+    m.setAttribute('content', dark ? '#221c15' : '#f6efdd');
+  });
+}
+
+/** 清除這台裝置上所有工作台的資料（授權碼、登入狀態、資料快取、草稿、畫面設定） */
+export function wipeDeviceData() {
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith('wb.')).forEach((k) => localStorage.removeItem(k));
+  } catch (e) { /* 忽略 */ }
+  Object.keys(mem).forEach((k) => delete mem[k]);
 }
 
 // 全域狀態：state.data = bootstrap 回傳的整包資料（courses、tasks、habits…）

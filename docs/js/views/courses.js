@@ -3,7 +3,7 @@ import { icon } from '../icons.js';
 import { state } from '../store.js';
 import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
-import { uniqueValues, sortRows } from '../util.js';
+import { uniqueValues, sortRows, safeUrl } from '../util.js';
 import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, multiChips, formFooter, errorBanner, progress, badge } from './common.js';
 
 const SORTS = [['進度', '進度（高→低）'], ['優先順序', '優先順序'], ['開始日期', '開始日期'], ['課程名稱', '名稱']];
@@ -66,7 +66,7 @@ export function openCourseForm(id) {
   const cats = multiChips('分類', d.options['分類'], c ? c['分類'] : []);
   const body = h('div', null, err.el, name.el, h('div', { class: 'grid-2' }, platform.el, teacher.el), h('div', { class: 'grid-2' }, prog.el, status.el),
     h('div', { class: 'grid-2' }, pri.el, start.el), cats.el, link.el, notes.el,
-    c && c['課程連結'] ? h('a', { class: 'btn btn-sm', href: c['課程連結'], target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '開啟課程') : null);
+    c && safeUrl(c['課程連結']) ? h('a', { class: 'btn btn-sm', href: safeUrl(c['課程連結']), target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '開啟課程') : null);
 
   async function save(btn) {
     err.show('');
