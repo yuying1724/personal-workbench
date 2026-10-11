@@ -10,7 +10,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.3.0';
+var WB_VERSION = '2.4.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -2345,6 +2345,9 @@ function onOpen() {
     .addItem('登出所有裝置', 'menuSignOutAll')
     .addItem('關閉舊版網站入口（刪除 API_TOKEN）', 'menuDisableLegacy')
     .addItem('檢查目前狀態', 'menuStatus')
+    .addSeparator()
+    .addItem('立即備份一次', 'menuBackupNow')
+    .addItem('開啟／關閉每週自動備份', 'menuToggleWeeklyBackup')
     .addToUi();
 }
 
@@ -2434,8 +2437,82 @@ function menuStatus() {
     'PIN：' + (WbAuth.hasPin() ? '已設定' : '尚未設定'),
     '裝置：' + (devices.length ? devices.map(function (d) { return d.id + ' ' + d.name; }).join('、') : '無'),
     '舊版 API_TOKEN 入口：' + (props.getProperty('API_TOKEN') ? '仍開啟（新版確認沒問題後可從選單關閉）' : '已關閉'),
+    '每週自動備份：' + (wbBackupTrigger_() ? '已開啟（每週日凌晨 3～4 點）' : '未開啟'),
+    '最近一次備份：' + (props.getProperty('BACKUP_LAST') || '還沒有'),
   ].join('\n'));
 }
 
 /** 檢查所有分頁讀得到（缺分頁會直接丟出錯誤訊息，方便排查） */
 function wbWarmUp_() { getAllData_(); }
+
+// ---------- 備份 ----------
+// 把整份試算表複製到雲端硬碟「個人工作台備份」資料夾，只保留最近 WB_BACKUP_KEEP 份；
+// 更舊的移到垃圾桶（Google 雲端硬碟垃圾桶保留 30 天，誤刪還救得回來）。
+var WB_BACKUP_FOLDER_NAME = '個人工作台備份';
+var WB_BACKUP_KEEP = 8;
+var WB_BACKUP_HANDLER = 'wbWeeklyBackup';
+var WB_BACKUP_TAG = ' 備份 ';
+
+function wbBackupFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('BACKUP_FOLDER_ID');
+  if (id) {
+    try {
+      var f = DriveApp.getFolderById(id);
+      if (!f.isTrashed()) return f;
+    } catch (err) { /* 資料夾被刪掉或沒權限 → 重新找／建立 */ }
+  }
+  var it = DriveApp.getFoldersByName(WB_BACKUP_FOLDER_NAME);
+  var folder = it.hasNext() ? it.next() : DriveApp.createFolder(WB_BACKUP_FOLDER_NAME);
+  props.setProperty('BACKUP_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+/** 建立一份備份並清掉多餘的舊備份。回傳 { name, url, removed } */
+function wbBackupNow_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var folder = wbBackupFolder_();
+  var stamp = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd HHmm');
+  var copy = DriveApp.getFileById(ss.getId()).makeCopy(ss.getName() + WB_BACKUP_TAG + stamp, folder);
+  var backups = [];
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    if (f.getName().indexOf(WB_BACKUP_TAG) >= 0) backups.push(f);
+  }
+  backups.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
+  var old = backups.slice(WB_BACKUP_KEEP);
+  old.forEach(function (f) { f.setTrashed(true); });
+  PropertiesService.getScriptProperties().setProperty('BACKUP_LAST', stamp + '（' + copy.getName() + '）');
+  return { name: copy.getName(), url: copy.getUrl(), removed: old.length };
+}
+
+/** 每週觸發器呼叫的函式（觸發器只能呼叫結尾沒有底線的全域函式）。失敗時 Google 會自動寄信通知。 */
+function wbWeeklyBackup() { wbBackupNow_(); }
+
+function wbBackupTrigger_() {
+  var list = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < list.length; i++) if (list[i].getHandlerFunction() === WB_BACKUP_HANDLER) return list[i];
+  return null;
+}
+
+function menuBackupNow() {
+  var r = wbBackupNow_();
+  wbAlert_('備份完成', '已建立：' + r.name + '\n位置：雲端硬碟「' + WB_BACKUP_FOLDER_NAME + '」資料夾\n' +
+    (r.removed ? '已把 ' + r.removed + ' 份較舊的備份移到垃圾桶（只保留最近 ' + WB_BACKUP_KEEP + ' 份）。' : '目前保留最近 ' + WB_BACKUP_KEEP + ' 份。'));
+}
+
+function menuToggleWeeklyBackup() {
+  var u = wbUi_();
+  var t = wbBackupTrigger_();
+  if (t) {
+    if (u.alert('每週自動備份', '目前已開啟（每週日凌晨 3～4 點）。要關閉嗎？\n已經建立的備份不會被刪除。', u.ButtonSet.OK_CANCEL) !== u.Button.OK) return;
+    ScriptApp.deleteTrigger(t);
+    wbAlert_('已關閉', '每週自動備份已關閉。需要時可以用「立即備份一次」。');
+    return;
+  }
+  ScriptApp.newTrigger(WB_BACKUP_HANDLER).timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  var r = wbBackupNow_();
+  wbAlert_('已開啟每週自動備份', '之後每週日凌晨 3～4 點會自動備份到雲端硬碟「' + WB_BACKUP_FOLDER_NAME + '」資料夾，只保留最近 ' + WB_BACKUP_KEEP + ' 份。\n\n' +
+    '剛剛也先備份了一份：' + r.name);
+}

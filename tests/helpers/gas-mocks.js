@@ -153,6 +153,7 @@ class MockSheet {
 class MockSpreadsheet {
   constructor(id) { this.id = id; this.sheets = [new MockSheet(this, '工作表1')]; this.writes = 0; this.insertedRows = 0; }
   getId() { return this.id; }
+  getName() { return '個人工作台'; }
   getUrl() { return `https://docs.google.com/spreadsheets/d/${this.id}/edit`; }
   getSheets() { return this.sheets.slice(); }
   getSheetByName(n) { return this.sheets.find((s) => s.name === n) || null; }
@@ -240,14 +241,38 @@ function createMocks() {
     createTextOutput: (s) => ({ content: s, setMimeType() { return this; }, getContent() { return this.content; } }),
   };
   const ScriptApp = {
+    WeekDay: { SUNDAY: 'SUNDAY', MONDAY: 'MONDAY' },
     getProjectTriggers: () => state.triggers.slice(),
     deleteTrigger: (t) => { state.triggers = state.triggers.filter((x) => x !== t); },
     newTrigger: (fn) => {
       const spec = { fn };
-      const b = { timeBased: () => b, everyDays: (n) => { spec.days = n; return b; }, atHour: (h) => { spec.hour = h; return b; },
+      const b = { timeBased: () => b, everyDays: (n) => { spec.days = n; return b; }, onWeekDay: (d) => { spec.weekDay = d; return b; }, atHour: (h) => { spec.hour = h; return b; },
         create: () => { const t = { getHandlerFunction: () => fn, spec }; state.triggers.push(t); return t; } };
       return b;
     },
+  };
+  // DriveApp（只模擬備份用到的：資料夾、複製檔案、列出檔案、丟垃圾桶）
+  state.drive = { folders: [], files: [], seq: 0 };
+  const mkIter = (arr) => { let i = 0; return { hasNext: () => i < arr.length, next: () => arr[i++] }; };
+  const mkFile = (name, folder) => {
+    const f = { id: 'file-' + (++state.drive.seq), name, folder, trashed: false, created: new Date(state.clock.now + state.drive.seq) };
+    f.getId = () => f.id; f.getName = () => f.name; f.getUrl = () => 'https://drive.google.com/file/d/' + f.id;
+    f.getDateCreated = () => f.created; f.isTrashed = () => f.trashed; f.setTrashed = (v) => { f.trashed = !!v; return f; };
+    f.makeCopy = (n, dest) => { const c = mkFile(n, dest); state.drive.files.push(c); return c; };
+    return f;
+  };
+  const mkFolder = (name) => {
+    const d = { id: 'folder-' + (++state.drive.seq), name, trashed: false };
+    d.getId = () => d.id; d.getName = () => d.name; d.isTrashed = () => d.trashed;
+    d.getFiles = () => mkIter(state.drive.files.filter((f) => f.folder === d && !f.trashed));
+    state.drive.folders.push(d);
+    return d;
+  };
+  const DriveApp = {
+    getFileById: (id) => { const ss = state.spreadsheets[id]; if (!ss) throw new Error('No item with the given ID could be found'); return mkFile('個人工作台', null); },
+    getFolderById: (id) => { const d = state.drive.folders.find((x) => x.id === id); if (!d) throw new Error('No item with the given ID could be found'); return d; },
+    getFoldersByName: (n) => mkIter(state.drive.folders.filter((d) => d.name === n && !d.trashed)),
+    createFolder: (n) => mkFolder(n),
   };
   const Logger = { log: (m) => state.logs.push(String(m)) };
   const MailApp = { sendEmail: (to, subject, body) => { state.mail.push({ to, subject, body }); } };
@@ -286,7 +311,7 @@ function createMocks() {
     },
   };
   const Session = { getScriptTimeZone: () => 'Asia/Taipei', getEffectiveUser: () => ({ getEmail: () => 'owner@example.com' }), getActiveUser: () => ({ getEmail: () => 'owner@example.com' }) };
-  return { state, newSheet, setActive: (ss) => { active = ss; }, globals: { SpreadsheetApp, PropertiesService, CacheService, LockService, Utilities, ContentService, ScriptApp, Logger, MailApp, Session, Sheets } };
+  return { state, newSheet, setActive: (ss) => { active = ss; }, globals: { SpreadsheetApp, DriveApp, PropertiesService, CacheService, LockService, Utilities, ContentService, ScriptApp, Logger, MailApp, Session, Sheets } };
 }
 
 module.exports = { createMocks, MockSheet, MockSpreadsheet };

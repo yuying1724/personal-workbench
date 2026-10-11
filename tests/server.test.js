@@ -234,3 +234,41 @@ test('不支援的 action、壞掉的 body 都回傳錯誤而不是丟例外', (
   assert.equal(JSON.parse(b.ctx.doPost({ postData: { contents: '{bad json' } }).getContent()).error.code, 'BAD_REQUEST');
   assert.equal(b.post([1, 2]).error.code, 'BAD_REQUEST');
 });
+
+test('備份：複製到「個人工作台備份」資料夾、只保留最近 8 份；每週自動備份可開關', () => {
+  const b = loadBackend();
+  b.setup();
+  const drive = b.state.drive;
+  const active = () => drive.files.filter((f) => !f.trashed);
+
+  for (let i = 0; i < 10; i++) b.ctx.wbBackupNow_();
+  assert.equal(drive.folders.length, 1, '資料夾只建一次');
+  assert.equal(drive.folders[0].getName(), '個人工作台備份');
+  assert.equal(active().length, 8, '只保留 8 份');
+  assert.equal(drive.files.length - active().length, 2, '多的 2 份丟垃圾桶');
+  assert.ok(active().every((f) => f.folder === drive.folders[0] && / 備份 \d{4}-\d{2}-\d{2} \d{4}$/.test(f.getName())));
+  // 丟掉的是最舊的
+  const newest = drive.files.slice().sort((a, c) => c.created - a.created).slice(0, 8);
+  assert.deepEqual(active().map((f) => f.id).sort(), newest.map((f) => f.id).sort());
+  assert.match(b.state.props.BACKUP_LAST, /備份/);
+
+  // 選單：開啟 → 建觸發器（每週日 3 點）並立刻備份一次；再按一次確認 → 關閉
+  const before = drive.files.length;
+  b.ctx.menuToggleWeeklyBackup();
+  const trig = b.state.triggers.filter((t) => t.getHandlerFunction() === 'wbWeeklyBackup');
+  assert.equal(trig.length, 1);
+  assert.deepEqual([trig[0].spec.weekDay, trig[0].spec.hour], ['SUNDAY', 3]);
+  assert.equal(drive.files.length, before + 1);
+  assert.equal(typeof b.ctx.wbWeeklyBackup, 'function', '觸發器要呼叫得到全域函式');
+
+  b.state.ui.queue('CANCEL');
+  b.ctx.menuToggleWeeklyBackup();
+  assert.equal(b.state.triggers.length, 1, '按取消不關閉');
+  b.ctx.menuToggleWeeklyBackup();
+  assert.equal(b.state.triggers.length, 0, '確認後關閉');
+
+  // 選單項目有加上
+  b.ctx.onOpen();
+  const items = b.state.ui.menus.at(-1).items.map((x) => x[1]);
+  assert.ok(items.includes('menuBackupNow') && items.includes('menuToggleWeeklyBackup'));
+});

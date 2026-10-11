@@ -7,7 +7,8 @@ const { createMocks } = require('./gas-mocks.js');
 
 const CODE = path.join(__dirname, '../../dist/Api.gs');
 // Apps Script 專案裡的另一個檔案（訂閱計算的自訂函數，addMonthsSafe_ 等也在這裡），線上兩個檔案共用同一個全域範圍
-const CALC = path.join(__dirname, '../../backup/計算函數.gs');
+// 用 gas/ 裡跟線上 Apps Script 同步的版本（clasp pull 下來的）
+const CALC = path.join(__dirname, '../../gas/個人工作台-計算函數.js');
 
 // 與線上「個人工作台」試算表相同的分頁與表頭（欄位順序很重要：legacy.js 用 appendRow 依序寫入）
 const SHEETS = {
