@@ -16,7 +16,16 @@ function walk(dir) {
   });
 }
 
+// shared/logic.js（前後端共用邏輯的唯一正本）→ docs/js/shared-logic.js（加上 ES module 的 export）
+function buildShared() {
+  const src = fs.readFileSync(path.join(__dirname, '../shared/logic.js'), 'utf8');
+  const out = '// 由 tools/build-web.js 從 shared/logic.js 自動產生，請勿直接編輯（要改請改 shared/logic.js 再 npm run build）\n' +
+    src + '\nexport default WbLogic;\n';
+  fs.writeFileSync(path.join(DOCS, 'js/shared-logic.js'), out);
+}
+
 function build() {
+  buildShared();
   const files = walk(DOCS).map((p) => path.relative(DOCS, p).split(path.sep).join('/'))
     .filter((f) => f !== 'sw.js' && !f.endsWith('.png') || f === 'icons/icon-192.png').sort();
   const hash = crypto.createHash('sha256');

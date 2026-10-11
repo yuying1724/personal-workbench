@@ -398,3 +398,17 @@ test('變更 PIN 跟登入共用失敗次數：一直猜舊 PIN 會被鎖定', (
   assert.equal(last.error.code, 'LOCKED');
   assert.equal(b.call('changePin', { oldPin: b.pin, newPin: '135790' }).error.code, 'LOCKED', '鎖定期間就算對也不行');
 });
+
+test('ID 不重複使用：刪掉最新一筆後，下一筆拿新號碼（不同分頁、不同前綴各自計數）', () => {
+  const b = loadBackend();
+  b.setup();
+  const a = b.call('create_task', { '任務名稱': 'a', '狀態': '待辦' }).data.id;
+  const c = b.call('create_task', { '任務名稱': 'c', '狀態': '待辦' }).data.id;
+  b.call('delete_task', { '任務ID': c });
+  const d = b.call('create_task', { '任務名稱': 'd', '狀態': '待辦' }).data.id;
+  assert.notEqual(d, c, '刪掉的 ' + c + ' 不能再發一次');
+  assert.ok(Number(d.slice(1)) > Number(c.slice(1)));
+  assert.ok(a < c);
+  const h1 = b.call('create_habit', { '習慣名稱': 'x', '類型': '打勾', '頻率類型': 'daily' }).data.id;
+  assert.match(h1, /^H0*1$/);
+});

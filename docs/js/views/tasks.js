@@ -1,6 +1,7 @@
 import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state, notify } from '../store.js';
+import WbLogic from '../shared-logic.js';
 import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText, toast } from '../ui.js';
 import {
@@ -107,21 +108,9 @@ export function taskRow(t, groupKey) {
     canSkipTask(t) ? h('button', { type: 'button', class: 'icon-btn', title: '跳過本次', 'aria-label': '跳過本次', onclick: () => skipTask(t) }, icon('skip')) : null);
 }
 
-/** 跟後端 getTaskStats_ 同一套算法，樂觀更新時在本機重算統計 */
+/** 任務統計（跟後端 getTaskStats_ 是同一份程式：shared/logic.js），樂觀更新時在本機重算 */
 export function computeTaskStats(tasks) {
-  const today = todayStr(0), soon = todayStr(3);
-  let completed = 0, overdue = 0, dueSoon = 0, starredOpen = 0;
-  (tasks || []).forEach((t) => {
-    const isDone = t['狀態'] === '已完成';
-    const isClosed = t['狀態'] === '已取消' || t['狀態'] === '已跳過';
-    if (isDone) completed++;
-    if (t['星標'] === true && !isDone && !isClosed) starredOpen++;
-    if (t['到期日'] && !isDone && !isClosed) {
-      if (t['到期日'] < today) overdue++;
-      else if (t['到期日'] <= soon) dueSoon++;
-    }
-  });
-  return { total: (tasks || []).length, completed, overdue, dueSoon, starredOpen };
+  return WbLogic.taskStats(tasks, todayStr(0), todayStr(3));
 }
 
 /** 用本機資料重算任務統計，回傳還原函式 */

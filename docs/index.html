@@ -2,6 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
+  <!-- 內容安全政策：只能執行本站的程式、只能連到 Apps Script 後端；就算資料裡混進奇怪的內容也無法載入外部程式 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>個人工作台</title>
   <meta name="theme-color" content="#f6efdd" media="(prefers-color-scheme: light)">
@@ -16,15 +18,7 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="css/app.css">
-  <script>
-    // 主題要在畫面出現前就套用，避免閃一下
-    (function () {
-      try {
-        var t = localStorage.getItem('wb.theme') || 'light'; // 預設淺色
-        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-      } catch (e) {}
-    })();
-  </script>
+  <script src="js/theme-boot.js"></script>
 </head>
 <body>
   <div id="app"><div class="boot">載入中…</div></div>

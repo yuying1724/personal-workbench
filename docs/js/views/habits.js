@@ -5,6 +5,7 @@ import { write, saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText, toast } from '../ui.js';
 import { habitFreqLabel, uniqueValues, HABIT_TIME_OPTIONS, HABIT_TIME_ICON, todayStr, dateLabel, pct } from '../util.js';
 import { heatmap, heatLegend, isRequiredDay, valueText, doneDays } from './heatmap.js';
+import WbLogic from '../shared-logic.js';
 import {
   pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, checkField, segField, weekdayPicker, formFooter, errorBanner,
 } from './common.js';
@@ -66,24 +67,11 @@ export function habitsByTime(rows, opts) {
     h('ul', { class: 'list' }, groups[t].map((hb) => h('li', null, habitRow(hb, opts))))));
 }
 
-// ---------- 樂觀更新：打卡先改畫面、背景送出，跟後端 isHabitDoneForDay_／habitTierForValue_ 同一套判斷 ----------
+// ---------- 樂觀更新：打卡先改畫面、背景送出 ----------
 function habitById(id) { return (state.data.habits || []).find((x) => x['習慣ID'] === id); }
-function hasNum(v) { return v !== '' && v != null; }
-function habitDoneFor(hb, value) {
-  const v = Number(value) || 0;
-  if (hb['類型'] !== '計數') return v >= 1;
-  if (hb['啟用分級'] === true && hasNum(hb['基礎值'])) return v >= (Number(hb['基礎值']) || 0);
-  return v >= (Number(hb['目標值']) || 1);
-}
-function habitTierFor(hb, value) {
-  if (hb['類型'] !== '計數' || hb['啟用分級'] !== true) return null;
-  const v = Number(value) || 0;
-  const target = Number(hb['目標值']) || 0;
-  if (hasNum(hb['超標值']) && v >= Number(hb['超標值'])) return '超標';
-  if (v >= target) return '達標';
-  if (hasNum(hb['基礎值']) && v >= Number(hb['基礎值'])) return '基礎';
-  return null;
-}
+// 完成／等級的判斷跟後端是同一份程式（shared/logic.js）
+const habitDoneFor = (hb, value) => WbLogic.isHabitDoneForDay(hb, value);
+const habitTierFor = (hb, value) => WbLogic.habitTierForValue(hb, value);
 /** 把今日數值套到本機資料（含今日完成／等級／統計的今日完成數），回傳還原函式 */
 function applyHabitValue(hb, value) {
   const stats = state.data.habitStats || (state.data.habitStats = {});

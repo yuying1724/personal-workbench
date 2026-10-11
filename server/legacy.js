@@ -397,96 +397,18 @@ function getSubscriptionStats_() {
 //        {"type":"count","count":5}          → 只重複產生 N 次（用 "occurrence" 記錄目前是第幾次）
 //   2. 一般文字（自訂標籤，例如「牌照稅」）→ 只是記錄用，不會自動產生下一筆。
 // weekdays 用 0=週日～6=週六。
-function nextDueDate_(dateStr, ruleRaw) {
-  if (!dateStr) return "";
-  var d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "";
-  var rule = parseRepeatRule_(ruleRaw);
-  if (!rule) return "";
-  var interval = Math.max(1, parseInt(rule.interval, 10) || 1);
-
-  if (rule.freq === "day") {
-    d.setDate(d.getDate() + interval);
-  } else if (rule.freq === "month") {
-    if (rule.lastDayOfMonth) {
-      var totalMonths = d.getFullYear() * 12 + d.getMonth() + interval;
-      var targetYear = Math.floor(totalMonths / 12);
-      var targetMonth0 = totalMonths % 12;
-      d = new Date(targetYear, targetMonth0 + 1, 0); // 第 0 天 = 上個月的最後一天
-    } else {
-      d = addMonthsSafe_(d, interval);
-    }
-  } else if (rule.freq === "year") {
-    d.setFullYear(d.getFullYear() + interval);
-  } else if (rule.freq === "week") {
-    if (rule.weekdays && rule.weekdays.length) {
-      d = nextWeekdayOccurrence_(d, rule.weekdays, interval);
-    } else {
-      d.setDate(d.getDate() + 7 * interval);
-    }
-  } else {
-    return "";
-  }
-  return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
-}
+function nextDueDate_(dateStr, ruleRaw) { return WbLogic.nextDueDate(dateStr, ruleRaw); } // 邏輯在 shared/logic.js（前後端共用）
 
 // 判斷這次完成後，重複規則的「截止條件」是否已經到了（到了就不再自動產生下一筆）。
 // 回傳 { stop: boolean, nextRuleRaw: string } —— nextRuleRaw 是下一筆任務要繼續帶著的重複規則字串
 // （次數限制的情況，裡面的 occurrence 會 +1；沒有截止條件或用日期限制的情況，規則字串原封不動）。
-function applyRepeatEnd_(rule, ruleRaw, nextDueStr) {
-  if (!rule || !rule.end) return { stop: false, nextRuleRaw: ruleRaw };
-  var end = rule.end;
-  if (end.type === "date" && end.date) {
-    if (nextDueStr > end.date) return { stop: true, nextRuleRaw: ruleRaw };
-    return { stop: false, nextRuleRaw: ruleRaw };
-  }
-  if (end.type === "count" && end.count) {
-    var doneCount = rule.occurrence || 1;
-    if (doneCount >= end.count) return { stop: true, nextRuleRaw: ruleRaw };
-    var nextRule = JSON.parse(JSON.stringify(rule));
-    nextRule.occurrence = doneCount + 1;
-    return { stop: false, nextRuleRaw: JSON.stringify(nextRule) };
-  }
-  return { stop: false, nextRuleRaw: ruleRaw };
-}
+function applyRepeatEnd_(rule, ruleRaw, nextDueStr) { return WbLogic.applyRepeatEnd(rule, ruleRaw, nextDueStr); }
 
 // 把「重複規則」欄位解析成結構化物件；不是看得懂的 JSON 就回傳 null（代表自訂文字，不自動產生下一筆）
-function parseRepeatRule_(raw) {
-  if (!raw) return null;
-  var obj;
-  try {
-    obj = JSON.parse(raw);
-  } catch (e) {
-    return null;
-  }
-  if (!obj || typeof obj !== "object") return null;
-  if (["day", "week", "month", "year"].indexOf(obj.freq) === -1) return null;
-  return obj;
-}
-
-// 從某個日期往後找，下一個符合「指定星期幾、每 N 週」規則的日期
-// （用「當週週日」當基準點來判斷第幾週，確保「每兩週」這種間隔算得準）
-function nextWeekdayOccurrence_(fromDate, weekdays, interval) {
-  var sorted = weekdays.slice().sort(function (a, b) { return a - b; });
-  var baseWeekStart = startOfWeek_(fromDate);
-  var cur = new Date(fromDate.getTime());
-  for (var i = 0; i < 370; i++) {
-    cur.setDate(cur.getDate() + 1);
-    if (sorted.indexOf(cur.getDay()) !== -1) {
-      var curWeekStart = startOfWeek_(cur);
-      var weeksDiff = Math.round((curWeekStart.getTime() - baseWeekStart.getTime()) / (7 * 86400000));
-      if (((weeksDiff % interval) + interval) % interval === 0) return cur;
-    }
-  }
-  return cur; // 理論上不會走到這（保底）
-}
+function parseRepeatRule_(raw) { return WbLogic.parseRepeatRule(raw); }
 
 // 某日期所在那一週的週日（當地時間，時分秒歸零）
-function startOfWeek_(date) {
-  var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  d.setDate(d.getDate() - d.getDay());
-  return d;
-}
+function startOfWeek_(date) { return WbLogic.startOfWeek(date); }
 
 // 把「子任務」分頁（任務ID、內容、完成）轉成 { 任務ID: [{內容,完成}, ...] }
 // 排列順序就是試算表裡的列順序，因為每次儲存都是整批刪除再依照
@@ -526,34 +448,10 @@ function getTasksUncached_() {
 }
 
 function getTaskStats_() {
-  var tasks = getTasks_();
-  var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-  var soonLimit = new Date();
-  soonLimit.setDate(soonLimit.getDate() + 3);
-  var soonStr = Utilities.formatDate(soonLimit, Session.getScriptTimeZone(), "yyyy-MM-dd");
-
-  var completed = 0, overdue = 0, dueSoon = 0, starredOpen = 0;
-
-  tasks.forEach(function (t) {
-    var isDone = t["狀態"] === "已完成";
-    // 已取消／已跳過都算「這一筆已經處理完、不再需要關注」，不列入逾期／即將到期，
-    // 差別只在「已跳過」還會自動產生下一輪待辦（見 skipTask_），這裡純粹算統計不用管那個。
-    var isClosed = t["狀態"] === "已取消" || t["狀態"] === "已跳過";
-    if (isDone) completed++;
-    if (t["星標"] === true && !isDone && !isClosed) starredOpen++;
-    if (t["到期日"] && !isDone && !isClosed) {
-      if (t["到期日"] < todayStr) overdue++;
-      else if (t["到期日"] <= soonStr) dueSoon++;
-    }
-  });
-
-  return {
-    total: tasks.length,
-    completed: completed,
-    overdue: overdue,
-    dueSoon: dueSoon,
-    starredOpen: starredOpen
-  };
+  var now = new Date();
+  var soon = new Date(now.getTime());
+  soon.setDate(soon.getDate() + 3);
+  return WbLogic.taskStats(getTasks_(), formatYmd_(now), formatYmd_(soon)); // 規則在 shared/logic.js（前端樂觀更新用同一套）
 }
 
 function createTask_(p) {
@@ -874,13 +772,7 @@ function parseWeekdaysField_(raw) {
 // 判斷某一天是不是這個習慣「該做」的日子（只適用 daily／weekday 兩種頻率）：
 // 頻率類型="daily" → 每天都算；頻率類型="weekday" → 只有星期幾清單裡的那幾天算
 // （星期幾用 0=週日～6=週六，跟任務重複規則的星期編碼一致）
-function isRequiredDay_(habit, dateStr) {
-  if (habit["頻率類型"] === "weekday") {
-    var dow = parseDateStr_(dateStr).getDay();
-    return (habit["星期幾"] || []).indexOf(dow) !== -1;
-  }
-  return true;
-}
+function isRequiredDay_(habit, dateStr) { return WbLogic.isRequiredDay(habit, dateStr); } // shared/logic.js
 
 // 「今天算不算這個習慣該做的一天」——daily/weekday 沿用 isRequiredDay_；
 // weeklyCount（每週N次，不指定星期幾）則是「這週的次數還沒集滿」就算今天還該做，
@@ -898,30 +790,11 @@ function isDueToday_(habit, dateStr, logMap) {
 // 打勾型只要有紀錄（數值>=1）就算；
 // 計數型如果有開三級制，「基礎」以上就算完成（達標/超標當然也算，基礎是最低門檻）；
 // 計數型沒開三級制，維持原本邏輯：數值要達到目標值才算完成。
-function isHabitDoneForDay_(habit, value) {
-  var v = Number(value) || 0;
-  if (habit["類型"] !== "計數") return v >= 1;
-  if (habit["啟用分級"] === true && habit["基礎值"] !== "" && habit["基礎值"] != null) {
-    var base = Number(habit["基礎值"]) || 0;
-    return v >= base;
-  }
-  var target = Number(habit["目標值"]) || 1;
-  return v >= target;
-}
+function isHabitDoneForDay_(habit, value) { return WbLogic.isHabitDoneForDay(habit, value); } // shared/logic.js
 
 // 算某一天達到「基礎／達標／超標」哪一級（只有計數型 + 有開三級制才會回傳非 null）。
 // 給前端顯示用的徽章，不影響「今日已完成」的判斷（那個固定認基礎以上）。
-function habitTierForValue_(habit, value) {
-  if (habit["類型"] !== "計數" || habit["啟用分級"] !== true) return null;
-  var v = Number(value) || 0;
-  var base = habit["基礎值"] !== "" && habit["基礎值"] != null ? Number(habit["基礎值"]) : null;
-  var target = Number(habit["目標值"]) || 0;
-  var over = habit["超標值"] !== "" && habit["超標值"] != null ? Number(habit["超標值"]) : null;
-  if (over !== null && v >= over) return "超標";
-  if (v >= target) return "達標";
-  if (base !== null && v >= base) return "基礎";
-  return null;
-}
+function habitTierForValue_(habit, value) { return WbLogic.habitTierForValue(habit, value); } // shared/logic.js
 
 function getHabitLogs_() {
   return sheetToObjects_("習慣打卡紀錄");
@@ -1413,7 +1286,15 @@ function nextId_(sheet, prefix) {
       if (!isNaN(n) && n > max) max = n;
     }
   }
-  var padded = String(max + 1);
+  // 2026-10-11：只看「表裡目前最大的 ID」的話，刪掉最新一筆後那個 ID 會被下一筆重用——
+  // 別台裝置如果還拿著舊資料去改那個 ID，就會改到另一筆。所以另外把「發過的最大號碼」記在指令碼屬性，
+  // 號碼只會往上加。（呼叫端都在 LockService 鎖裡，不會兩個請求拿到同一號）
+  var props = PropertiesService.getScriptProperties();
+  var key = "SEQ_" + sheet.getName() + "_" + prefix;
+  var issued = Number(props.getProperty(key) || 0) || 0;
+  var n = Math.max(max, issued) + 1;
+  props.setProperty(key, String(n));
+  var padded = String(n);
   while (padded.length < 4) padded = "0" + padded;
   return prefix + padded;
 }

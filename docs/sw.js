@@ -1,7 +1,7 @@
 /* Service Worker（由 tools/build-web.js 自動產生，請勿直接編輯）
  * 讓網站可以安裝成 App，離線時至少能開啟外殼。
  * 策略：同網域的檔案「快取優先」（安裝時整批存好這一版），改版時整批換新；呼叫後端 API（跨網域 POST）完全不經過快取。 */
-const VERSION = 'wb-643db31f25';
+const VERSION = 'wb-7e517bb6f1';
 const SHELL = [
   "./",
   "config.js",
@@ -14,7 +14,9 @@ const SHELL = [
   "js/data.js",
   "js/dom.js",
   "js/icons.js",
+  "js/shared-logic.js",
   "js/store.js",
+  "js/theme-boot.js",
   "js/ui.js",
   "js/util.js",
   "js/views/admin.js",

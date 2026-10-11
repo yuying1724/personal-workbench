@@ -2,6 +2,7 @@
 // 資料來源是後端在每個習慣上附的「打卡紀錄」（近一年、只有打過卡的日子：{ 'yyyy-MM-dd': 數值 }）。
 import { h } from '../dom.js';
 import { localDateStr, dateLabel } from '../util.js';
+import WbLogic from '../shared-logic.js';
 
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -9,11 +10,8 @@ function parse(ds) { const [y, m, d] = String(ds).split('-').map(Number); return
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function hasNum(v) { return v !== '' && v != null; }
 
-/** 這天是不是這個習慣該做的日子（只有「指定星期」會有不用做的日子） */
-export function isRequiredDay(hb, ds) {
-  if (hb['頻率類型'] !== 'weekday') return true;
-  return (hb['星期幾'] || []).map(Number).includes(parse(ds).getDay());
-}
+/** 這天是不是這個習慣該做的日子（跟後端同一份：shared/logic.js） */
+export function isRequiredDay(hb, ds) { return WbLogic.isRequiredDay(hb, ds); }
 
 /** 0＝沒做；1～4 越深做得越多。打勾型做了就是 4；三級制：未達基礎 1／基礎 2／達標 3／超標 4 */
 export function habitLevel(hb, value) {

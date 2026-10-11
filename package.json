@@ -1,6 +1,6 @@
 {
   "name": "personal-workbench",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "private": true,
   "description": "個人工作台：GitHub Pages 前端（可安裝成 App）+ Google Sheets + Apps Script API",
   "scripts": {
