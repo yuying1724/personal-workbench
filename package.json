@@ -6,7 +6,10 @@
   "scripts": {
     "build": "node tools/build-gas.js && node tools/build-web.js",
     "test": "npm run build && node --test \"tests/**/*.test.js\"",
-    "dev": "npm run build && node tools/dev-server.js"
+    "dev": "npm run build && node tools/dev-server.js",
+    "deploy:gas": "node tools/deploy-gas.js"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

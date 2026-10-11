@@ -5,3 +5,8 @@ Thumbs.db
 # 任何含授權碼或 PIN 的檔案都不該進版控
 *.secret
 .env
+# 授權檔（Google / GitHub），絕對不能進版控
+.clasprc.json
+.git-credentials
+# 部署時由 dist/Api.gs 複製產生
+gas/Api.js

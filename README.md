@@ -50,6 +50,8 @@ v2 起，版面、登入方式、程式結構都跟「財務管理」（finance-
 3. 雙擊 **`push.bat`** 上傳。它會先把另一台電腦推上去的修改合併進來再上傳，不會互相蓋掉。
 4. 如果動到後端（`server/` 或 `dist/Api.gs`），照「三、日常維護」把新的 `dist/Api.gs` 貼到 Apps Script 並部署新版本。
 
+**Claude 直接上傳與部署**（2026/10 起）：資料夾裡有 `.git-credentials`（GitHub token）和 `.clasprc.json`（Google 授權）時，Claude 可以自己 `git push`、自己跑 `npm run deploy:gas` 部署後端，不用再雙擊 `push.bat` 或手動貼程式。這兩個檔案已列入 `.gitignore`，不會上傳；換電腦時要另外複製過去（或重新授權）。`gas/` 是 Apps Script 專案的本機鏡像（`.clasp.json` 指定），`gas/Api.js` 由部署腳本從 `dist/Api.gs` 複製產生。
+
 **第一次在新電腦使用**（例如家裡電腦，只要做一次）：
 1. 安裝 [Git for Windows](https://git-scm.com/download/win)（安裝時都按預設）。
 2. 在想放的位置（例如「文件」）按右鍵 → *Open Git Bash here*，輸入：
@@ -67,7 +69,7 @@ v2 起，版面、登入方式、程式結構都跟「財務管理」（finance-
 | 想做的事 | 做法 |
 |---|---|
 | 更新前端 | 改 `docs/` 之後雙擊 `push.bat`，手機開啟 App 時會自動更新 |
-| 更新後端 | 改 `server/` → `npm run build` → 把 `dist/Api.gs` 整份貼進 Apps Script 的 Api.gs → **部署 → 管理部署作業 → 編輯 → 新版本 → 部署**（網址不變） |
+| 更新後端 | 改 `server/` → `npm run deploy:gas -- "說明"`（自動 build、clasp push、更新同一個部署，網址不變）。沒有 clasp 授權時，仍可手動把 `dist/Api.gs` 整份貼進 Apps Script 的 Api.gs → **部署 → 管理部署作業 → 編輯 → 新版本 → 部署** |
 | 忘記 PIN | 試算表選單 **個人工作台 → 設定或變更 PIN**（只有試算表擁有者能執行） |
 | 手機遺失 | **個人工作台 → 查看或撤銷裝置**；或 **登出所有裝置** |
 | 備份 | 試算表 **檔案 → 版本記錄** 會自動保留；也可以 **檔案 → 建立副本** |
