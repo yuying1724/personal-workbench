@@ -8,10 +8,12 @@ let onAuthLost = () => {};
 export function setAuthLostHandler(fn) { onAuthLost = fn; }
 
 function parseExp(session) { const p = String(session || '').split('.'); return Number(p[2]) || 0; }
+// 工作階段碼裡也帶著效期長度（毫秒），換發新碼時效期長度可能改了，直接從碼裡讀
+function parseTtlMin(session) { const p = String(session || '').split('.'); return Math.round((Number(p[3]) || 0) / 60000); }
 export function setSession(session, ttlMinutes) {
   if (!session) { prefs.session = null; return; }
   const prev = prefs.session || {};
-  prefs.session = { session, exp: parseExp(session), ttl: ttlMinutes || prev.ttl || 60 };
+  prefs.session = { session, exp: parseExp(session), ttl: parseTtlMin(session) || ttlMinutes || prev.ttl || 60 };
 }
 export function hasValidSession() { const s = prefs.session; return !!(s && s.session && s.exp > Date.now()); }
 export function clearSession() { prefs.session = null; }

@@ -10,6 +10,8 @@ export const prefs = {
   get token() { return get('wb.token'); }, set token(v) { set('wb.token', v); },
   get apiUrl() { return get('wb.apiUrl') || (window.WB_CONFIG && window.WB_CONFIG.apiUrl) || ''; }, set apiUrl(v) { set('wb.apiUrl', v); },
   // 預設淺色；選「跟隨系統」也會記下來（存成 'auto'）
+  // 閒置多久要重新輸入 PIN（分鐘，這台裝置自己的設定；預設 7 天）
+  get ttlMinutes() { return Number(get('wb.ttlMinutes')) || 7 * 24 * 60; }, set ttlMinutes(v) { set('wb.ttlMinutes', String(v)); },
   get theme() { return get('wb.theme') || 'light'; },
   set theme(v) { set('wb.theme', v); applyTheme(); },
   get session() { try { return JSON.parse(get('wb.session') || 'null'); } catch (e) { return null; } },

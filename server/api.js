@@ -86,7 +86,15 @@ var WbApi = (function () {
 
   var H = {};
   H.ping = { auth: false, fn: function () { return { name: 'personal-workbench', version: WB_VERSION }; } };
-  H.login = { auth: false, fn: function (p) { return WbAuth.login(p.token, p.pin, {}); } };
+  // ttlMinutes：這台裝置在設定頁選的「閒置多久要重新輸入 PIN」（後端會限制在 5 分鐘～30 天）
+  H.login = { auth: false, fn: function (p) { return WbAuth.login(p.token, p.pin, { '閒置登出分鐘': p.ttlMinutes }); } };
+  H.set_session_ttl = {
+    fn: function (p, env) {
+      var r = WbAuth.reissue(env.session, p.ttlMinutes, env.now);
+      env.newSession = r.session; // 由 handle() 放進回應的 session，前端自動換上
+      return { ttlMinutes: r.ttlMinutes };
+    },
+  };
   H.bootstrap = {
     fn: function (p, env) {
       WB_NO_PRELOAD_ = !!(p && p.noPreload);
@@ -136,7 +144,8 @@ var WbApi = (function () {
       if (rb && params.reload !== false) {
         try { out.reload = { name: rb, data: H[rb].fn({}, env) }; } catch (e2) { /* 讀不到就讓前端自己重抓 */ }
       }
-      if (sess) { var ns = WbAuth.refreshIfNeeded(sess, now); if (ns) out.session = ns; }
+      if (env.newSession) out.session = env.newSession;
+      else if (sess) { var ns = WbAuth.refreshIfNeeded(sess, now); if (ns) out.session = ns; }
       return out;
     } catch (e) {
       return errorResponse(e);

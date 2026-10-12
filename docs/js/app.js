@@ -109,6 +109,8 @@ export async function reloadAll(btn) {
 async function start() {
   applyTheme();
   if (!api.hasValidSession()) { renderLogin(app, { onSuccess: start }); return; }
+  // 舊版登入的工作階段效期比這台裝置設定的短（例如舊版固定 1 小時）→ 背景換發成設定的長度
+  if ((prefs.session.ttl || 0) < prefs.ttlMinutes) api.call('set_session_ttl', { ttlMinutes: prefs.ttlMinutes }).catch(() => {});
   // 有上次的快取就先畫出來（秒開），背景再抓最新資料；抓失敗就維持舊資料並提示
   const cached = loadCache();
   if (cached) {

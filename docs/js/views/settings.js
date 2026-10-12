@@ -20,6 +20,9 @@ export function renderSettings(root) {
           h('button', { class: 'btn btn-sm', onclick: openChangePin }, icon('lock'), '變更 PIN'),
           h('button', { class: 'btn btn-sm', onclick: () => lock('已鎖定') }, icon('logout'), '鎖定並登出'),
           h('button', { class: 'btn btn-sm btn-danger', onclick: wipeThisDevice }, icon('trash'), '清除這台裝置的資料')),
+        h('div', { class: 'field', style: { marginTop: '12px' } }, h('span', { class: 'lbl' }, '這台裝置閒置多久要重新輸入 PIN'),
+          seg(TTL_OPTIONS, prefs.ttlMinutes, (v) => setTtl(v))),
+        h('p', { class: 'muted small' }, '時間越長越方便，但手機或電腦被別人拿到時，對方也能直接看到資料。公司或共用電腦建議選「1 小時」。'),
         h('p', { class: 'muted small', style: { marginBottom: 0 } }, `這台裝置：${meta.device || '（未命名）'}。要新增或撤銷裝置（例如家裡電腦、新手機），請在試算表選單「個人工作台」操作。`),
         h('p', { class: 'muted small', style: { marginBottom: 0 } }, '「鎖定並登出」之後，資料快取和裝置授權碼還留在這台裝置（下次只要輸入 PIN、而且秒開）。在公司或別人的電腦上用完，建議按「清除這台裝置的資料」。')),
       h('div', { class: 'card' }, h('h2', null, '資料'),
@@ -30,6 +33,23 @@ export function renderSettings(root) {
           h('dt', null, '版本'), h('dd', null, meta.version || '—'),
           h('dt', null, '後端'), h('dd', { class: 'mono' }, prefs.apiUrl.replace(/^https?:\/\//, '').slice(0, 60) + (prefs.apiUrl.length > 68 ? '…' : ''))),
         h('button', { class: 'btn btn-sm', style: { marginTop: '12px' }, onclick: reloadApp }, icon('refresh'), '清除快取並重新載入'))));
+}
+
+const TTL_OPTIONS = [[60, '1 小時'], [24 * 60, '1 天'], [7 * 24 * 60, '7 天'], [30 * 24 * 60, '30 天']];
+
+async function setTtl(minutes) {
+  const prev = prefs.ttlMinutes;
+  prefs.ttlMinutes = minutes;
+  notify();
+  try {
+    await api.call('set_session_ttl', { ttlMinutes: minutes });
+    const label = (TTL_OPTIONS.find(([v]) => v === minutes) || [0, minutes + ' 分鐘'])[1];
+    toast(`已設定：閒置 ${label}才需要重新輸入 PIN`);
+  } catch (e) {
+    prefs.ttlMinutes = prev;
+    notify();
+    if (e.code !== 'AUTH_REQUIRED') toast(errorText(e), { kind: 'bad' });
+  }
 }
 
 async function reloadApp() {

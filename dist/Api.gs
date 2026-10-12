@@ -249,7 +249,15 @@ var WbApi = (function () {
 
   var H = {};
   H.ping = { auth: false, fn: function () { return { name: 'personal-workbench', version: WB_VERSION }; } };
-  H.login = { auth: false, fn: function (p) { return WbAuth.login(p.token, p.pin, {}); } };
+  // ttlMinutes：這台裝置在設定頁選的「閒置多久要重新輸入 PIN」（後端會限制在 5 分鐘～30 天）
+  H.login = { auth: false, fn: function (p) { return WbAuth.login(p.token, p.pin, { '閒置登出分鐘': p.ttlMinutes }); } };
+  H.set_session_ttl = {
+    fn: function (p, env) {
+      var r = WbAuth.reissue(env.session, p.ttlMinutes, env.now);
+      env.newSession = r.session; // 由 handle() 放進回應的 session，前端自動換上
+      return { ttlMinutes: r.ttlMinutes };
+    },
+  };
   H.bootstrap = {
     fn: function (p, env) {
       WB_NO_PRELOAD_ = !!(p && p.noPreload);
@@ -299,7 +307,8 @@ var WbApi = (function () {
       if (rb && params.reload !== false) {
         try { out.reload = { name: rb, data: H[rb].fn({}, env) }; } catch (e2) { /* 讀不到就讓前端自己重抓 */ }
       }
-      if (sess) { var ns = WbAuth.refreshIfNeeded(sess, now); if (ns) out.session = ns; }
+      if (env.newSession) out.session = env.newSession;
+      else if (sess) { var ns = WbAuth.refreshIfNeeded(sess, now); if (ns) out.session = ns; }
       return out;
     } catch (e) {
       return errorResponse(e);
@@ -458,6 +467,14 @@ var WbAuth = (function () {
     }
   }
 
+  // 閒置多久要重新輸入 PIN：每台裝置自己選（設定頁），最短 5 分鐘、最長 30 天
+  var MAX_TTL_MIN = 30 * 24 * 60;
+  /** 已登入的裝置改「閒置多久要重新輸入 PIN」：用同一台裝置的身分換發一張新效期的工作階段碼 */
+  function reissue(sess, ttlMinutes, nowMs) {
+    var ttlMs = numSetting({ v: ttlMinutes }, 'v', 60, 5, MAX_TTL_MIN) * 60000;
+    return { session: issueSession({ id: sess.deviceId }, ttlMs, nowMs), ttlMinutes: Math.round(ttlMs / 60000) };
+  }
+
   function login(token, pin, settings) {
     var now = WbClock.now();
     var tok = normalizeToken(token);
@@ -471,7 +488,7 @@ var WbAuth = (function () {
     }
     if (!hasPin()) throw WbFail('NOT_INITIALIZED', 'PIN 尚未設定：請在試算表選單「個人工作台 → 設定或變更 PIN」');
     guardedPinCheck(match.id, pin, settings, now, '授權碼或 PIN 錯誤');
-    var ttlMs = numSetting(settings, '閒置登出分鐘', 60, 5, 720) * 60000;
+    var ttlMs = numSetting(settings, '閒置登出分鐘', 60, 5, MAX_TTL_MIN) * 60000;
     return { session: issueSession(match, ttlMs, now), device: { id: match.id, name: match.name }, ttlMinutes: Math.round(ttlMs / 60000) };
   }
 
@@ -501,7 +518,7 @@ var WbAuth = (function () {
 
   return {
     addDevice: addDevice, listDevices: listDevices, revokeDevice: revokeDevice, setPin: setPin, hasPin: hasPin, checkPin: checkPin,
-    pinPolicyError: pinPolicyError, guardedPinCheck: guardedPinCheck, signOutAll: signOutAll, ensureKey: ensureKey, login: login, verifySession: verifySession, refreshIfNeeded: refreshIfNeeded,
+    pinPolicyError: pinPolicyError, guardedPinCheck: guardedPinCheck, reissue: reissue, MAX_TTL_MIN: MAX_TTL_MIN, signOutAll: signOutAll, ensureKey: ensureKey, login: login, verifySession: verifySession, refreshIfNeeded: refreshIfNeeded,
     randomHex: randomHex, generateToken: generateToken, constEq: constEq, MIN_PIN_LENGTH: MIN_PIN_LENGTH,
   };
 })();

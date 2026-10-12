@@ -43,7 +43,7 @@ export function renderLogin(root, { onSuccess, message }) {
       prefs.apiUrl = url;
       await withBusy(submit, async () => {
         try {
-          const r = await api.call('login', { token, pin });
+          const r = await api.call('login', { token, pin, ttlMinutes: prefs.ttlMinutes });
           prefs.token = token;
           api.setSession(r.session, r.ttlMinutes);
           pinInput.value = '';

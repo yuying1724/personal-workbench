@@ -412,3 +412,24 @@ test('ID 不重複使用：刪掉最新一筆後，下一筆拿新號碼（不�
   const h1 = b.call('create_habit', { '習慣名稱': 'x', '類型': '打勾', '頻率類型': 'daily' }).data.id;
   assert.match(h1, /^H0*1$/);
 });
+
+test('閒置多久要重新輸入 PIN：登入時可指定（5 分鐘～30 天），登入後可用 set_session_ttl 換發', () => {
+  const b = loadBackend();
+  b.setup();
+  const ttlOf = (sess) => Number(String(sess).split('.')[3]) / 60000;
+  const r = b.post({ action: 'login', params: { token: b.token, pin: b.pin, ttlMinutes: 7 * 24 * 60 } });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.data.ttlMinutes, 10080);
+  assert.equal(ttlOf(r.data.session), 10080);
+  assert.equal(b.post({ action: 'login', params: { token: b.token, pin: b.pin, ttlMinutes: 999999 } }).data.ttlMinutes, 43200, '最長 30 天');
+  assert.equal(b.post({ action: 'login', params: { token: b.token, pin: b.pin } }).data.ttlMinutes, 60, '沒指定就是 1 小時');
+  b.session = r.data.session;
+  const s2 = b.post({ action: 'set_session_ttl', params: { ttlMinutes: 1 }, session: r.data.session });
+  assert.equal(s2.ok, true, JSON.stringify(s2));
+  assert.equal(s2.data.ttlMinutes, 5, '最短 5 分鐘');
+  assert.equal(ttlOf(s2.session), 5);
+  const s3 = b.post({ action: 'set_session_ttl', params: { ttlMinutes: 43200 }, session: s2.session });
+  assert.equal(ttlOf(s3.session), 43200);
+  assert.equal(b.post({ action: 'bootstrap', params: {}, session: s3.session }).ok, true, '換發的新碼可以用');
+  assert.equal(b.post({ action: 'set_session_ttl', params: { ttlMinutes: 60 } }).error.code, 'AUTH_REQUIRED', '沒登入不能換發');
+});
