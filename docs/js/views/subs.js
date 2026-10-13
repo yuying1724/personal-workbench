@@ -3,8 +3,8 @@ import { icon } from '../icons.js';
 import { state } from '../store.js';
 import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
-import { uniqueValues, sortRows, daysUntilLabel, dateLabel, money, safeUrl } from '../util.js';
-import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, checkField, multiChips, formFooter, errorBanner, badge } from './common.js';
+import { uniqueValues, sortRows, daysUntilLabel, dateLabel, todayStr, money, safeUrl } from '../util.js';
+import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, dateField, selectField, checkField, multiChips, formFooter, errorBanner, badge } from './common.js';
 
 const SORTS = [['下次付款日', '下次付款日'], ['每月金額', '每月金額（高→低）'], ['總計花費', '總計花費（高→低）'], ['產品', '名稱']];
 
@@ -57,7 +57,8 @@ function subItem(x) {
         x['即將付款'] === true && x['取消訂閱'] !== true ? badge(daysUntilLabel(x['下次付款日'])) : null,
         x['訂閱費負擔提示'] ? badge('費用偏高', 'warn') : null),
       h('div', { class: 's wraptext' }, meta.join(' · '))),
-    h('div', { class: 'amt' }, money(x['每月金額']), h('div', { class: 's' }, '/ 月')));
+    h('div', { class: 'amt' }, money(x['每月金額']), h('div', { class: 's' }, '/ 月')),
+    h('span', { class: 'chev' }, icon('chevronRight')));
 }
 
 export function openSubForm(id) {
@@ -68,8 +69,8 @@ export function openSubForm(id) {
   const product = textField('產品', x ? x['產品'] : '');
   const fee = textField('訂閱費', x && x['訂閱費'] !== '' && x['訂閱費'] != null ? x['訂閱費'] : '', { type: 'number', min: 0, inputmode: 'decimal' });
   const cycle = selectField('訂閱週期', d.options['訂閱週期'], x ? x['訂閱週期'] : '');
-  const start = textField('訂閱開始日', x ? x['訂閱開始日'] : '', { type: 'date' });
-  const cancelDate = textField('取消訂閱日', x ? x['取消訂閱日'] : '', { type: 'date' });
+  const start = dateField('訂閱開始日', x ? x['訂閱開始日'] : '', { quick: [['今天', () => todayStr(0)]] });
+  const cancelDate = dateField('取消訂閱日', x ? x['取消訂閱日'] : '', { quick: [['今天', () => todayStr(0)], ['清除', '']], emptyHint: '還在使用中' });
   const canceled = checkField('已取消訂閱', x && x['取消訂閱'] === true, () => { cancelDate.el.style.display = canceled.checked ? '' : 'none'; });
   cancelDate.el.style.display = x && x['取消訂閱'] === true ? '' : 'none';
   const importance = selectField('重要性', d.options['重要性'], x ? x['重要性'] : '');
@@ -86,7 +87,7 @@ export function openSubForm(id) {
       '取消訂閱': canceled.checked, '取消訂閱日': cancelDate.value, '重要性': importance.value,
       '備註': memo.value, '付款URL': url.value.trim(), '分類標籤': tags.value,
     };
-    if (!payload['產品']) return err.show('請填產品名稱');
+    if (!payload['產品']) return err.show('請填產品名稱', product.el);
     // 每月金額／下次付款日等是試算表公式算的，新增的那筆要等背景重抓才會有，先留空
     const fields = Object.assign({}, payload, { '訂閱費': payload['訂閱費'] === '' ? '' : Number(payload['訂閱費']) },
       x ? {} : { '每月金額': '', '上次付款日': '', '下次付款日': '', '即將付款': false, '累積訂閱日': '', '總計花費': '', '訂閱費負擔提示': '' });
@@ -100,5 +101,5 @@ export function openSubForm(id) {
     deleteRow('delete_subscription', { '訂閱ID': x['訂閱ID'] }, { list: 'subscriptions', idField: '訂閱ID', id: x['訂閱ID'], toast: '已刪除' });
     ref.sheet.close();
   } }, icon('trash'))] : [];
-  ref.sheet = openSheet({ title: x ? '編輯訂閱' : '新增訂閱', body, footer: formFooter(ref, save, { extra }) });
+  ref.sheet = openSheet({ title: x ? '編輯訂閱' : '新增訂閱', body, footer: formFooter(ref, save, { extra }), guard: true });
 }

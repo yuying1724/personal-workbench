@@ -45,35 +45,48 @@ window.addEventListener('popstate', () => {
   if (!marker) return;
   marker = false;
   const top = stack[stack.length - 1];
-  if (top) top.close({ fromPop: true });
+  if (top) top.close({ fromPop: true, user: true });
   if (stack.length) ensureMarker();
 });
 
 /**
- * 開啟底部視窗。beforeClose（選用）：使用者要關閉時（X、取消、返回鍵）先問，回傳 false／Promise<false> 就不關；
- * 程式自己關（例如儲存後）用 close({ force: true })。
+ * 開啟底部視窗。
+ * - beforeClose（選用）：使用者要關閉時（X、取消、返回鍵）先問，回傳 false／Promise<false> 就不關；程式自己關用 close({ force: true })。
+ * - guard: true（表單用）：使用者改過內容後按 X／取消／返回鍵／點背景，先問「要放棄這次的修改嗎？」；儲存後程式自己 close() 不會問。
  */
-export function openSheet({ title, body, footer, dismissable = true, onClose, beforeClose }) {
+export function openSheet({ title, body, footer, dismissable = true, onClose, beforeClose, guard = false }) {
   const id = ++seq;
-  const closeBtn = h('button', { class: 'icon-btn', 'aria-label': '關閉', onclick: () => api.close() }, icon('x'));
+  let dirty = false;
+  if (guard) {
+    const markDirty = () => { dirty = true; };
+    body.addEventListener('input', markDirty);
+    body.addEventListener('change', markDirty);
+    body.addEventListener('click', (e) => { if (e.target.closest('.chip, .seg button, .wd, .mood-btn, .find-row .icon-btn')) dirty = true; });
+  }
+  const closeBtn = h('button', { class: 'icon-btn', 'aria-label': '關閉', onclick: () => api.close({ user: true }) }, icon('x'));
   const sheet = h('div', { class: 'sheet' + (footer ? ' has-foot' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '' },
     h('div', { class: 'grab' }),
     title ? h('div', { class: 'sheet-head' }, h('h2', null, title), closeBtn) : null,
     body,
     footer ? h('div', { class: 'sheet-foot' }, footer) : null);
-  const overlay = h('div', { class: 'overlay', onmousedown: (e) => { if (e.target === overlay && dismissable) api.close(); } }, sheet);
-  const onKey = (e) => { if (e.key === 'Escape' && stack[stack.length - 1] === api && dismissable) api.close(); };
+  const overlay = h('div', { class: 'overlay', onmousedown: (e) => { if (e.target === overlay && dismissable) api.close({ user: true }); } }, sheet);
+  const onKey = (e) => { if (e.key === 'Escape' && stack[stack.length - 1] === api && dismissable) api.close({ user: true }); };
   document.addEventListener('keydown', onKey);
   document.getElementById('modal-root').appendChild(overlay);
+  document.body.classList.add('sheet-open'); // 視窗開著時後面的頁面不跟著捲
   ensureMarker();
   const api = {
     id, el: sheet, overlay,
     close(opts = {}) {
       if (!overlay.isConnected) return;
-      if (beforeClose && !opts.force) {
+      const ask = beforeClose && !opts.force ? beforeClose
+        : guard && dirty && (opts.user || opts.fromPop) && !opts.force
+          ? () => confirmDialog({ title: '還沒儲存', message: '這次的修改還沒儲存，要放棄嗎？', confirmText: '放棄', danger: true })
+          : null;
+      if (ask) {
         if (api.asking) return;
         api.asking = true;
-        Promise.resolve(beforeClose()).then((ok) => {
+        Promise.resolve(ask()).then((ok) => {
           api.asking = false;
           if (ok) api.close({ force: true });
           else if (opts.fromPop) ensureMarker(); // 按返回鍵但選擇留下：補回歷史紀錄，下次返回仍然先關視窗
@@ -83,6 +96,7 @@ export function openSheet({ title, body, footer, dismissable = true, onClose, be
       overlay.remove();
       document.removeEventListener('keydown', onKey);
       const i = stack.indexOf(api); if (i >= 0) stack.splice(i, 1);
+      if (!stack.length) document.body.classList.remove('sheet-open');
       if (!opts.fromPop && !stack.length) releaseMarker();
       if (onClose) onClose();
     },

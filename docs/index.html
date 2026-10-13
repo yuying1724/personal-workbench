@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <!-- 內容安全政策：只能執行本站的程式、只能連到 Apps Script 後端；就算資料裡混進奇怪的內容也無法載入外部程式 -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>個人工作台</title>
   <meta name="theme-color" content="#f6efdd" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#221c15" media="(prefers-color-scheme: dark)">
@@ -18,6 +18,31 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="css/app.css">
+  <!-- 預先載入全部程式模組（由 tools/build-web.js 自動產生）：不用等 app.js 載完才知道要再抓哪些檔，第一次開啟快很多 -->
+  <!-- modulepreload:start -->
+  <link rel="modulepreload" href="js/api.js">
+  <link rel="modulepreload" href="js/app.js">
+  <link rel="modulepreload" href="js/data.js">
+  <link rel="modulepreload" href="js/dom.js">
+  <link rel="modulepreload" href="js/icons.js">
+  <link rel="modulepreload" href="js/shared-logic.js">
+  <link rel="modulepreload" href="js/store.js">
+  <link rel="modulepreload" href="js/ui.js">
+  <link rel="modulepreload" href="js/util.js">
+  <link rel="modulepreload" href="js/views/admin.js">
+  <link rel="modulepreload" href="js/views/common.js">
+  <link rel="modulepreload" href="js/views/courses.js">
+  <link rel="modulepreload" href="js/views/diary.js">
+  <link rel="modulepreload" href="js/views/habits.js">
+  <link rel="modulepreload" href="js/views/heatmap.js">
+  <link rel="modulepreload" href="js/views/home.js">
+  <link rel="modulepreload" href="js/views/login.js">
+  <link rel="modulepreload" href="js/views/more.js">
+  <link rel="modulepreload" href="js/views/projects.js">
+  <link rel="modulepreload" href="js/views/settings.js">
+  <link rel="modulepreload" href="js/views/subs.js">
+  <link rel="modulepreload" href="js/views/tasks.js">
+  <!-- modulepreload:end -->
   <script src="js/theme-boot.js"></script>
 </head>
 <body>

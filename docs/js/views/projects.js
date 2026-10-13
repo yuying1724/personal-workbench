@@ -3,8 +3,8 @@ import { icon } from '../icons.js';
 import { state, subscribe } from '../store.js';
 import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
-import { uniqueValues, sortRows, dateLabel, TASK_CLOSED } from '../util.js';
-import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, formFooter, errorBanner, progress, badge } from './common.js';
+import { uniqueValues, sortRows, dateLabel, todayStr, TASK_CLOSED } from '../util.js';
+import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, dateField, selectField, formFooter, errorBanner, progress, badge } from './common.js';
 import { taskRow, openTaskForm } from './tasks.js';
 
 export function projectSummary() {
@@ -59,7 +59,8 @@ function projectItem(p) {
     h('div', { class: 'grow' },
       h('div', { class: 'row-flex' }, h('div', { class: 't grow' }, p['專案名稱'] || ''), p['狀態'] ? badge(p['狀態']) : null),
       withDots.length ? h('div', { class: 's' }, withDots) : null,
-      progress(p['完成度Percent'], `${Math.round(Number(p['完成度Percent']) || 0)}%（${p['已完成數'] || 0}/${p['任務數'] || 0}）`)));
+      progress(p['完成度Percent'], `${Math.round(Number(p['完成度Percent']) || 0)}%（${p['已完成數'] || 0}/${p['任務數'] || 0}）`)),
+    h('span', { class: 'chev' }, icon('chevronRight')));
 }
 
 /** 專案詳情：看專案底下的任務、直接新增任務到這個專案 */
@@ -98,8 +99,8 @@ export function openProjectForm(id) {
   const ref = {};
   const err = errorBanner();
   const name = textField('專案名稱', p ? p['專案名稱'] : '');
-  const start = textField('開始日', p ? p['開始日'] : '', { type: 'date' });
-  const end = textField('結束日', p ? p['結束日'] : '', { type: 'date' });
+  const start = dateField('開始日', p ? p['開始日'] : '', { quick: [['今天', () => todayStr(0)]] });
+  const end = dateField('結束日', p ? p['結束日'] : '', { quick: [['1 週後', () => todayStr(7)], ['1 個月後', () => todayStr(30)], ['3 個月後', () => todayStr(90)]] });
   const status = selectField('狀態', d.options['專案狀態'], p ? p['狀態'] : '');
   const pri = selectField('優先級', d.options['專案優先級'], p ? p['優先級'] : '');
   const notes = textField('備註', p ? p['備註'] : '', { multiline: true, rows: 3 });
@@ -107,8 +108,8 @@ export function openProjectForm(id) {
   async function save(btn) {
     err.show('');
     const payload = { '專案名稱': name.value.trim(), '開始日': start.value, '結束日': end.value, '狀態': status.value, '優先級': pri.value, '備註': notes.value };
-    if (!payload['專案名稱']) return err.show('請填專案名稱');
-    if (payload['開始日'] && payload['結束日'] && payload['結束日'] < payload['開始日']) return err.show('結束日不能早於開始日');
+    if (!payload['專案名稱']) return err.show('請填專案名稱', name.el);
+    if (payload['開始日'] && payload['結束日'] && payload['結束日'] < payload['開始日']) return err.show('結束日不能早於開始日', end.el);
     const fields = Object.assign({}, payload, p ? {} : { '任務數': 0, '已完成數': 0, '逾期數': 0, '完成度Percent': 0 });
     if (p) saveRow('update_project', Object.assign(payload, { '專案ID': p['專案ID'] }), { list: 'projects', idField: '專案ID', id: p['專案ID'], fields, toast: '已儲存' });
     else saveRow('create_project', payload, { list: 'projects', idField: '專案ID', fields, toast: '已新增專案' });
@@ -126,5 +127,5 @@ export function openProjectForm(id) {
     } });
     ref.sheet.close();
   } }, icon('trash'))] : [];
-  ref.sheet = openSheet({ title: p ? '編輯專案' : '新增專案', body, footer: formFooter(ref, save, { extra }) });
+  ref.sheet = openSheet({ title: p ? '編輯專案' : '新增專案', body, footer: formFooter(ref, save, { extra }), guard: true });
 }

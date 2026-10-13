@@ -2,11 +2,17 @@
 import { h } from '../dom.js';
 import { icon } from '../icons.js';
 import { prefs } from '../store.js';
-import { reloadAll } from '../app.js';
+import { reloadAll, TABS, parseRoute } from '../app.js';
+import { dateLabel, todayStr } from '../util.js';
 
 export function pageHead(title, ...extra) {
   const btn = h('button', { class: 'icon-btn', 'aria-label': '重新整理', title: '重新整理', onclick: (e) => reloadAll(e.currentTarget) }, icon('refresh'));
-  return h('div', { class: 'page-head' }, h('h1', null, title), ...extra, btn);
+  // 不在底部分頁列上的頁面（專案、訂閱、課程、分類管理…），手機上給一個「返回」，不用再去找「更多」
+  const tab = TABS.find((t) => t.id === parseRoute().tab);
+  const back = tab && !tab.mobile && !tab.mobileOnly
+    ? h('button', { class: 'icon-btn back-btn', 'aria-label': '返回', onclick: () => { if (history.length > 1) history.back(); else location.hash = '#/more'; } }, icon('chevronLeft'))
+    : null;
+  return h('div', { class: 'page-head' }, back, h('h1', null, title), ...extra, btn);
 }
 
 /** 統計數字卡：[[標題, 數值, 小字?], ...] */
@@ -65,6 +71,25 @@ export function selectField(label, options, value, opts = {}) {
   return { el: field(label, sel), get value() { return sel.value; }, input: sel };
 }
 
+/**
+ * 日期欄位：原生日期選擇器＋底下一行「10/13（二）」的提示（手機的原生框只顯示 mm/dd/yyyy 不好讀），
+ * 以及常用的快速按鈕（今天／明天／…）。quick：[[文字, 'yyyy-MM-dd' 或 () => 'yyyy-MM-dd'], ...]
+ */
+export function dateField(label, value, opts = {}) {
+  const inp = h('input', { type: 'date', value: value || '', min: opts.min, max: opts.max, 'aria-label': label });
+  const hintEl = h('div', { class: 'hint' });
+  const chips = (opts.quick || []).map(([text, v]) => h('button', { type: 'button', class: 'chip', onclick: () => { inp.value = typeof v === 'function' ? v() : v; sync(); inp.dispatchEvent(new Event('change', { bubbles: true })); } }, text));
+  function sync() {
+    hintEl.textContent = inp.value ? dateLabel(inp.value) + (inp.value === todayStr(0) ? '（今天）' : '') : (opts.emptyHint || '未設定');
+    chips.forEach((c, i) => { const v = opts.quick[i][1]; c.classList.toggle('on', (typeof v === 'function' ? v() : v) === inp.value); });
+  }
+  inp.addEventListener('input', sync);
+  inp.addEventListener('change', sync);
+  sync();
+  const el = h('div', { class: 'field' }, label ? h('span', { class: 'lbl' }, label) : null, inp, hintEl, chips.length ? h('div', { class: 'chips quick' }, chips) : null);
+  return { el, get value() { return inp.value; }, set value(v) { inp.value = v || ''; sync(); }, input: inp, sync };
+}
+
 export function textField(label, value, opts = {}) {
   const inp = opts.multiline
     ? h('textarea', { rows: opts.rows || 3, placeholder: opts.placeholder || '' }, value || '')
@@ -119,11 +144,27 @@ export function formFooter(sheetRef, onSave, opts = {}) {
   save.addEventListener('click', () => onSave(save));
   const btns = [];
   if (opts.extra) btns.push(...opts.extra);
-  btns.push(h('button', { class: 'btn', type: 'button', onclick: () => sheetRef.sheet.close() }, '取消'), save);
+  btns.push(h('button', { class: 'btn', type: 'button', onclick: () => sheetRef.sheet.close({ user: true }) }, '取消'), save);
   return btns;
 }
 
+/** 表單上方的錯誤訊息。show(msg, fieldEl)：有給欄位時，該欄位會標紅並把游標移過去（長表單不用找） */
 export function errorBanner() {
   const el = h('div', { class: 'notice bad', role: 'alert', style: { display: 'none', marginBottom: '10px' } });
-  return { el, show(msg) { el.textContent = msg; el.style.display = msg ? '' : 'none'; if (msg) el.scrollIntoView({ block: 'nearest' }); } };
+  let marked = null;
+  return {
+    el,
+    show(msg, fieldEl) {
+      el.textContent = msg; el.style.display = msg ? '' : 'none';
+      if (marked) { marked.classList.remove('err'); marked = null; }
+      if (!msg) return;
+      const wrap = fieldEl && (fieldEl.classList && fieldEl.classList.contains('field') ? fieldEl : fieldEl.closest ? fieldEl.closest('.field') : null);
+      if (wrap) {
+        marked = wrap; wrap.classList.add('err');
+        const ctl = wrap.querySelector('input, select, textarea');
+        wrap.scrollIntoView({ block: 'center' });
+        if (ctl) { ctl.focus({ preventScroll: true }); ctl.addEventListener('input', () => wrap.classList.remove('err'), { once: true }); }
+      } else el.scrollIntoView({ block: 'nearest' });
+    },
+  };
 }

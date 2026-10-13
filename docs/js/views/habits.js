@@ -45,7 +45,7 @@ export function habitRow(hb, opts = {}) {
   if (tb) meta.push(tb);
   meta.push(h('span', { class: 'streak nowrap' }, icon('fire'), ` 連續 ${hb['連續天數'] || 0} ${unit}`));
   meta.push(`最長 ${hb['最長連續'] || 0} ${unit}`);
-  meta.push(`近7天 ${hb['近7天完成率'] || 0}%`);
+  meta.push(`近7天 ${pct(hb['近7天完成率'])}%`);
   const withDots = [];
   meta.forEach((m, i) => { if (i) withDots.push(' · '); withDots.push(m); });
 
@@ -116,7 +116,7 @@ export function renderHabits(root) {
   const sorted = [...today].sort((a, b) => Number(a['今日已完成']) - Number(b['今日已完成']));
   mount(root,
     pageHead(systemName('習慣', '習慣'), h('a', { class: 'btn btn-sm', href: '#/habit-admin' }, icon('tools'), '管理')),
-    stats([['總習慣數', s.total ?? 0], ['今日進度', s.doneTodayCount ?? 0, ` / ${s.dueTodayCount ?? 0}`], ['近7天平均完成率', s.avgRate7 ?? 0, '%']]),
+    stats([['總習慣數', s.total ?? 0], ['今日進度', s.doneTodayCount ?? 0, ` / ${s.dueTodayCount ?? 0}`], ['近7天平均完成率', pct(s.avgRate7), '%']]),
     h('h2', { class: 'section-title' }, '今日打卡'),
     sorted.length ? habitsByTime(sorted, {}) : h('div', { class: 'card' }, empty((d.habits || []).length ? '今天沒有排定要做的習慣' : '還沒有習慣，到「習慣管理」新增', '🌱')),
     heatSection(d.habits || []));
@@ -131,7 +131,7 @@ function heatSection(habits) {
     h('div', { class: 'card' }, active.map((hb) => h('button', { type: 'button', class: 'hm-item', onclick: () => openHabitHistory(hb['習慣ID']) },
       h('div', { class: 'hm-title' }, h('span', { class: 't wraptext' }, hb['習慣名稱'] || ''),
         h('span', { class: 'muted small nowrap' }, `近30天 ${pct(hb['近30天完成率'])}%`)),
-      heatmap(hb, { weeks: compactWeeks(hb) })))),
+      heatmap(hb, { weeks: compactWeeks(hb), lazy: true })))),
   ];
 }
 
@@ -283,8 +283,8 @@ export function openHabitForm(id) {
       '頻率類型': freq.value, '星期幾': wd.value, '每週次數': weekly.value,
       '狀態': archived.checked ? '封存' : '啟用',
     };
-    if (!payload['習慣名稱']) return err.show('請填習慣名稱');
-    if (freq.value === 'weekday' && !wd.value.length) return err.show('請至少選一個星期幾，或改選「每天」');
+    if (!payload['習慣名稱']) return err.show('請填習慣名稱', name.el);
+    if (freq.value === 'weekday' && !wd.value.length) return err.show('請至少選一個星期幾，或改選「每天」', wd.el);
     if (isTiered && payload['基礎值'] && payload['目標值'] && Number(payload['基礎值']) >= Number(payload['目標值'])) return err.show('基礎值要小於目標值（達標門檻）');
     if (isTiered && payload['超標值'] && payload['目標值'] && Number(payload['超標值']) <= Number(payload['目標值'])) return err.show('超標值要大於目標值（達標門檻）');
     if (freq.value === 'weeklyCount' && !(Number(payload['每週次數']) >= 1)) return err.show('請填每週要做幾次（至少 1 次）');
@@ -304,5 +304,5 @@ export function openHabitForm(id) {
     deleteRow('delete_habit', { '習慣ID': hb['習慣ID'] }, { list: 'habits', idField: '習慣ID', id: hb['習慣ID'], toast: '已刪除' });
     ref.sheet.close();
   } }, icon('trash'))] : [];
-  ref.sheet = openSheet({ title: hb ? '編輯習慣' : '新增習慣', body, footer: formFooter(ref, save, { extra }) });
+  ref.sheet = openSheet({ title: hb ? '編輯習慣' : '新增習慣', body, footer: formFooter(ref, save, { extra }), guard: true });
 }

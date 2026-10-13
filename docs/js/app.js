@@ -38,6 +38,7 @@ export function tabLabel(t) { return t.sys ? systemName(t.sys, t.label) : t.labe
 let viewRoot = null;
 let fabBtn = null;
 let syncPill = null;
+let renderedKey = ''; // 上次畫面是用哪一版資料、哪個路徑畫的（沒變就不重畫）
 let lastActive = Date.now();
 
 export function parseRoute() {
@@ -50,6 +51,7 @@ export function parseRoute() {
 function renderView() {
   if (!viewRoot || !state.data) return;
   const r = parseRoute();
+  renderedKey = state.dataVersion + '|' + location.hash;
   const tab = TABS.find((t) => t.id === r.tab);
   const mobileActive = tab.mobile || tab.mobileOnly ? tab.id : 'more';
   document.querySelectorAll('.sidebar [data-tab]').forEach((el) => el.classList.toggle('active', el.dataset.tab === r.tab));
@@ -123,7 +125,11 @@ async function start() {
     });
     return;
   }
-  mount(app, h('div', { class: 'boot' }, '載入中…'));
+  mount(app, h('div', { class: 'boot' }, h('div', null,
+    h('div', { class: 'logo' }, icon('clipboard')),
+    h('div', { class: 't' }, '正在讀取你的資料'),
+    h('div', { class: 'small' }, '第一次打開會從試算表整份讀取，大約需要幾秒；之後會記在這台裝置，秒開'),
+    h('div', { class: 'spinner' }))));
   try {
     await refresh();
     showShell();
@@ -153,6 +159,7 @@ window.addEventListener('offline', updateSyncPill);
 let renderWaiting = false;
 function onDataChange() {
   updateSyncPill();
+  if (renderedKey === state.dataVersion + '|' + location.hash) return; // 只有同步狀態變了，資料沒變：不用整頁重畫
   const a = document.activeElement;
   if (viewRoot && a && viewRoot.contains(a) && a.matches('input:not([type=checkbox]):not([type=radio]), textarea, select')) {
     if (!renderWaiting) {

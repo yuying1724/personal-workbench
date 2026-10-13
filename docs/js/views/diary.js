@@ -27,7 +27,7 @@ function entryCard(dy) {
   if (dy['小故事']) parts.push(h('div', null, h('b', null, '小故事　'), dy['小故事']));
   if (finds.length) parts.push(h('div', null, h('b', null, '發現　'), finds.map((f) => h('span', { class: 'nowrap-soft' }, findStatusIcon(f['狀態'] || ''), ' ', `${f['類型']}：${f['內容']}`, '　'))));
   return h('button', { type: 'button', class: 'card diary-card', onclick: () => openDiaryForm(dy['日期']) },
-    h('div', { class: 'row-flex between' }, h('div', { class: 'diary-date' }, dateLabel(dy['日期'])), dy['心情'] ? h('span', { class: 'mood' }, dy['心情']) : null),
+    h('div', { class: 'row-flex' }, h('div', { class: 'diary-date grow' }, dateLabel(dy['日期'])), dy['心情'] ? h('span', { class: 'mood' }, dy['心情']) : null, h('span', { class: 'chev muted' }, icon('chevronRight'))),
     parts.length ? h('div', { class: 'diary-snippet' }, parts) : h('div', { class: 'muted small' }, '（這篇還沒寫內容）'));
 }
 

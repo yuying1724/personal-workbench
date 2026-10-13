@@ -8,16 +8,18 @@ import { withBusy, errorText } from '../ui.js';
 export function renderLogin(root, { onSuccess, message }) {
   let changeToken = !prefs.token;
   let textPin = false;
-  const errBox = h('div', { class: 'notice bad', role: 'alert', style: { display: message ? '' : 'none', marginBottom: '12px' } }, message || '');
+  // 「閒置太久、已鎖定」這類例行訊息用一般提示色；真的出錯（PIN 錯、連不上）才用紅色
+  const errBox = h('div', { class: 'notice', role: 'alert', style: { display: message ? '' : 'none', marginBottom: '12px' } }, message || '');
 
-  function showError(msg) { errBox.style.display = msg ? '' : 'none'; mount(errBox, msg || ''); }
+  function showError(msg, routine) { errBox.style.display = msg ? '' : 'none'; errBox.classList.toggle('bad', !!msg && !routine); mount(errBox, msg || ''); }
 
   const tokenInput = h('input', { type: 'text', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX', 'aria-label': '裝置授權碼' });
-  const pinInput = h('input', { type: 'password', class: 'pin-input', inputmode: 'numeric', autocomplete: 'off', 'aria-label': 'PIN', placeholder: '••••••' });
+  const pinInput = h('input', { type: 'password', class: 'pin-input', inputmode: 'numeric', enterkeyhint: 'go', autocomplete: 'off', 'aria-label': 'PIN', placeholder: '••••••' });
   const urlInput = h('input', { type: 'text', inputmode: 'url', autocomplete: 'off', spellcheck: 'false', placeholder: 'https://script.google.com/macros/s/…/exec', value: prefs.apiUrl });
   const submit = h('button', { class: 'btn btn-primary btn-block', type: 'submit' }, '登入');
 
-  const tokenField = h('label', { class: 'field' }, h('span', { class: 'lbl' }, '裝置授權碼（這台裝置第一次使用時輸入，在試算表選單「個人工作台 → 新增裝置授權碼」產生）'), tokenInput);
+  const tokenField = h('label', { class: 'field' }, h('span', { class: 'lbl' }, '裝置授權碼'), tokenInput,
+    h('div', { class: 'hint' }, '這台裝置第一次使用時輸入一次就好。授權碼在試算表選單「個人工作台 → 新增裝置授權碼」產生。'));
   const savedNote = h('div', { class: 'muted small center', style: { marginBottom: '10px' } },
     '這台裝置已授權。', h('button', { type: 'button', class: 'link-btn', onclick: () => { changeToken = true; sync(); } }, '更換授權碼'));
   const pinToggle = h('button', { type: 'button', class: 'link-btn small', onclick: () => { textPin = !textPin; pinInput.setAttribute('inputmode', textPin ? 'text' : 'numeric'); pinInput.blur(); pinInput.focus(); } }, 'PIN 含英文字母？切換鍵盤');

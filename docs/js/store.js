@@ -42,6 +42,7 @@ export function wipeDeviceData() {
 }
 
 // 全域狀態：state.data = bootstrap 回傳的整包資料（courses、tasks、habits…）
-export const state = { data: null, listeners: new Set() };
+export const state = { data: null, listeners: new Set(), dataVersion: 0 };
 export function subscribe(fn) { state.listeners.add(fn); return () => state.listeners.delete(fn); }
-export function notify() { state.listeners.forEach((fn) => fn()); }
+/** 通知畫面更新。dataChanged=false 代表只是「同步中／更新中」這類狀態變了、資料本身沒變（畫面可以不用整個重畫） */
+export function notify(dataChanged = true) { if (dataChanged) state.dataVersion++; state.listeners.forEach((fn) => fn()); }

@@ -24,8 +24,21 @@ function buildShared() {
   fs.writeFileSync(path.join(DOCS, 'js/shared-logic.js'), out);
 }
 
+// index.html 裡的 <link rel="modulepreload">：列出 js/ 底下所有模組，瀏覽器一開始就平行下載，
+// 不用等 app.js → views → common → dom 一層一層發現（每一層都要多等一趟網路來回）
+function injectModulePreload() {
+  const p = path.join(DOCS, 'index.html');
+  const html = fs.readFileSync(p, 'utf8');
+  const mods = walk(path.join(DOCS, 'js')).map((f) => path.relative(DOCS, f).split(path.sep).join('/'))
+    .filter((f) => f.endsWith('.js') && f !== 'js/theme-boot.js').sort();
+  const links = mods.map((m) => `  <link rel="modulepreload" href="${m}">`).join('\n');
+  const out = html.replace(/<!-- modulepreload:start -->[\s\S]*?<!-- modulepreload:end -->/, `<!-- modulepreload:start -->\n${links}\n  <!-- modulepreload:end -->`);
+  if (out !== html) fs.writeFileSync(p, out);
+}
+
 function build() {
   buildShared();
+  injectModulePreload();
   const files = walk(DOCS).map((p) => path.relative(DOCS, p).split(path.sep).join('/'))
     .filter((f) => f !== 'sw.js' && !f.endsWith('.png') || f === 'icons/icon-192.png').sort();
   const hash = crypto.createHash('sha256');

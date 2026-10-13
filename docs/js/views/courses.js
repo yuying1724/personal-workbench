@@ -3,8 +3,8 @@ import { icon } from '../icons.js';
 import { state } from '../store.js';
 import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
-import { uniqueValues, sortRows, safeUrl } from '../util.js';
-import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, multiChips, formFooter, errorBanner, progress, badge } from './common.js';
+import { uniqueValues, sortRows, todayStr, pct, safeUrl } from '../util.js';
+import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, dateField, selectField, multiChips, formFooter, errorBanner, progress, badge } from './common.js';
 
 const SORTS = [['進度', '進度（高→低）'], ['優先順序', '優先順序'], ['開始日期', '開始日期'], ['課程名稱', '名稱']];
 
@@ -25,7 +25,7 @@ export function renderCourses(root) {
 
   mount(root,
     pageHead(systemName('課程', '課程')),
-    stats([['總課程數', s.total ?? 0], ['平均進度', s.avgProgressPercent ?? 0, '%'], ['已完成', s.completed ?? 0, ` / ${s.total ?? 0}`]]),
+    stats([['總課程數', s.total ?? 0], ['平均進度', pct(s.avgProgressPercent), '%'], ['已完成', s.completed ?? 0, ` / ${s.total ?? 0}`]]),
     h('div', { class: 'toolbar' },
       searchBox(f.q, '搜尋課程名稱／講師…', (q) => vs.set({ q })),
       h('div', { class: 'filters' },
@@ -46,7 +46,8 @@ function courseItem(c) {
     h('div', { class: 'grow' },
       h('div', { class: 'row-flex' }, h('div', { class: 't grow' }, c['課程名稱'] || ''), c['狀態'] ? badge(c['狀態'], c['狀態'] === '已完成' ? '' : 'mute') : null),
       meta.length ? h('div', { class: 's' }, meta.join(' · ')) : null,
-      progress(p)));
+      progress(p)),
+    h('span', { class: 'chev' }, icon('chevronRight')));
 }
 
 export function openCourseForm(id) {
@@ -61,7 +62,7 @@ export function openCourseForm(id) {
   const status = selectField('狀態', d.options['狀態'], c ? c['狀態'] : '');
   const pri = selectField('優先順序', d.options['優先順序'], c ? c['優先順序'] : '');
   const link = textField('課程連結', c ? c['課程連結'] : '', { type: 'url', placeholder: 'https://…' });
-  const start = textField('開始日期', c ? c['開始日期'] : '', { type: 'date' });
+  const start = dateField('開始日期', c ? c['開始日期'] : '', { quick: [['今天', () => todayStr(0)]] });
   const notes = textField('心得筆記', c ? c['心得筆記'] : '', { multiline: true, rows: 3 });
   const cats = multiChips('分類', d.options['分類'], c ? c['分類'] : []);
   const body = h('div', null, err.el, name.el, h('div', { class: 'grid-2' }, platform.el, teacher.el), h('div', { class: 'grid-2' }, prog.el, status.el),
@@ -74,7 +75,7 @@ export function openCourseForm(id) {
       '課程名稱': name.value.trim(), '平台': platform.value, '講師': teacher.value.trim(), '進度': prog.value, '狀態': status.value,
       '優先順序': pri.value, '課程連結': link.value.trim(), '開始日期': start.value, '心得筆記': notes.value, '分類': cats.value,
     };
-    if (!payload['課程名稱']) return err.show('請填課程名稱');
+    if (!payload['課程名稱']) return err.show('請填課程名稱', name.el);
     const n = Number(payload['進度']);
     if (payload['進度'] !== '' && (isNaN(n) || n < 0 || n > 100)) return err.show('進度請填 0～100');
     // 本機資料的進度存 0～1（表單是 0～100）
@@ -89,5 +90,5 @@ export function openCourseForm(id) {
     deleteRow('delete_course', { '課程ID': c['課程ID'] }, { list: 'courses', idField: '課程ID', id: c['課程ID'], toast: '已刪除' });
     ref.sheet.close();
   } }, icon('trash'))] : [];
-  ref.sheet = openSheet({ title: c ? '編輯課程' : '新增課程', body, footer: formFooter(ref, save, { extra }) });
+  ref.sheet = openSheet({ title: c ? '編輯課程' : '新增課程', body, footer: formFooter(ref, save, { extra }), guard: true });
 }

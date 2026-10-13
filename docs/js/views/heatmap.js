@@ -42,47 +42,80 @@ export function doneDays(hb, days, doneFor) {
   return Object.keys(log).filter((ds) => ds >= from && doneFor(hb, log[ds])).length;
 }
 
-/**
- * 產生熱力圖。
- * opts.weeks：顯示幾週（最後一欄是本週）；opts.size：'sm' | 'lg'
- * opts.labels：顯示月份與星期標籤；opts.selected：被選取的日期；opts.onPick(ds)：點格子（有給才會是按鈕）
- */
-export function heatmap(hb, opts = {}) {
-  const weeks = opts.weeks || 18;
-  const today = localDateStr(new Date());
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** 一次用字串組出整張格子（比一格一格建 DOM 快好幾倍；21 個習慣 × 371 格在手機上差很多）。文字都有跳脫。 */
+function gridHtml(hb, opts, weeks, today) {
   const log = hb['打卡紀錄'] || {};
   const start = addDays(parse(today), -parse(today).getDay() - (weeks - 1) * 7); // 第一欄的週日
-  const cells = [];
-  const months = [];
+  const tag = opts.onPick ? 'button' : 'span';
+  let cells = '';
+  let months = '';
   let lastMonth = -1;
   for (let w = 0; w < weeks; w++) {
     const weekStart = addDays(start, w * 7);
     const m = weekStart.getMonth();
-    months.push(h('span', { class: 'hm-month' }, opts.labels && m !== lastMonth && w < weeks - 1 ? `${m + 1}月` : ''));
+    if (opts.labels) months += `<span class="hm-month">${m !== lastMonth && w < weeks - 1 ? m + 1 + '月' : ''}</span>`;
     lastMonth = m;
     for (let d = 0; d < 7; d++) {
       const ds = localDateStr(addDays(weekStart, d));
-      if (ds > today) { cells.push(h('span', { class: 'hm-cell future', 'aria-hidden': 'true' })); continue; }
+      if (ds > today) { cells += '<span class="hm-cell future" aria-hidden="true"></span>'; continue; }
       const v = log[ds];
       const level = habitLevel(hb, v);
       const off = !level && !isRequiredDay(hb, ds);
       const cls = 'hm-cell l' + level + (off ? ' off' : '') + (ds === today ? ' today' : '') + (ds === opts.selected ? ' sel' : '');
-      const label = `${dateLabel(ds)}：${off ? '不用做的日子' : valueText(hb, v)}`;
-      cells.push(opts.onPick
-        ? h('button', { type: 'button', class: cls, title: label, 'aria-label': label, onclick: () => opts.onPick(ds) })
-        : h('span', { class: cls, title: label }));
+      const label = esc(`${dateLabel(ds)}：${off ? '不用做的日子' : valueText(hb, v)}`);
+      cells += tag === 'button'
+        ? `<button type="button" class="${cls}" data-ds="${ds}" title="${label}" aria-label="${label}"></button>`
+        : `<span class="${cls}" title="${label}"></span>`;
     }
   }
-  const grid = h('div', { class: 'hm-grid' }, cells);
-  const body = opts.labels
-    ? h('div', { class: 'hm-wrap' },
-      h('div', { class: 'hm-wd' }, WD.map((t, i) => h('span', null, i % 2 ? t : ''))),
-      h('div', null, h('div', { class: 'hm-months' }, months), grid))
-    : grid;
-  const scroller = h('div', { class: 'hm-scroll hm-' + (opts.size || 'sm') }, body);
-  // 最新的一週在最右邊：畫面出現後捲到最右
-  requestAnimationFrame(() => { scroller.scrollLeft = scroller.scrollWidth; });
+  return { cells, months };
+}
+
+/**
+ * 產生熱力圖。
+ * opts.weeks：顯示幾週（最後一欄是本週）；opts.size：'sm' | 'lg'
+ * opts.labels：顯示月份與星期標籤；opts.selected：被選取的日期；opts.onPick(ds)：點格子（有給才會是按鈕）
+ * opts.lazy：先放一個同樣高度的空位，捲到看得見時才畫（習慣很多時，開啟習慣頁不用一次畫幾千格）
+ */
+export function heatmap(hb, opts = {}) {
+  const weeks = opts.weeks || 18;
+  const scroller = h('div', { class: 'hm-scroll hm-' + (opts.size || 'sm') });
+  const build = () => {
+    const today = localDateStr(new Date());
+    const { cells, months } = gridHtml(hb, opts, weeks, today);
+    const grid = h('div', { class: 'hm-grid' });
+    grid.innerHTML = cells; // 只有程式自己組的 class／日期／跳脫過的文字
+    if (opts.onPick) grid.addEventListener('click', (e) => { const b = e.target.closest('button[data-ds]'); if (b) opts.onPick(b.dataset.ds); });
+    let body = grid;
+    if (opts.labels) {
+      const monthsEl = h('div', { class: 'hm-months' });
+      monthsEl.innerHTML = months;
+      body = h('div', { class: 'hm-wrap' },
+        h('div', { class: 'hm-wd' }, WD.map((t, i) => h('span', null, i % 2 ? t : ''))),
+        h('div', null, monthsEl, grid));
+    }
+    scroller.replaceChildren(body);
+    // 最新的一週在最右邊：畫面出現後捲到最右
+    requestAnimationFrame(() => { scroller.scrollLeft = scroller.scrollWidth; });
+  };
+  if (opts.lazy && 'IntersectionObserver' in window) {
+    scroller.appendChild(h('div', { class: 'hm-placeholder' }));
+    lazyObserver().observe(scroller);
+    scroller._build = build;
+  } else build();
   return scroller;
+}
+
+let observer = null;
+function lazyObserver() {
+  if (!observer) {
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting && en.target._build) { en.target._build(); en.target._build = null; observer.unobserve(en.target); } });
+    }, { rootMargin: '300px 0px' }); // 快捲到前 300px 就先畫，不會看到空白
+  }
+  return observer;
 }
 
 export function heatLegend() {

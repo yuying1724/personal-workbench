@@ -2,7 +2,7 @@ import { h, mount } from '../dom.js';
 import { icon } from '../icons.js';
 import { state } from '../store.js';
 import { systemName } from '../data.js';
-import { todayStr, dateLabel, money, TASK_CLOSED } from '../util.js';
+import { todayStr, dateLabel, money, pct, TASK_CLOSED } from '../util.js';
 import { pageHead, stats } from './common.js';
 import { taskRow } from './tasks.js';
 import { habitsByTime } from './habits.js';
@@ -26,7 +26,7 @@ export function renderHome(root) {
 
   mount(root,
     pageHead('總覽'),
-    h('p', { class: 'muted small', style: { marginTop: '-6px' } }, dateLabel(today) + (state.loadedAt ? '　·　更新於 ' + state.loadedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '') + (state.refreshing ? '　·　更新中…' : '')),
+    h('p', { class: 'muted small', style: { marginTop: '-6px' } }, dateLabel(today) + (state.loadedAt ? '　·　更新於 ' + state.loadedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '') + ''),
 
     h('section', { class: 'section' },
       sectionHead(systemName('任務', '任務'), 'tasks', '#/tasks'),
@@ -38,7 +38,7 @@ export function renderHome(root) {
 
     h('section', { class: 'section' },
       sectionHead(systemName('習慣', '習慣'), 'fire', '#/habits'),
-      stats([['今日進度', hs.doneTodayCount ?? 0, ` / ${hs.dueTodayCount ?? 0}`], ['近7天平均完成率', hs.avgRate7 ?? 0, '%']]),
+      stats([['今日進度', hs.doneTodayCount ?? 0, ` / ${hs.dueTodayCount ?? 0}`], ['近7天平均完成率', pct(hs.avgRate7), '%']]),
       dueHabits.length ? habitsByTime(dueHabits, {}) : h('div', { class: 'card muted small' }, '今天的習慣都打卡完了 🎉')),
 
     h('section', { class: 'section' },
@@ -58,5 +58,5 @@ export function renderHome(root) {
 
     h('section', { class: 'section' },
       sectionHead(systemName('課程', '課程'), 'book', '#/courses'),
-      stats([['總課程數', cs.total ?? 0], ['平均進度', cs.avgProgressPercent ?? 0, '%'], ['已完成', cs.completed ?? 0, ` / ${cs.total ?? 0}`]])));
+      stats([['總課程數', cs.total ?? 0], ['平均進度', pct(cs.avgProgressPercent), '%'], ['已完成', cs.completed ?? 0, ` / ${cs.total ?? 0}`]])));
 }

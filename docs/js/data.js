@@ -44,18 +44,20 @@ function flushDeferred() {
 /** 重新載入全部資料（登入後第一次、或按「重新整理」） */
 export async function refresh() {
   const started = Date.now();
+  let applied = false;
   state.refreshing = true;
-  notify();
+  notify(false);
   try {
     const data = await api.call('bootstrap');
     if (state.data && writesSince(started)) { deferred.add('bootstrap'); return; }
     state.data = data;
     state.loadedAt = new Date();
     state.adminStale = false;
+    applied = true;
     saveCache();
   } finally {
     state.refreshing = false;
-    notify();
+    notify(applied);
     if (state.pendingWrites === 0 && deferred.has('bootstrap')) setTimeout(() => flushDeferred().catch(() => {}), 0);
   }
 }
@@ -89,14 +91,14 @@ export async function write(action, payload, opts = {}) {
     try { undo = opts.optimistic() || null; } catch (e) { console.error(e); undo = null; }
     if (opts.toast) toast(opts.toast); // 樂觀更新：畫面已經改了就先提示，失敗再另外提示
   }
-  notify();
+  notify(!!undo);
   let res;
   try {
     res = await api.call(action, payload, { meta: true });
   } catch (e) {
     state.pendingWrites--;
     if (undo) { try { undo(); } catch (e2) { console.error(e2); } }
-    notify();
+    notify(!!undo);
     flushDeferred().catch(() => {});
     if (e.code === 'AUTH_REQUIRED') return null;
     if (opts.throw) throw e;
@@ -111,7 +113,7 @@ export async function write(action, payload, opts = {}) {
   const wanted = action === 'rename_option' ? ['bootstrap'] : RELOAD_AFTER[kind] || ['bootstrap'];
   const got = res.reload && wanted.length === 1 && res.reload.name === wanted[0] ? res.reload : null;
   if (got && state.pendingWrites === 0) applyBundle(got.data);
-  else { wanted.forEach((b) => deferred.add(b)); notify(); }
+  else { wanted.forEach((b) => deferred.add(b)); notify(false); }
   const sync = flushDeferred();
   if (opts.optimistic) sync.catch((e) => { if (e.code !== 'AUTH_REQUIRED') console.error(e); });
   else {

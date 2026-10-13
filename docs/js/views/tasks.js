@@ -8,7 +8,7 @@ import {
   todayStr, thisSundayStr, dateLabel, decodeRepeatRule, encodeRepeatRule, repeatRuleLabel, canSkipTask, uniqueValues, TASK_CLOSED,
 } from '../util.js';
 import {
-  pageHead, stats, empty, viewState, searchBox, filterSelect, textField, selectField, checkField, multiChips, field, weekdayPicker, formFooter, errorBanner, badge,
+  pageHead, stats, empty, viewState, searchBox, filterSelect, textField, dateField, selectField, checkField, multiChips, field, weekdayPicker, formFooter, errorBanner, badge,
 } from './common.js';
 
 const GROUPS = [
@@ -159,8 +159,7 @@ export function openTaskForm(id, defaults = {}) {
   const name = textField('任務名稱', t ? t['任務名稱'] : defaults['任務名稱'] || '');
   const cats = multiChips('分類', d.options['任務分類'], t ? t['分類'] : defaults['分類']);
   const project = selectField('所屬專案', (d.projects || []).map((p) => [p['專案ID'], p['專案名稱'] || p['專案ID']]), t ? t['所屬專案'] : defaults['所屬專案'] || '', { emptyLabel: '（無）' });
-  const due = h('input', { type: 'date', value: t ? t['到期日'] || '' : defaults['到期日'] || '' });
-  const quick = (label, fn) => h('button', { type: 'button', class: 'chip', onclick: () => { due.value = fn(); } }, label);
+  const due = dateField('到期日', t ? t['到期日'] || '' : defaults['到期日'] || '', { quick: [['今天', () => todayStr(0)], ['明天', () => todayStr(1)], ['3 天後', () => todayStr(3)], ['這週日', thisSundayStr], ['無日期', '']], emptyHint: '沒有到期日' });
   const star = checkField('星標（重要）', t ? t['星標'] === true : !!defaults['星標']);
   const notes = textField('備註', t ? t['備註'] : '', { multiline: true, rows: 2 });
 
@@ -208,7 +207,7 @@ export function openTaskForm(id, defaults = {}) {
 
   const body = h('div', null, err.el,
     name.el, cats.el, project.el,
-    field('到期日', h('div', null, due, h('div', { class: 'chips quick' }, quick('今天', () => todayStr(0)), quick('明天', () => todayStr(1)), quick('3 天後', () => todayStr(3)), quick('這週日', thisSundayStr), quick('無日期', () => '')))),
+    due.el,
     star.el,
     field('重複（完成時自動產生下一筆）', h('div', { class: 'stack-sm' }, freq, intervalRow, wd.el, lastDay.el, custom, endBox)),
     notes.el,
@@ -232,9 +231,9 @@ export function openTaskForm(id, defaults = {}) {
       '所屬專案': project.value,
       '子任務': [...subList.children].map((row) => ({ '內容': row.querySelector('input[type=text]').value.trim(), '完成': row.querySelector('input[type=checkbox]').checked })).filter((x) => x['內容']),
     };
-    if (!payload['任務名稱']) { err.show('請填任務名稱'); return; }
-    if (freq.value === 'week' && !wd.value.length) { err.show('每週重複請至少選一個星期幾，或改選「不重複」'); return; }
-    if (!['none', 'custom'].includes(freq.value) && !payload['到期日']) { err.show('設定重複時請填到期日（下一次的日期是從到期日往後推算的）'); return; }
+    if (!payload['任務名稱']) { err.show('請填任務名稱', name.el); return; }
+    if (freq.value === 'week' && !wd.value.length) { err.show('每週重複請至少選一個星期幾，或改選「不重複」', wd.el); return; }
+    if (!['none', 'custom'].includes(freq.value) && !payload['到期日']) { err.show('設定重複時請填到期日（下一次的日期是從到期日往後推算的）', due.el); return; }
     const spec = { list: 'tasks', idField: '任務ID', recalc: recalcTaskStats };
     if (t) saveRow('update_task', Object.assign(payload, { '任務ID': t['任務ID'] }), Object.assign(spec, { id: t['任務ID'], toast: '已儲存' }));
     else saveRow('create_task', payload, Object.assign(spec, { toast: '已新增任務' }));
@@ -249,5 +248,5 @@ export function openTaskForm(id, defaults = {}) {
     ref.sheet.close();
   } }, icon('trash')));
   if (canSkipTask(t)) extra.push(h('button', { class: 'btn', type: 'button', title: '跳過本次', onclick: () => skipTask(t, ref.sheet) }, icon('skip')));
-  ref.sheet = openSheet({ title: t ? '編輯任務' : '新增任務', body, footer: formFooter(ref, save, { extra }) });
+  ref.sheet = openSheet({ title: t ? '編輯任務' : '新增任務', body, footer: formFooter(ref, save, { extra }), guard: true });
 }
