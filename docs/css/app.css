@@ -331,6 +331,11 @@ button.item:active, a.item:active { background: var(--accent-soft); }
 .login h1 { text-align: center; font-size: 22px; margin-bottom: 4px; }
 .login .sub { text-align: center; color: var(--sub); margin-bottom: 18px; }
 .pin-input { text-align: center; letter-spacing: 8px; font-size: 24px !important; }
+.login .bio-block { margin-bottom: 4px; }
+.login .bio-btn { padding: 14px 16px; font-size: 16px; }
+.login .bio-btn svg.i { width: 22px; height: 22px; }
+.login .or { text-align: center; color: var(--sub); font-size: 13px; margin: 12px 0 2px; }
+.bio-status { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 details.adv { margin-top: 12px; font-size: 13.5px; color: var(--sub); }
 details.adv summary { cursor: pointer; padding: 10px 0; }
 

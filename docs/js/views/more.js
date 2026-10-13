@@ -15,5 +15,5 @@ export function renderMore(root) {
       h('div', { class: 'card' }, h('ul', { class: 'list' }, modules.map(item))),
       h('div', { class: 'card' }, h('h2', null, '後台管理'), h('ul', { class: 'list' }, admin.map(item))),
       h('div', { class: 'card' }, h('ul', { class: 'list' }, item(TABS.find((t) => t.id === 'settings')),
-        h('li', null, h('button', { class: 'item', type: 'button', onclick: () => lock('已鎖定') }, h('div', { class: 'ico' }, icon('lock')), h('div', { class: 'grow t' }, '鎖定')))))));
+        h('li', null, h('button', { class: 'item', type: 'button', onclick: () => lock('已鎖定', { autoBio: false }) }, h('div', { class: 'ico' }, icon('lock')), h('div', { class: 'grow t' }, '鎖定')))))));
 }

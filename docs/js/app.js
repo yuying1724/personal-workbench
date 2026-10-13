@@ -84,7 +84,7 @@ function showShell() {
     h('aside', { class: 'sidebar' },
       h('div', { class: 'brand' }, icon('clipboard'), '個人工作台'),
       side,
-      h('button', { class: 'navlike', onclick: () => lock('已鎖定') }, icon('lock'), '鎖定')),
+      h('button', { class: 'navlike', onclick: () => lock('已鎖定', { autoBio: false }) }, icon('lock'), '鎖定')),
     viewRoot,
     h('nav', { class: 'tabbar', 'aria-label': '主選單' }, TABS.filter((t) => t.mobile || t.mobileOnly).map(link)),
     fabBtn, syncPill);
@@ -93,12 +93,13 @@ function showShell() {
   renderView();
 }
 
-export function lock(message) {
+/** 回到登入畫面。opts.autoBio=false：不要自動跳指紋（例如使用者自己按「鎖定並登出」，通常是要交給別人或離開） */
+export function lock(message, opts = {}) {
   api.clearSession();
   state.data = null;
   closeAllSheets();
   viewRoot = null;
-  renderLogin(app, { message, onSuccess: start });
+  renderLogin(app, { message, onSuccess: start, autoBio: opts.autoBio !== false });
 }
 
 /** 重新整理全部資料（頁首的重新整理按鈕用） */
