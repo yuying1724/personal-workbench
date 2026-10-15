@@ -9,6 +9,7 @@ import { renderHome } from './views/home.js';
 import { renderTasks, openTaskForm } from './views/tasks.js';
 import { renderHabits, renderHabitAdmin, openHabitForm } from './views/habits.js';
 import { renderDiary, openDiaryForm } from './views/diary.js';
+import { onAppHidden, onLeaveDiary, diaryLocked } from './views/diarylock.js';
 import { renderProjects, openProjectForm } from './views/projects.js';
 import { renderSubs, openSubForm } from './views/subs.js';
 import { renderCourses, openCourseForm } from './views/courses.js';
@@ -176,7 +177,7 @@ subscribe(onDataChange);
 // 過了午夜（或從背景切回來時已經換日）：今天的習慣／任務都要重算，自動重新整理
 function dayChanged() { const t = state.data && state.data.meta && state.data.meta.today; return !!(t && t !== todayStr(0)); }
 function refreshIfDayChanged() { if (viewRoot && !state.refreshing && dayChanged()) refresh().catch(() => {}); }
-window.addEventListener('hashchange', () => { closeAllSheets(); renderView(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { closeAllSheets(); if (parseRoute().tab !== 'diary') onLeaveDiary(); renderView(); window.scrollTo(0, 0); });
 
 // 閒置太久自動鎖定（時間取自後端的工作階段效期）
 ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true }));
@@ -187,8 +188,10 @@ setInterval(() => {
   else refreshIfDayChanged();
 }, 30000);
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { onAppHidden(); return; }
   if (document.visibilityState !== 'visible' || !viewRoot) return;
   if (!api.hasValidSession()) lock('登入已過期，請重新輸入 PIN');
+  else if (parseRoute().tab === 'diary' && diaryLocked()) renderView(); // 停在日記頁切回來：該鎖就鎖
   // 從背景切回來超過 5 分鐘：可能在別台裝置改過資料，自動重新整理一次
   else if (dayChanged() || (state.loadedAt && Date.now() - state.loadedAt > 5 * 60000)) refresh().catch(() => {});
 });

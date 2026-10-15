@@ -6,6 +6,7 @@ import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { todayStr, dateLabel, MOOD_OPTIONS, FIND_TYPE_OPTIONS, FIND_STATUS_CYCLE } from '../util.js';
 import { pageHead, stats, empty, textField, field, formFooter, errorBanner } from './common.js';
 import { toggleTaskDone } from './tasks.js';
+import { diaryLocked, diaryLockPanel, ensureDiaryAccess, markDiaryUnlocked, isDiaryLockOn } from './diarylock.js';
 
 const findStatusIcon = (s) => icon(s === '已整理' ? 'checkCircle' : s === '不需整理' ? 'dashCircle' : 'circle');
 const findStatusLabel = (s) => (s === '已整理' ? '已整理' : s === '不需整理' ? '不需整理' : '待整理') + '（點一下切換）';
@@ -31,8 +32,16 @@ function entryCard(dy) {
     parts.length ? h('div', { class: 'diary-snippet' }, parts) : h('div', { class: 'muted small' }, '（這篇還沒寫內容）'));
 }
 
+let lockAuto = true; // 日記頁的鎖定面板要不要自動跳指紋（取消過一次就不再自動跳，免得一直彈）
 export function renderDiary(root) {
   const d = state.data;
+  if (diaryLocked()) {
+    mount(root, pageHead(systemName('日記', '日記')), diaryLockPanel({ autoBio: lockAuto, onUnlock: () => { lockAuto = true; renderDiary(root); } }));
+    lockAuto = false;
+    return;
+  }
+  lockAuto = true;
+  if (isDiaryLockOn()) markDiaryUnlocked(); // 人還在日記頁就不算「離開」，幾分鐘的計時從離開時才開始
   const s = d.diaryStats || {};
   const today = todayStr(0);
   const entry = (d.diaries || []).find((x) => x['日期'] === today);
@@ -56,6 +65,7 @@ export function renderDiary(root) {
 }
 
 export function openDiaryForm(dateStr) {
+  if (!ensureDiaryAccess()) return; // 鎖著：先到日記頁驗證
   const d = state.data;
   const dy = (d.diaries || []).find((x) => x['日期'] === dateStr) || null;
   const ref = {};

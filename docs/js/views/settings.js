@@ -3,6 +3,7 @@ import { icon } from '../icons.js';
 import { prefs, state, notify, wipeDeviceData } from '../store.js';
 import * as api from '../api.js';
 import * as bio from '../biometric.js';
+import { DIARY_LOCK_OPTIONS, DIARY_LOCK_DEFAULT, diaryLockMode, setDiaryLockMode } from './diarylock.js';
 import { openSheet, toast, errorText, withBusy, confirmDialog } from '../ui.js';
 import { lock } from '../app.js';
 import { pageHead } from './common.js';
@@ -22,6 +23,7 @@ export function renderSettings(root) {
           h('button', { class: 'btn btn-sm', onclick: () => lock('已鎖定', { autoBio: false }) }, icon('logout'), '鎖定並登出'),
           h('button', { class: 'btn btn-sm btn-danger', onclick: wipeThisDevice }, icon('trash'), '清除這台裝置的資料')),
         bioBlock(),
+        diaryLockBlock(),
         h('div', { class: 'field', style: { marginTop: '12px' } }, h('span', { class: 'lbl' }, '這台裝置閒置多久要重新輸入 PIN'),
           seg(TTL_OPTIONS, prefs.ttlMinutes, (v) => setTtl(v))),
         h('p', { class: 'muted small' }, '時間越長越方便，但手機或電腦被別人拿到時，對方也能直接看到資料。公司或共用電腦建議選「1 小時」。'),
@@ -102,6 +104,24 @@ function bioBlock() {
   return h('div', { class: 'bio-status' },
     icon('fingerprint'), h('span', { class: 'grow small' }, '指紋／臉部登入：未啟用'),
     h('button', { class: 'btn btn-sm btn-primary', 'data-testid': 'bio-enable', onclick: openEnableBio }, '啟用'));
+}
+
+// ---------- 日記進入前驗證（只在這台裝置生效） ----------
+function diaryLockBlock() {
+  const mode = diaryLockMode();
+  const on = mode !== 'off';
+  const toggle = h('input', { type: 'checkbox', checked: on, 'data-testid': 'diary-lock-toggle', onchange: (e) => {
+    setDiaryLockMode(e.target.checked ? DIARY_LOCK_DEFAULT : 'off');
+    toast(e.target.checked ? '之後打開日記會先驗證指紋／臉部（或 PIN）' : '日記不再需要額外驗證');
+  } });
+  const sel = h('select', { 'aria-label': '驗證過後多久內不再問', 'data-testid': 'diary-lock-mode', onchange: (e) => { setDiaryLockMode(e.target.value); toast('已更新'); } },
+    DIARY_LOCK_OPTIONS.map(([v, t]) => h('option', { value: v, selected: v === mode }, t)));
+  return h('div', { class: 'diary-lock-setting' },
+    h('label', { class: 'check', style: { marginTop: '10px' } }, toggle, h('span', { class: 'grow small' }, '打開日記前要先驗證指紋／臉部（或 PIN）')),
+    on ? h('div', { class: 'row-flex', style: { marginTop: '6px' } }, h('span', { class: 'small muted nowrap' }, '驗證過後'), sel) : null,
+    h('p', { class: 'muted small', style: { margin: '6px 0 0' } }, on
+      ? '只擋這台裝置的畫面：任務、習慣等其他頁面照常，不會多問。試算表本身還是看得到日記。'
+      : '開啟後，點「日記」分頁或「寫今天的日記」會先驗證；其他頁面不受影響。'));
 }
 
 function openEnableBio() {

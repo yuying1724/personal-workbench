@@ -220,3 +220,88 @@ test('指紋／臉部登入：設定裡啟用（先驗 PIN 再跳指紋）、重
     assert.equal(await page.locator('[data-testid=bio-login]').count(), 0);
   });
 });
+
+test('日記進入前驗證：設定裡開啟（預設 5 分鐘）、進日記先驗指紋、幾分鐘內不再問、每次進入都驗、離開 App 就重驗、沒過可改 PIN、鎖著時＋不開表單、關掉後照常', { skip }, async () => {
+  await withApp({}, async (a) => {
+    const { page, ctx, s } = a;
+    await page.goto(s.url.replace('127.0.0.1', 'localhost'));
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('WebAuthn.enable', { enableUI: false });
+    const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, hasPrf: true, automaticPresenceSimulation: true } });
+    const lockShown = () => page.locator('[data-testid=diary-lock]').count();
+    const goDiary = () => page.evaluate(() => { location.hash = '#/diary'; }); // 不等待：要抓到鎖定畫面出現的那一刻（150ms 後才自動跳指紋）
+    const expectLockThenAutoUnlock = async (why) => {
+      await page.waitForSelector('[data-testid=diary-lock]', { timeout: 3000 }).catch(() => assert.fail(why + '：應該出現鎖定畫面'));
+      await page.waitForFunction(() => !document.querySelector('[data-testid=diary-lock]')); // 虛擬指紋驗證通過 → 自動解鎖
+    };
+    const goHidden = () => page.evaluate(() => { // 模擬切到背景再切回來
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange'));
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await a.login(); await page.waitForSelector('.page-head h1:has-text("總覽")');
+    // 先啟用指紋
+    await a.go('settings');
+    await page.click('[data-testid=bio-enable]');
+    await page.fill('.sheet input[aria-label="目前的 PIN"]', s.pin);
+    await page.click('[data-testid=bio-enroll]');
+    await page.waitForFunction(() => /已啟用/.test(document.querySelector('[data-testid=bio-status]')?.innerText || ''));
+    // 還沒開：進日記不會問
+    await a.go('diary'); await page.waitForSelector('.page-head h1:has-text("日記")');
+    assert.equal(await lockShown(), 0);
+    // 開啟：預設「5 分鐘內不再問」
+    await a.go('settings');
+    await page.click('[data-testid=diary-lock-toggle]');
+    await page.waitForSelector('[data-testid=diary-lock-mode]');
+    assert.equal(await page.inputValue('[data-testid=diary-lock-mode]'), '5');
+    assert.equal(await page.evaluate(() => localStorage.getItem('wb.diaryLock')), '5');
+    await goDiary(); await expectLockThenAutoUnlock('開啟後第一次進日記');
+    // 5 分鐘內：切出去再回來不問；其他頁面從頭到尾都不會問
+    await a.go('habits'); await page.waitForSelector('.page-head h1:has-text("習慣")');
+    assert.equal(await lockShown(), 0);
+    await a.go('diary'); await page.waitForTimeout(300);
+    assert.equal(await lockShown(), 0, '5 分鐘內再進日記不該再問');
+    // 重新整理後要再驗（驗證狀態只在記憶體）
+    await page.reload(); await page.waitForSelector('.tabbar');
+    await goDiary(); await expectLockThenAutoUnlock('重新整理後');
+    // 「每次進入都驗」：改設定當下不用重驗；離開日記再回來就問
+    await a.go('settings');
+    await page.selectOption('[data-testid=diary-lock-mode]', '0');
+    await a.go('diary'); await page.waitForTimeout(300);
+    assert.equal(await lockShown(), 0, '剛驗過、還沒離開過日記：不問');
+    await a.go('habits');
+    await goDiary(); await expectLockThenAutoUnlock('每次進入都驗：離開再回來');
+    // 「到離開 App 為止」：切分頁不問，切到背景再回來就問
+    await a.go('settings');
+    await page.selectOption('[data-testid=diary-lock-mode]', 'app');
+    await a.go('habits'); await a.go('diary'); await page.waitForTimeout(300);
+    assert.equal(await lockShown(), 0, '到離開 App 為止：切分頁不問');
+    await goHidden(); await expectLockThenAutoUnlock('到離開 App 為止：切到背景再回來');
+    // 指紋沒過（Chrome 的虛擬驗證器一旦設成沒過就改不回來，所以放最後）：鎖定畫面留著；鎖著時按右下角＋不開表單；改用 PIN（錯的會提示）
+    await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: false });
+    await goHidden();
+    await page.waitForSelector('[data-testid=diary-lock]');
+    await page.waitForTimeout(500);
+    assert.equal(await lockShown(), 1, '自動驗證沒過，鎖定畫面要留著');
+    assert.equal(await page.locator('.sheet').count(), 0);
+    await page.click('.fab');
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('.sheet').count(), 0, '鎖著時不能直接開日記表單');
+    await page.click('[data-testid=diary-bio]');
+    await page.waitForFunction(() => /沒有通過/.test(document.querySelector('[data-testid=diary-lock] .notice.bad')?.innerText || ''));
+    await page.click('text=改用 PIN');
+    await page.fill('[data-testid=diary-lock] input[aria-label="PIN"]', '000000');
+    await page.click('[data-testid=diary-pin-submit]');
+    await page.waitForFunction(() => /PIN 不正確/.test(document.querySelector('[data-testid=diary-lock] .notice.bad')?.innerText || ''));
+    await page.fill('[data-testid=diary-lock] input[aria-label="PIN"]', s.pin);
+    await page.click('[data-testid=diary-pin-submit]');
+    await page.waitForFunction(() => !document.querySelector('[data-testid=diary-lock]'));
+    await page.click('.fab'); await page.waitForSelector('.sheet'); await page.click('.sheet [aria-label="關閉"]'); await page.waitForFunction(() => !document.querySelector('.sheet'));
+    // 關掉：不再問（指紋還是「沒過」的狀態，所以沒問就代表真的關了）
+    await a.go('settings');
+    await page.click('[data-testid=diary-lock-toggle]');
+    await page.waitForFunction(() => !document.querySelector('[data-testid=diary-lock-mode]'));
+    assert.equal(await page.evaluate(() => localStorage.getItem('wb.diaryLock')), null);
+    await a.go('diary'); await page.waitForTimeout(300);
+    assert.equal(await lockShown(), 0);
+  });
+});

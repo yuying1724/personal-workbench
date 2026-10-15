@@ -12,6 +12,8 @@ export const prefs = {
   // 預設淺色；選「跟隨系統」也會記下來（存成 'auto'）
   // 閒置多久要重新輸入 PIN（分鐘，這台裝置自己的設定；預設 7 天）
   get ttlMinutes() { return Number(get('wb.ttlMinutes')) || 7 * 24 * 60; }, set ttlMinutes(v) { set('wb.ttlMinutes', String(v)); },
+  // 日記進入前驗證：'off' | '0' | '5' | '15' | 'app'（見 views/diarylock.js）
+  get diaryLock() { return get('wb.diaryLock') || 'off'; }, set diaryLock(v) { set('wb.diaryLock', v); },
   get theme() { return get('wb.theme') || 'light'; },
   set theme(v) { set('wb.theme', v); applyTheme(); },
   get session() { try { return JSON.parse(get('wb.session') || 'null'); } catch (e) { return null; } },
