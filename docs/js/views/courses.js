@@ -4,7 +4,7 @@ import { state } from '../store.js';
 import { saveRow, deleteRow, systemName } from '../data.js';
 import { openSheet, confirmDialog, withBusy, errorText } from '../ui.js';
 import { uniqueValues, sortRows, todayStr, pct, safeUrl } from '../util.js';
-import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, dateField, selectField, multiChips, formFooter, errorBanner, progress, badge } from './common.js';
+import { pageHead, stats, empty, viewState, searchBox, filterSelect, textField, dateField, selectField, multiChips, formFooter, errorBanner, progress, badge, field } from './common.js';
 
 const SORTS = [['進度', '進度（高→低）'], ['優先順序', '優先順序'], ['開始日期', '開始日期'], ['課程名稱', '名稱']];
 
@@ -34,20 +34,24 @@ export function renderCourses(root) {
         filterSelect(f.platform, '全部平台', uniqueValues(list, '平台'), (v) => vs.set({ platform: v })),
         filterSelect(f.sort, '排序', SORTS, (v) => vs.set({ sort: v }))),
       h('div', { class: 'count muted small' }, `共 ${rows.length} / ${list.length} 筆`)),
-    rows.length ? h('div', { class: 'card' }, h('ul', { class: 'list' }, rows.map((c) => h('li', null, courseItem(c)))))
+    rows.length ? h('div', { class: 'card' }, h('ul', { class: 'list' }, rows.map((c) => h('li', { 'data-testid': 'course-row' }, courseItem(c)))))
       : h('div', { class: 'card' }, empty(list.length ? '沒有符合條件的課程' : '還沒有課程，按右下角 + 新增', list.length ? null : '📚')));
 }
 
 function courseItem(c) {
   const p = Math.round((Number(c['進度']) || 0) * 100);
   const meta = [c['平台'], c['講師'], (c['分類'] || []).join('、'), c['優先順序'] ? '優先 ' + c['優先順序'] : ''].filter(Boolean);
-  return h('button', { type: 'button', class: 'item', onclick: () => openCourseForm(c['課程ID']) },
-    h('div', { class: 'ico' }, icon('book')),
-    h('div', { class: 'grow' },
-      h('div', { class: 'row-flex' }, h('div', { class: 't grow' }, c['課程名稱'] || ''), c['狀態'] ? badge(c['狀態'], c['狀態'] === '已完成' ? '' : 'mute') : null),
-      meta.length ? h('div', { class: 's' }, meta.join(' · ')) : null,
-      progress(p)),
-    h('span', { class: 'chev' }, icon('chevronRight')));
+  const url = safeUrl(c['課程連結']);
+  // 點這一列＝編輯；右邊的外連按鈕＝直接在新分頁開課程（沒填連結就照舊顯示箭頭）
+  return h('div', { class: 'item course-row' },
+    h('button', { type: 'button', class: 'grow item-main course-main', onclick: () => openCourseForm(c['課程ID']) },
+      h('div', { class: 'ico' }, icon('book')),
+      h('div', { class: 'grow' },
+        h('div', { class: 'row-flex' }, h('div', { class: 't grow' }, c['課程名稱'] || ''), c['狀態'] ? badge(c['狀態'], c['狀態'] === '已完成' ? '' : 'mute') : null),
+        meta.length ? h('div', { class: 's' }, meta.join(' · ')) : null,
+        progress(p)),
+      url ? null : h('span', { class: 'chev' }, icon('chevronRight'))),
+    url ? h('a', { class: 'icon-btn open-link', href: url, target: '_blank', rel: 'noopener noreferrer', title: '開啟課程', 'aria-label': `開啟課程「${c['課程名稱'] || ''}」`, 'data-testid': 'course-open' }, icon('external')) : null);
 }
 
 export function openCourseForm(id) {
@@ -62,12 +66,17 @@ export function openCourseForm(id) {
   const status = selectField('狀態', d.options['狀態'], c ? c['狀態'] : '');
   const pri = selectField('優先順序', d.options['優先順序'], c ? c['優先順序'] : '');
   const link = textField('課程連結', c ? c['課程連結'] : '', { type: 'url', placeholder: 'https://…' });
+  // 連結欄位旁邊直接放「開啟」，打開表單不用捲到最下面；改連結時跟著更新
+  const openBtn = h('a', { class: 'btn', target: '_blank', rel: 'noopener noreferrer', 'data-testid': 'course-form-open' }, icon('external'), '開啟');
+  const syncOpen = () => { const u = safeUrl(link.value.trim()); if (u) openBtn.href = u; else openBtn.removeAttribute('href'); openBtn.style.display = u ? '' : 'none'; };
+  link.input.addEventListener('input', syncOpen);
+  syncOpen();
+  const linkField = field('課程連結', h('div', { class: 'input-btn' }, link.input, openBtn));
   const start = dateField('開始日期', c ? c['開始日期'] : '', { quick: [['今天', () => todayStr(0)]] });
   const notes = textField('心得筆記', c ? c['心得筆記'] : '', { multiline: true, rows: 3 });
   const cats = multiChips('分類', d.options['分類'], c ? c['分類'] : []);
-  const body = h('div', null, err.el, name.el, h('div', { class: 'grid-2' }, platform.el, teacher.el), h('div', { class: 'grid-2' }, prog.el, status.el),
-    h('div', { class: 'grid-2' }, pri.el, start.el), cats.el, link.el, notes.el,
-    c && safeUrl(c['課程連結']) ? h('a', { class: 'btn btn-sm', href: safeUrl(c['課程連結']), target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '開啟課程') : null);
+  const body = h('div', null, err.el, name.el, linkField, h('div', { class: 'grid-2' }, platform.el, teacher.el), h('div', { class: 'grid-2' }, prog.el, status.el),
+    h('div', { class: 'grid-2' }, pri.el, start.el), cats.el, notes.el);
 
   async function save(btn) {
     err.show('');

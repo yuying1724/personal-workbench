@@ -305,3 +305,43 @@ test('日記進入前驗證：設定裡開啟（預設 5 分鐘）、進日記�
     assert.equal(await lockShown(), 0);
   });
 });
+
+test('課程列表：右邊的外連按鈕直接在新分頁開課程、點列本身才編輯；沒連結的顯示箭頭；表單裡連結旁有「開啟」並跟著輸入更新', { skip }, async () => {
+  await withApp({}, async (a) => {
+    const { page, ctx } = a;
+    await ctx.route('https://www.udemy.com/**', (r) => r.fulfill({ contentType: 'text/html', body: '<title>udemy</title>ok' }));
+    await a.login();
+    await a.go('courses');
+    await page.waitForSelector('[data-testid=course-row]');
+    const withLink = page.locator('[data-testid=course-row]:has-text("Spring Boot 實戰")');
+    const noLink = page.locator('[data-testid=course-row]:has-text("系統分析與設計")');
+    const open = withLink.locator('[data-testid=course-open]');
+    assert.equal(await open.getAttribute('href'), 'https://www.udemy.com/course/spring-boot-demo/');
+    assert.equal(await open.getAttribute('target'), '_blank');
+    assert.equal(await withLink.locator('.chev').count(), 0);
+    assert.equal(await noLink.locator('[data-testid=course-open]').count(), 0);
+    assert.equal(await noLink.locator('.chev').count(), 1);
+    // 按鈕要夠大好點（44px），而且點它不會打開編輯表單
+    const box = await open.boundingBox();
+    assert.ok(box.width >= 44 && box.height >= 44, '外連按鈕至少 44px');
+    const [popup] = await Promise.all([ctx.waitForEvent('page'), open.click()]);
+    await popup.waitForLoadState();
+    assert.equal(popup.url(), 'https://www.udemy.com/course/spring-boot-demo/');
+    await popup.close();
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('.sheet').count(), 0, '點外連按鈕不該開編輯表單');
+    // 點列本身：開編輯表單，連結欄位就在名稱下面、旁邊有「開啟」
+    await withLink.locator('.course-main').click();
+    await page.waitForSelector('.sheet [data-testid=course-form-open]');
+    const formOpen = page.locator('.sheet [data-testid=course-form-open]');
+    assert.equal(await formOpen.getAttribute('href'), 'https://www.udemy.com/course/spring-boot-demo/');
+    const linkInput = page.locator('.sheet input[type=url]');
+    await linkInput.fill('');
+    assert.equal(await formOpen.isVisible(), false, '沒有連結就不顯示「開啟」');
+    await linkInput.fill('https://www.udemy.com/course/other/');
+    assert.equal(await formOpen.isVisible(), true);
+    assert.equal(await formOpen.getAttribute('href'), 'https://www.udemy.com/course/other/');
+    await linkInput.fill('javascript:alert(1)');
+    assert.equal(await formOpen.isVisible(), false, '不是 http(s) 的連結不給開');
+  });
+});

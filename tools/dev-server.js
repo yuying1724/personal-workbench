@@ -35,7 +35,7 @@ function seedDemo(b) {
   ok(b.call('create_diary', { '日期': day(-2), '心情': '😐', '放手': '會議超時就算了' }));
   ok(b.call('create_subscription', { '產品': 'Netflix', '訂閱費': 390, '訂閱週期': '每月', '訂閱開始日': day(-200), '重要性': '可有可無', '分類標籤': ['影音'] }));
   ok(b.call('create_subscription', { '產品': 'Claude Pro', '訂閱費': 20, '訂閱週期': '每月', '訂閱開始日': day(-60), '重要性': '必要', '分類標籤': ['工作', '學習'] }));
-  ok(b.call('create_course', { '課程名稱': 'Spring Boot 實戰', '平台': 'Udemy', '講師': 'Tom', '進度': 45, '狀態': '進行中', '分類': ['程式'] }));
+  ok(b.call('create_course', { '課程名稱': 'Spring Boot 實戰', '平台': 'Udemy', '講師': 'Tom', '進度': 45, '狀態': '進行中', '分類': ['程式'], '課程連結': 'https://www.udemy.com/course/spring-boot-demo/' }));
   ok(b.call('create_course', { '課程名稱': '系統分析與設計', '平台': 'Hahow', '進度': 100, '狀態': '已完成', '分類': ['程式'] }));
   // 訂閱的計算欄位在真實試算表是公式（自訂函數），這裡直接放幾個結果值方便看畫面
   const sh = b.ss.sheet('訂閱服務');

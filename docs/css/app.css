@@ -228,6 +228,14 @@ button.item:active, a.item:active { background: var(--accent-soft); }
 .item .s { color: var(--sub); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-main { background: none; border: 0; padding: 0; text-align: left; color: inherit; min-width: 0; }
 .item .chev { color: var(--sub); flex: none; }
+.course-row { gap: 4px; padding: 0; }
+.course-main { display: flex; align-items: center; gap: 12px; padding: 11px 2px; }
+.course-main .chev { margin-left: 4px; }
+.open-link { flex: none; color: var(--accent-strong); text-decoration: none; }
+.open-link:hover, .open-link:active { background: var(--accent-soft); }
+.input-btn { display: flex; gap: 8px; align-items: stretch; }
+.input-btn input { flex: 1; min-width: 0; }
+.input-btn .btn { flex: none; text-decoration: none; }
 .ico { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--accent-soft); font-size: 19px; }
 .amt { font-weight: 600; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .voided-soft .t { color: var(--sub); }
