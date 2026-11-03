@@ -59,9 +59,11 @@ async function setTtl(minutes) {
 }
 
 async function reloadApp() {
+  // 只清掉這一版的檔案快取、叫 service worker 去抓新版；不解除 service worker（手機的推播登記綁在它身上，解除就收不到通知），
+  // 也不清推播用的小倉庫（wb-push，裝置摘要碼在裡面）
   try {
-    if ('serviceWorker' in navigator) (await navigator.serviceWorker.getRegistrations()).forEach((r) => r.unregister());
-    if (window.caches) (await caches.keys()).forEach((k) => caches.delete(k));
+    if (window.caches) await Promise.all((await caches.keys()).filter((k) => k !== 'wb-push').map((k) => caches.delete(k)));
+    if ('serviceWorker' in navigator) await Promise.all((await navigator.serviceWorker.getRegistrations()).map((r) => r.update().catch(() => {})));
   } catch (e) { /* 忽略 */ }
   location.reload();
 }
@@ -227,9 +229,10 @@ function openEnableBio() {
 }
 
 async function wipeThisDevice() {
-  const ok = await confirmDialog({ title: '清除這台裝置的資料', message: '會刪除這台裝置上的裝置授權碼、登入狀態、資料快取、日記草稿與畫面設定，然後回到登入畫面。試算表裡的資料不受影響；之後要再用這台裝置，需要重新輸入裝置授權碼和 PIN。確定要清除嗎？', confirmText: '清除', danger: true });
+  const ok = await confirmDialog({ title: '清除這台裝置的資料', message: '會刪除這台裝置上的裝置授權碼、登入狀態、資料快取、日記草稿、畫面設定與推播通知，然後回到登入畫面。試算表裡的資料不受影響；之後要再用這台裝置，需要重新輸入裝置授權碼和 PIN。確定要清除嗎？', confirmText: '清除', danger: true });
   if (!ok) return;
+  try { if (push.local()) await push.disable(); } catch (e) { /* 推播訂閱留在後端也沒關係：推不到會自動停用 */ }
   wipeDeviceData();
-  try { if (window.caches) (await caches.keys()).forEach((k) => caches.delete(k)); } catch (e) { /* 忽略 */ }
+  try { if (window.caches) await Promise.all((await caches.keys()).map((k) => caches.delete(k))); } catch (e) { /* 忽略 */ }
   location.reload();
 }

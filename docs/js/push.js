@@ -52,9 +52,33 @@ async function putMeta(token) {
 }
 async function clearMeta() { try { await caches.delete(PUSH_CACHE); } catch (e) { /* 忽略 */ } }
 
+async function hasMeta() {
+  try { const c = await caches.open(PUSH_CACHE); const [t, a] = await Promise.all([c.match('./push-token'), c.match('./push-api')]); return !!(t && a); } catch (e) { return false; }
+}
+/**
+ * 自我修復：這台裝置有開通知、瀏覽器的推播登記也在，但 Cache Storage 裡的裝置摘要碼不見了（例如按過「清除快取並重新載入」、瀏覽器清資料）
+ * → 收到推播時 service worker 拿不到摘要，只會顯示「有事要處理，點開查看」。這裡用同一個推播網址重新向後端登記一次（後端會換發新的摘要碼）。
+ * App 啟動與設定頁都會呼叫；沒事就什麼都不做。回傳 true 代表有修過。
+ */
+export async function ensureMeta() {
+  if (!isSupported()) return false;
+  const l = local();
+  if (!l || !l.id) return false;
+  if (await hasMeta()) return false;
+  const reg = await registration();
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  if (!sub) return false;
+  const j = sub.toJSON();
+  const r = await api.call('push_subscribe', { endpoint: j.endpoint, keys: j.keys, slots: l.slots || defaultSlots(), label: (state.data && state.data.meta && state.data.meta.device) || '' });
+  await putMeta(r.token);
+  saveLocal(Object.assign({}, l, { id: r.id, slots: r.slots }));
+  return true;
+}
+
 /** 這台裝置目前的狀態：{ supported, permission, enabled, slots, id } */
 export async function status() {
   if (!isSupported()) return { supported: false, enabled: false, permission: permission(), slots: defaultSlots() };
+  try { await ensureMeta(); } catch (e) { /* 修不好就維持現狀，設定頁仍可關閉再開啟 */ }
   const l = local();
   let sub = null;
   try { const reg = await registration(); sub = reg ? await reg.pushManager.getSubscription() : null; } catch (e) { sub = null; }

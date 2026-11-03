@@ -10,6 +10,7 @@ import { renderTasks, openTaskForm } from './views/tasks.js';
 import { renderHabits, renderHabitAdmin, openHabitForm } from './views/habits.js';
 import { renderDiary, openDiaryForm } from './views/diary.js';
 import { onAppHidden, onLeaveDiary, diaryLocked } from './views/diarylock.js';
+import * as push from './push.js';
 import { renderProjects, openProjectForm } from './views/projects.js';
 import { renderSubs, openSubForm } from './views/subs.js';
 import { renderCourses, openCourseForm } from './views/courses.js';
@@ -115,6 +116,8 @@ async function start() {
   if (!api.hasValidSession()) { renderLogin(app, { onSuccess: start }); return; }
   // 舊版登入的工作階段效期比這台裝置設定的短（例如舊版固定 1 小時）→ 背景換發成設定的長度
   if ((prefs.session.ttl || 0) < prefs.ttlMinutes) api.call('set_session_ttl', { ttlMinutes: prefs.ttlMinutes }).catch(() => {});
+  // 推播的裝置摘要碼不見了（清過快取）就背景補登記，不然通知只會顯示「有事要處理」
+  setTimeout(() => push.ensureMeta().catch(() => {}), 3000);
   // 有上次的快取就先畫出來（秒開），背景再抓最新資料；抓失敗就維持舊資料並提示
   const cached = loadCache();
   if (cached) {

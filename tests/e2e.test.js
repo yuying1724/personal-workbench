@@ -400,6 +400,16 @@ test('推播通知：設定頁先選好時段再開啟（要求權限、向瀏�
     await page.waitForFunction(() => /已送出測試通知/.test(document.querySelector('.toast')?.innerText || ''));
     assert.equal(sent.length, 1); assert.equal(sent[0].url, 'https://fcm.googleapis.com/fcm/send/e2e-sub-1');
     assert.match(sent[0].o.headers.Authorization, /^vapid t=/);
+    // 裝置摘要碼被清掉（例如按過「清除快取並重新載入」）：再進設定頁會自動重新登記、換新的摘要碼，不用關掉再開
+    const tokenBefore = await page.evaluate(async () => (await (await caches.open('wb-push')).match('./push-token')).text());
+    await page.evaluate(() => caches.delete('wb-push'));
+    await a.go('home'); await a.go('settings');
+    await page.waitForFunction(async () => { const c = await caches.open('wb-push'); return !!(await c.match('./push-token')); });
+    const tokenAfter = await page.evaluate(async () => (await (await caches.open('wb-push')).match('./push-token')).text());
+    assert.notEqual(tokenAfter, tokenBefore); assert.equal(tokenAfter.length, 48);
+    assert.equal(be.call('push_info').data.subscriptions.length, 1, '同一支手機還是一筆');
+    assert.equal(be.post({ action: 'push_summary', params: { token: tokenAfter } }).ok, true, '新摘要碼可以拿摘要');
+    assert.equal(be.post({ action: 'push_summary', params: { token: tokenBefore } }).error.code, 'AUTH_FAILED', '舊的作廢');
     // 關閉：瀏覽器取消登記、後端移除、快取清掉
     await page.click('[data-testid=push-disable]');
     await page.waitForFunction(() => /未開啟/.test(document.querySelector('[data-testid=push-status]')?.innerText || ''));
