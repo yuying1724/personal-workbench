@@ -141,7 +141,8 @@ test('四個時段的摘要：早上＝早上習慣＋今天任務（星標優�
   assert.equal(am.lines[1], '習慣：確認行事曆、確認每日焦點任務', '打卡過的不列、封存的不列');
   assert.equal(am.lines[2], '★ [LOMA 301]第 2 章', '星標排前面');
   assert.equal(am.lines[3], '繳水費');
-  if (soonSubs.length) assert.match(am.lines[4], /^\d+\/\d+ Netflix 付款$/);
+  assert.match(am.lines[4], /^逾期 \d+\/\d+：過期的$/, '逾期的也要列出來（附到期日）');
+  if (soonSubs.length) assert.match(am.lines[5], /^\d+\/\d+ Netflix 付款$/);
   assert.equal(am.body, am.lines.join('\n'), '沒超過 10 行就全部列出來');
 
   const noon = S('noon');

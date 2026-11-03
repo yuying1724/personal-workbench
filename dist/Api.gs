@@ -319,7 +319,11 @@ var WbApi = (function () {
         var am = byTime('早上');
         if (am.length) { count += am.length; parts.push(am.length + ' 個習慣'); lines.push('習慣：' + names_(am, '習慣名稱', 6)); }
         if (dueToday.length) { count += dueToday.length; parts.push(dueToday.length + ' 筆任務'); listTasks(dueToday, 6); }
-        if (overdue.length) { count += overdue.length; parts.push('逾期 ' + overdue.length + ' 筆'); }
+        if (overdue.length) {
+          count += overdue.length; parts.push('逾期 ' + overdue.length + ' 筆');
+          overdue.sort(function (a, b) { return a['到期日'] < b['到期日'] ? -1 : 1; }).slice(0, 3).forEach(function (t) { lines.push('逾期 ' + mdOf_(t['到期日']) + '：' + taskLine(t)); });
+          if (overdue.length > 3) lines.push('…還有 ' + (overdue.length - 3) + ' 筆逾期');
+        }
         var soon = addDaysYmd_(today, 3);
         var subs = getSubscriptions_().filter(function (x) { return x['取消訂閱'] !== true && x['下次付款日'] && x['下次付款日'] >= today && x['下次付款日'] <= soon; });
         if (subs.length) { count += subs.length; parts.push(subs.length + ' 筆訂閱要付款'); subs.slice(0, 3).forEach(function (x) { lines.push(mdOf_(x['下次付款日']) + ' ' + x['產品'] + ' 付款'); }); }
