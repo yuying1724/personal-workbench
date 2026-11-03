@@ -233,6 +233,7 @@ test('試算表選單：推播設定項目會裝排程並顯示狀態；狀態�
   b.state.urlFetch.handler = () => ({ code: 404, body: '' });
   b.ctx.menuPushSetup();
   assert.match(JSON.stringify(b.state.ui.log.at(-1)), /連到推播伺服器：可以（回應 404）/);
+  assert.match(b.ctx.pushAuthCheck(), /^每小時排程：已安裝；連到推播伺服器：可以（回應 404）$/);
   b.ctx.menuStatus();
   assert.match(JSON.stringify(b.state.ui.log.at(-1)), /推播通知：排程已安裝，裝置 0 個/);
 });

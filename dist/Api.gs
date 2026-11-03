@@ -2719,6 +2719,17 @@ function pushJob() {
  * 推播通知第一次使用：從選單執行一次，讓 Google 跳出授權（推播要連外部網址、裝排程）；順便確認每小時排程已安裝。
  * 手機在設定頁開啟通知時也會自動裝排程，但如果那時還沒授權會失敗，就從這裡補。
  */
+/** 給 Apps Script 編輯器直接「執行」用（編輯器裡不能開試算表的對話框）：檢查連外權限與排程，結果寫在執行記錄 */
+function pushAuthCheck() {
+  var ok = WbPush.ensureTrigger();
+  var net;
+  try { var code = UrlFetchApp.fetch('https://fcm.googleapis.com/', { muteHttpExceptions: true }).getResponseCode(); net = '可以（回應 ' + code + '）'; }
+  catch (e) { net = '沒有權限：' + String(e && e.message || e).slice(0, 120); }
+  var msg = '每小時排程：' + (ok ? '已安裝' : '安裝失敗') + '；連到推播伺服器：' + net;
+  Logger.log(msg);
+  return msg;
+}
+
 function menuPushSetup() {
   var ok = WbPush.ensureTrigger();
   var keys = WbWebPush.loadKeys();
