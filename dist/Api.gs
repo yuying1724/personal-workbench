@@ -2723,8 +2723,13 @@ function menuPushSetup() {
   var ok = WbPush.ensureTrigger();
   var keys = WbWebPush.loadKeys();
   var subs = WbPush.listAll();
+  // 真的連一次外部網址：第一次會逼 Google 跳出「連外」的授權視窗；之後用來確認權限有沒有拿到
+  var net;
+  try { var code = UrlFetchApp.fetch('https://fcm.googleapis.com/', { muteHttpExceptions: true }).getResponseCode(); net = '可以（回應 ' + code + '）'; }
+  catch (e) { net = '沒有權限：' + String(e && e.message || e).slice(0, 120); }
   wbAlert_('推播通知', [
     '每小時排程：' + (ok ? '已安裝' : '安裝失敗（請重新執行一次並允許授權）'),
+    '連到推播伺服器：' + net,
     '推播金鑰：' + (keys && keys.x ? '已產生' : '未產生'),
     '已開啟通知的裝置：' + (subs.length ? subs.map(function (s) { return (s.label || s.id) + (s.active ? '' : '（已失效）'); }).join('、') : '無'),
     '',

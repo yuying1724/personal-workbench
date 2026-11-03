@@ -229,8 +229,10 @@ test('試算表選單：推播設定項目會裝排程並顯示狀態；狀態�
   assert.ok(items.includes('menuPushSetup'));
   b.ctx.menuPushSetup();
   assert.ok(b.state.triggers.some((t) => t.getHandlerFunction() === 'pushJob'));
-  const msg = b.state.ui.log.at(-1);
-  assert.match(JSON.stringify(msg), /每小時排程：已安裝/);
+  assert.match(JSON.stringify(b.state.ui.log.at(-1)), /每小時排程：已安裝[\s\S]*連到推播伺服器：沒有權限/, '還沒授權連外時會說沒有權限');
+  b.state.urlFetch.handler = () => ({ code: 404, body: '' });
+  b.ctx.menuPushSetup();
+  assert.match(JSON.stringify(b.state.ui.log.at(-1)), /連到推播伺服器：可以（回應 404）/);
   b.ctx.menuStatus();
   assert.match(JSON.stringify(b.state.ui.log.at(-1)), /推播通知：排程已安裝，裝置 0 個/);
 });
