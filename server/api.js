@@ -152,32 +152,35 @@ var WbApi = (function () {
       var parts = [], lines = [], count = 0;
       var taskLine = function (t) { return (t['星標'] === true ? '★ ' : '') + t['任務名稱']; };
       var listTasks = function (rows, max) { rows.slice(0, max).forEach(function (t) { lines.push(taskLine(t)); }); if (rows.length > max) lines.push('…還有 ' + (rows.length - max) + ' 筆任務'); };
+      // 排版：第一行是各類件數（用全形空格隔開，短、不折行）；任務排最前面、逾期緊接著、習慣放最後（每天都一樣、被切掉影響最小）
+      var SEP = '　';
+      var habitLine = function (rows, prefix) { lines.push('✅ ' + (prefix || '') + names_(rows, '習慣名稱', 6)); };
       if (slot === 'morning') {
         var am = byTime('早上');
-        if (am.length) { count += am.length; parts.push(am.length + ' 個習慣'); lines.push('習慣：' + names_(am, '習慣名稱', 6)); }
-        if (dueToday.length) { count += dueToday.length; parts.push(dueToday.length + ' 筆任務'); listTasks(dueToday, 6); }
-        if (overdue.length) {
-          count += overdue.length; parts.push('逾期 ' + overdue.length + ' 筆');
-          overdue.sort(function (a, b) { return a['到期日'] < b['到期日'] ? -1 : 1; }).slice(0, 3).forEach(function (t) { lines.push('逾期 ' + mdOf_(t['到期日']) + '：' + taskLine(t)); });
-          if (overdue.length > 3) lines.push('…還有 ' + (overdue.length - 3) + ' 筆逾期');
-        }
         var soon = addDaysYmd_(today, 3);
         var subs = getSubscriptions_().filter(function (x) { return x['取消訂閱'] !== true && x['下次付款日'] && x['下次付款日'] >= today && x['下次付款日'] <= soon; });
-        if (subs.length) { count += subs.length; parts.push(subs.length + ' 筆訂閱要付款'); subs.slice(0, 3).forEach(function (x) { lines.push(mdOf_(x['下次付款日']) + ' ' + x['產品'] + ' 付款'); }); }
+        if (dueToday.length) { count += dueToday.length; parts.push('📌 任務 ' + dueToday.length); listTasks(dueToday, 6); }
+        if (overdue.length) {
+          count += overdue.length; parts.push('⏰ 逾期 ' + overdue.length);
+          overdue.sort(function (a, b) { return a['到期日'] < b['到期日'] ? -1 : 1; }).slice(0, 3).forEach(function (t) { lines.push('⏰ ' + mdOf_(t['到期日']) + ' ' + taskLine(t)); });
+          if (overdue.length > 3) lines.push('…還有 ' + (overdue.length - 3) + ' 筆逾期');
+        }
+        if (subs.length) { count += subs.length; parts.push('💳 訂閱 ' + subs.length); subs.slice(0, 3).forEach(function (x) { lines.push('💳 ' + mdOf_(x['下次付款日']) + ' ' + x['產品']); }); }
+        if (am.length) { count += am.length; parts.push('✅ 習慣 ' + am.length); habitLine(am); }
       } else if (slot === 'noon') {
         var noon = byTime('中午'), amLeft = byTime('早上');
-        if (noon.length) { count += noon.length; parts.push(noon.length + ' 個習慣'); lines.push('習慣：' + names_(noon, '習慣名稱', 6)); }
-        if (amLeft.length) { count += amLeft.length; parts.push('早上還有 ' + amLeft.length + ' 個沒打卡'); lines.push('早上沒打卡：' + names_(amLeft, '習慣名稱', 6)); }
+        if (noon.length) { count += noon.length; parts.push('✅ 習慣 ' + noon.length); habitLine(noon); }
+        if (amLeft.length) { count += amLeft.length; parts.push('⏰ 早上沒打卡 ' + amLeft.length); habitLine(amLeft, '早上：'); }
       } else if (slot === 'evening') {
         var pm = byTime('晚上');
-        if (pm.length) { count += pm.length; parts.push(pm.length + ' 個習慣'); lines.push('習慣：' + names_(pm, '習慣名稱', 6)); }
-        if (dueToday.length) { count += dueToday.length; parts.push('任務還剩 ' + dueToday.length + ' 筆'); listTasks(dueToday, 5); }
+        if (dueToday.length) { count += dueToday.length; parts.push('📌 任務還剩 ' + dueToday.length); listTasks(dueToday, 5); }
+        if (pm.length) { count += pm.length; parts.push('✅ 習慣 ' + pm.length); habitLine(pm); }
       } else {
-        if (habits.length) { count += habits.length; parts.push('還有 ' + habits.length + ' 個習慣沒打卡'); lines.push(names_(habits, '習慣名稱', 10)); }
+        if (habits.length) { count += habits.length; parts.push('✅ 還沒打卡 ' + habits.length); lines.push('✅ ' + names_(habits, '習慣名稱', 10)); }
       }
       // 標題短短的（手機最多顯示兩行），數字放內文第一行，後面把項目列出來
       var title = count ? info.label + '提醒' : (info.label + '：今天沒有要處理的事');
-      if (count) lines.unshift(parts.join('、'));
+      if (count) lines.unshift(parts.join(SEP));
       var body = lines.slice(0, MAX_LINES).join('\n') + (lines.length > MAX_LINES ? '\n…還有 ' + (lines.length - MAX_LINES) + ' 項' : '');
       return { slot: slot, count: count, title: title, body: body, lines: lines, today: today, url: info.url };
     }, true);

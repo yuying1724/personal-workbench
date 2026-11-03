@@ -136,29 +136,29 @@ test('四個時段的摘要：早上＝早上習慣＋今天任務（星標優�
   assert.equal(am.count, 2 + 2 + 1 + soonSubs.length, JSON.stringify(am));
   assert.equal(am.url, '#/home');
   assert.equal(am.title, '早上提醒', '標題要短，手機最多顯示兩行');
-  const expectCounts = ['2 個習慣', '2 筆任務', '逾期 1 筆'].concat(soonSubs.length ? [soonSubs.length + ' 筆訂閱要付款'] : []).join('、');
-  assert.equal(am.lines[0], expectCounts, '數字放內文第一行');
-  assert.equal(am.lines[1], '習慣：確認行事曆、確認每日焦點任務', '打卡過的不列、封存的不列');
-  assert.equal(am.lines[2], '★ [LOMA 301]第 2 章', '星標排前面');
-  assert.equal(am.lines[3], '繳水費');
-  assert.match(am.lines[4], /^逾期 \d+\/\d+：過期的$/, '逾期的也要列出來（附到期日）');
-  if (soonSubs.length) assert.match(am.lines[5], /^\d+\/\d+ Netflix 付款$/);
+  const expectCounts = ['📌 任務 2', '⏰ 逾期 1'].concat(soonSubs.length ? ['💳 訂閱 ' + soonSubs.length] : []).concat(['✅ 習慣 2']).join('\u3000');
+  assert.equal(am.lines[0], expectCounts, '數字放內文第一行，全形空格隔開');
+  assert.equal(am.lines[1], '★ [LOMA 301]第 2 章', '任務排最前面、星標優先');
+  assert.equal(am.lines[2], '繳水費');
+  assert.match(am.lines[3], /^⏰ \d+\/\d+ 過期的$/, '逾期緊接著任務（附到期日）');
+  if (soonSubs.length) assert.match(am.lines[4], /^💳 \d+\/\d+ Netflix$/);
+  assert.equal(am.lines[am.lines.length - 1], '✅ 確認行事曆、確認每日焦點任務', '習慣放最後；打卡過的不列、封存的不列');
   assert.equal(am.body, am.lines.join('\n'), '沒超過 10 行就全部列出來');
 
   const noon = S('noon');
   assert.equal(noon.title, '中午提醒');
   assert.equal(noon.count, 4); assert.equal(noon.url, '#/habits');
-  assert.deepEqual(noon.lines, ['2 個習慣、早上還有 2 個沒打卡', '習慣：喝水700cc（午）、營養補充品', '早上沒打卡：確認行事曆、確認每日焦點任務']);
+  assert.deepEqual(noon.lines, ['✅ 習慣 2\u3000⏰ 早上沒打卡 2', '✅ 喝水700cc（午）、營養補充品', '✅ 早上：確認行事曆、確認每日焦點任務']);
 
   const pm = S('evening');
   assert.equal(pm.title, '晚上提醒');
-  assert.deepEqual(pm.lines, ['2 個習慣、任務還剩 2 筆', '習慣：填寫日記、記帳', '★ [LOMA 301]第 2 章', '繳水費']);
+  assert.deepEqual(pm.lines, ['📌 任務還剩 2\u3000✅ 習慣 2', '★ [LOMA 301]第 2 章', '繳水費', '✅ 填寫日記、記帳'], '晚上也是任務先、習慣後');
 
   const night = S('night');
   assert.equal(night.count, 8, '早上 2＋中午 2＋晚上 2＋不限 2（每週 3 次的這週還沒做滿也算）');
   assert.equal(night.title, '睡前提醒');
-  assert.equal(night.lines[0], '還有 8 個習慣沒打卡');
-  assert.equal(night.lines[1], '確認行事曆、確認每日焦點任務、喝水700cc（午）、營養補充品、填寫日記、記帳、閱讀、運動-步行', '8 個全部列出來');
+  assert.equal(night.lines[0], '✅ 還沒打卡 8');
+  assert.equal(night.lines[1], '✅ 確認行事曆、確認每日焦點任務、喝水700cc（午）、營養補充品、填寫日記、記帳、閱讀、運動-步行', '8 個全部列出來');
 
   // 全部打卡、任務做完：各時段都沒事
   Object.keys(H).forEach((k) => { if (k !== 'archived') b.call('set_habit_log', { '習慣ID': H[k], '數值': 1 }); });
@@ -168,7 +168,7 @@ test('四個時段的摘要：早上＝早上習慣＋今天任務（星標優�
   // 任務很多：列 6 筆＋「…還有 N 筆任務」，內文不超過 10 行
   for (let i = 1; i <= 10; i++) b.call('create_task', { '任務名稱': '雜事 ' + i, '狀態': '待辦', '到期日': TODAY });
   const big = S('morning');
-  assert.equal(big.lines[0], '10 筆任務');
+  assert.equal(big.lines[0], '📌 任務 10');
   assert.equal(big.lines.filter((l) => /^雜事/.test(l)).length, 6);
   assert.ok(big.lines.includes('…還有 4 筆任務'));
   assert.ok(big.body.split('\n').length <= 10);
@@ -191,7 +191,7 @@ test('每小時排程：每個時段到了設定的時間才推、同時段一�
   assert.match(sent[0].opts.headers.Authorization, /^vapid t=.+, k=.+$/);
   // 手機收到後來拿摘要：知道這次是早上
   const sm = b.post({ action: 'push_summary', params: { token: sub.token } });
-  assert.ok(sm.ok, JSON.stringify(sm)); assert.equal(sm.data.slot, 'morning'); assert.equal(sm.data.url, '#/home'); assert.equal(sm.data.title, '早上提醒'); assert.match(sm.data.body, /^3 個習慣\n習慣：/);
+  assert.ok(sm.ok, JSON.stringify(sm)); assert.equal(sm.data.slot, 'morning'); assert.equal(sm.data.url, '#/home'); assert.equal(sm.data.title, '早上提醒'); assert.match(sm.data.body, /^✅ 習慣 3\n✅ /);
   assert.equal(b.post({ action: 'push_summary', params: { token: 'nope' } }).error.code, 'AUTH_FAILED');
   atHour(b, '08:50'); assert.equal(P.runHourly(b.state.clock.now).sent, 0, '同一時段同一天不再推');
   atHour(b, '12:10'); assert.equal(P.runHourly(b.state.clock.now).due, 0, '中午關掉了');
