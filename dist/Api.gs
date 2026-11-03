@@ -304,6 +304,7 @@ var WbApi = (function () {
     var info = WbPush.SLOT_INFO[slot] || WbPush.SLOT_INFO.morning;
     slot = WbPush.SLOT_INFO[slot] ? slot : 'morning';
     var today = ymdOf_(nowMs);
+    var MAX_LINES = 10; // 手機展開後大約能看到這麼多行；再多就寫「…還有 N 項」
     return withReadMemo_(function () {
       var habits = getHabits_().filter(function (h) { return h['狀態'] !== '封存' && h['今日應做'] && !h['今日已完成']; });
       var byTime = function (t) { return habits.filter(function (h) { return (h['時段'] || '不限') === t; }); };
@@ -313,27 +314,30 @@ var WbApi = (function () {
       var overdue = tasks.filter(function (t) { return t['到期日'] < today; });
       var parts = [], lines = [], count = 0;
       var taskLine = function (t) { return (t['星標'] === true ? '★ ' : '') + t['任務名稱']; };
+      var listTasks = function (rows, max) { rows.slice(0, max).forEach(function (t) { lines.push(taskLine(t)); }); if (rows.length > max) lines.push('…還有 ' + (rows.length - max) + ' 筆任務'); };
       if (slot === 'morning') {
         var am = byTime('早上');
-        if (am.length) { count += am.length; parts.push('早上 ' + am.length + ' 個習慣'); lines.push('習慣：' + names_(am, '習慣名稱', 3)); }
-        if (dueToday.length) { count += dueToday.length; parts.push('今天 ' + dueToday.length + ' 筆任務'); dueToday.slice(0, 3).forEach(function (t) { lines.push(taskLine(t)); }); if (dueToday.length > 3) lines.push('…還有 ' + (dueToday.length - 3) + ' 筆任務'); }
+        if (am.length) { count += am.length; parts.push(am.length + ' 個習慣'); lines.push('習慣：' + names_(am, '習慣名稱', 6)); }
+        if (dueToday.length) { count += dueToday.length; parts.push(dueToday.length + ' 筆任務'); listTasks(dueToday, 6); }
         if (overdue.length) { count += overdue.length; parts.push('逾期 ' + overdue.length + ' 筆'); }
         var soon = addDaysYmd_(today, 3);
         var subs = getSubscriptions_().filter(function (x) { return x['取消訂閱'] !== true && x['下次付款日'] && x['下次付款日'] >= today && x['下次付款日'] <= soon; });
-        if (subs.length) { count += subs.length; parts.push(subs.length + ' 筆訂閱要付款'); subs.slice(0, 2).forEach(function (x) { lines.push(mdOf_(x['下次付款日']) + ' ' + x['產品'] + ' 付款'); }); }
+        if (subs.length) { count += subs.length; parts.push(subs.length + ' 筆訂閱要付款'); subs.slice(0, 3).forEach(function (x) { lines.push(mdOf_(x['下次付款日']) + ' ' + x['產品'] + ' 付款'); }); }
       } else if (slot === 'noon') {
         var noon = byTime('中午'), amLeft = byTime('早上');
-        if (noon.length) { count += noon.length; parts.push('中午 ' + noon.length + ' 個習慣'); lines.push('習慣：' + names_(noon, '習慣名稱', 3)); }
-        if (amLeft.length) { count += amLeft.length; parts.push('早上還有 ' + amLeft.length + ' 個沒打卡'); lines.push('早上沒打卡：' + names_(amLeft, '習慣名稱', 3)); }
+        if (noon.length) { count += noon.length; parts.push(noon.length + ' 個習慣'); lines.push('習慣：' + names_(noon, '習慣名稱', 6)); }
+        if (amLeft.length) { count += amLeft.length; parts.push('早上還有 ' + amLeft.length + ' 個沒打卡'); lines.push('早上沒打卡：' + names_(amLeft, '習慣名稱', 6)); }
       } else if (slot === 'evening') {
         var pm = byTime('晚上');
-        if (pm.length) { count += pm.length; parts.push('晚上 ' + pm.length + ' 個習慣'); lines.push('習慣：' + names_(pm, '習慣名稱', 3)); }
-        if (dueToday.length) { count += dueToday.length; parts.push('今天任務還剩 ' + dueToday.length + ' 筆'); dueToday.slice(0, 2).forEach(function (t) { lines.push(taskLine(t)); }); }
+        if (pm.length) { count += pm.length; parts.push(pm.length + ' 個習慣'); lines.push('習慣：' + names_(pm, '習慣名稱', 6)); }
+        if (dueToday.length) { count += dueToday.length; parts.push('任務還剩 ' + dueToday.length + ' 筆'); listTasks(dueToday, 5); }
       } else {
-        if (habits.length) { count += habits.length; parts.push('今天還有 ' + habits.length + ' 個習慣沒打卡'); lines.push(names_(habits, '習慣名稱', 4)); }
+        if (habits.length) { count += habits.length; parts.push('還有 ' + habits.length + ' 個習慣沒打卡'); lines.push(names_(habits, '習慣名稱', 10)); }
       }
-      var title = count ? parts.join('｜') : (info.label + '：今天沒有要處理的事');
-      var body = lines.slice(0, 4).join('\n') + (lines.length > 4 ? '\n…還有 ' + (lines.length - 4) + ' 項' : '');
+      // 標題短短的（手機最多顯示兩行），數字放內文第一行，後面把項目列出來
+      var title = count ? info.label + '提醒' : (info.label + '：今天沒有要處理的事');
+      if (count) lines.unshift(parts.join('、'));
+      var body = lines.slice(0, MAX_LINES).join('\n') + (lines.length > MAX_LINES ? '\n…還有 ' + (lines.length - MAX_LINES) + ' 項' : '');
       return { slot: slot, count: count, title: title, body: body, lines: lines, today: today, url: info.url };
     }, true);
   }
