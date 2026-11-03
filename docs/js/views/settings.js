@@ -3,6 +3,7 @@ import { icon } from '../icons.js';
 import { prefs, state, notify, wipeDeviceData } from '../store.js';
 import * as api from '../api.js';
 import * as bio from '../biometric.js';
+import * as push from '../push.js';
 import { DIARY_LOCK_OPTIONS, DIARY_LOCK_DEFAULT, diaryLockMode, setDiaryLockMode } from './diarylock.js';
 import { openSheet, toast, errorText, withBusy, confirmDialog } from '../ui.js';
 import { lock } from '../app.js';
@@ -29,6 +30,7 @@ export function renderSettings(root) {
         h('p', { class: 'muted small' }, '時間越長越方便，但手機或電腦被別人拿到時，對方也能直接看到資料。公司或共用電腦建議選「1 小時」。'),
         h('p', { class: 'muted small', style: { marginBottom: 0 } }, `這台裝置：${meta.device || '（未命名）'}。要新增或撤銷裝置（例如家裡電腦、新手機），請在試算表選單「個人工作台」操作。`),
         h('p', { class: 'muted small', style: { marginBottom: 0 } }, '「鎖定並登出」之後，資料快取和裝置授權碼還留在這台裝置（下次只要輸入 PIN、而且秒開）。在公司或別人的電腦上用完，建議按「清除這台裝置的資料」。')),
+      pushCard(),
       h('div', { class: 'card' }, h('h2', null, '資料'),
         meta.sheetUrl ? h('a', { class: 'btn btn-sm', href: meta.sheetUrl, target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '開啟試算表') : null,
         h('p', { class: 'muted small', style: { marginBottom: 0 } }, '最後更新：' + (state.loadedAt ? state.loadedAt.toLocaleString('zh-TW') : '—'))),
@@ -84,6 +86,83 @@ function openChangePin() {
   } }, '變更');
   const sheet = openSheet({ title: '變更 PIN', dismissable: false, body: h('div', null, banner, inp('目前的 PIN', 'oldPin'), inp('新的 PIN（至少 6 碼）', 'newPin'), inp('再輸入一次新的 PIN', 'again')),
     footer: [h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, '取消'), save] });
+}
+
+// ---------- 推播通知（每支手機自己開；跟習慣的時段對齊，早上／中午／晚上／睡前各一則，沒事不推） ----------
+let pushState = { loaded: false, loading: false, st: null };
+// 每次畫設定頁都重新查一次（權限可能在瀏覽器設定裡改了）；查到的跟上次一樣就不重畫，避免一直循環
+function reloadPush() {
+  if (pushState.loading) return;
+  pushState.loading = true;
+  push.status().then((st) => {
+    const changed = JSON.stringify(st) !== JSON.stringify(pushState.st);
+    pushState = { loaded: true, loading: false, st };
+    if (changed) notify();
+  }).catch(() => { pushState.loading = false; });
+}
+function pushCard() {
+  const title = h('h2', null, '通知');
+  if (!push.isSupported()) {
+    return h('div', { class: 'card', 'data-testid': 'push-card' }, title,
+      h('p', { class: 'muted small', style: { margin: 0 } }, push.needsHomeScreen()
+        ? 'iPhone 要先把這個網站「加入主畫面」（Safari 的分享鈕 › 加入主畫面），再從主畫面打開 App，這裡才會出現開啟通知的按鈕。'
+        : '這個瀏覽器不支援推播通知。手機請用 Chrome（Android）或 Safari「加入主畫面」（iPhone）安裝成 App，再到這裡開啟。'));
+  }
+  reloadPush();
+  const st = pushState.st;
+  const hourSel = (cur, onchange) => h('select', { 'aria-label': '幾點推播', 'data-testid': 'push-hour', onchange }, push.HOURS.map((hh) => h('option', { value: String(hh), selected: hh === cur }, `${hh}:00`)));
+  /** 四個時段各一列：開關＋時間（live=true 才真的送後端；還沒開啟時只是先選好） */
+  const slotRows = (slots, live) => h('div', { class: 'push-slots', 'data-testid': 'push-slots' }, push.SLOTS.map((k) => {
+    const cur = slots[k] || { on: true, hour: push.SLOT_INFO[k].hour };
+    const chk = h('input', { type: 'checkbox', checked: cur.on !== false, 'data-testid': 'push-on-' + k, onchange: async (e) => {
+      if (!live) { slots[k] = Object.assign({}, cur, { on: e.target.checked }); return; }
+      try { await push.setSlot(k, { on: e.target.checked }); toast(e.target.checked ? `已開啟${push.SLOT_INFO[k].label}的提醒` : `已關閉${push.SLOT_INFO[k].label}的提醒`); }
+      catch (err) { e.target.checked = !e.target.checked; toast(errorText(err), { kind: 'bad' }); }
+      reloadPush();
+    } });
+    const sel = hourSel(cur.hour, async (e) => {
+      if (!live) { slots[k] = Object.assign({}, cur, { hour: Number(e.target.value) }); return; }
+      try { await push.setSlot(k, { hour: Number(e.target.value) }); toast(`${push.SLOT_INFO[k].label}改成 ${e.target.value} 點左右推播`); }
+      catch (err) { e.target.value = String(cur.hour); toast(errorText(err), { kind: 'bad' }); }
+      reloadPush();
+    });
+    sel.setAttribute('data-testid', 'push-hour-' + k);
+    return h('div', { class: 'push-slot' },
+      h('label', { class: 'check grow' }, chk, h('span', { class: 'grow' }, h('div', null, push.SLOT_INFO[k].label), h('div', { class: 'muted small' }, push.SLOT_INFO[k].hint))),
+      sel);
+  }));
+  let body;
+  if (!st) body = h('p', { class: 'muted small', style: { margin: 0 } }, '檢查中…');
+  else if (st.enabled) {
+    body = h('div', null,
+      h('div', { class: 'bio-status', 'data-testid': 'push-status' }, icon('bell'), h('span', { class: 'grow small' }, '推播通知：已開啟（這支裝置）'),
+        h('button', { class: 'btn btn-sm', 'data-testid': 'push-disable', onclick: async (e) => { await withBusy(e.currentTarget, async () => { await push.disable(); toast('已關閉推播通知'); reloadPush(); }); } }, '關閉')),
+      slotRows(Object.assign({}, st.slots), true),
+      h('div', { class: 'row-flex wrap', style: { marginTop: '8px' } },
+        h('button', { class: 'btn btn-sm', 'data-testid': 'push-test', onclick: async (e) => {
+          await withBusy(e.currentTarget, async () => {
+            try { const r = await push.sendTest(); toast(`已送出測試通知（${r.summary.title}）`); }
+            catch (err) { toast(errorText(err), { kind: 'bad' }); reloadPush(); }
+          });
+        } }, '發送測試通知')),
+      h('p', { class: 'muted small', style: { margin: '6px 0 0' } }, '每個時段到了設定的時間檢查一次，那個時段有事才推一則；全部打卡完、任務做完就不推。點通知會直接打開 App。只在這支裝置生效；換手機要重新開啟。'));
+  } else {
+    const draft = Object.assign({}, st.slots);
+    body = h('div', null,
+      h('div', { class: 'bio-status', 'data-testid': 'push-status' }, icon('bell'), h('span', { class: 'grow small' }, st.permission === 'denied' ? '推播通知：這個網站的通知被封鎖了，請到瀏覽器的網站設定允許通知後再開啟' : '推播通知：未開啟'),
+        h('button', { class: 'btn btn-sm btn-primary', 'data-testid': 'push-enable', disabled: st.permission === 'denied', onclick: async (e) => {
+          await withBusy(e.currentTarget, async () => {
+            try {
+              const r = await push.enable(draft);
+              toast(r.trigger === false ? '已開啟，但後端沒辦法自動安裝排程：請到試算表「個人工作台」選單執行「推播通知：安裝排程／授權」' : '已開啟，之後在設定的時段有事就會收到提醒');
+            } catch (err) { toast(err && err.code ? errorText(err) : (err && err.message) || String(err), { kind: 'bad' }); }
+            reloadPush();
+          });
+        } }, '開啟')),
+      slotRows(draft, false),
+      h('p', { class: 'muted small', style: { margin: '6px 0 0' } }, '開啟後，各時段到了設定的時間、那個時段有事（習慣還沒打卡、任務到期、訂閱要付款）才會推一則；沒事就不推。只在這支裝置生效；換手機要重新開啟。'));
+  }
+  return h('div', { class: 'card', 'data-testid': 'push-card' }, title, body);
 }
 
 // ---------- 指紋／臉部登入（只在這台裝置生效；PIN 用指紋驗證才拿得到的金鑰加密後存在瀏覽器裡） ----------

@@ -20,6 +20,7 @@ test.after(async () => { if (browser) await browser.close(); });
 async function open(opts = {}) {
   const s = await startDevServer({ demo: opts.demo !== false });
   const ctx = await browser.newContext({ viewport: opts.viewport || { width: 390, height: 844 }, locale: 'zh-TW', hasTouch: !opts.desktop, isMobile: !opts.desktop, serviceWorkers: 'block' });
+  if (opts.initScript) await ctx.addInitScript(opts.initScript);
   const page = await ctx.newPage();
   page.setDefaultTimeout(10000);
   const errors = [];
@@ -343,5 +344,72 @@ test('課程列表：右邊的外連按鈕直接在新分頁開課程、點列�
     assert.equal(await formOpen.getAttribute('href'), 'https://www.udemy.com/course/other/');
     await linkInput.fill('javascript:alert(1)');
     assert.equal(await formOpen.isVisible(), false, '不是 http(s) 的連結不給開');
+  });
+});
+
+/** 模擬手機上的推播環境：假的 service worker 登錄、PushManager、Notification（測試用 context 擋掉了真的 service worker） */
+const PUSH_INIT = () => {
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/e2e-sub-1', toJSON() { return { endpoint: this.endpoint, keys: { p256dh: 'BKxE2E', auth: 'auE2E' } }; }, unsubscribe: async () => { reg.__sub = null; window.__pushUnsub = true; return true; } };
+  const reg = { __sub: null, scope: location.origin + '/', update: async () => {}, pushManager: { getSubscription: async () => reg.__sub, subscribe: async (o) => { window.__pushOpts = { userVisibleOnly: o.userVisibleOnly, keyLen: o.applicationServerKey.length, firstByte: o.applicationServerKey[0] }; reg.__sub = sub; return sub; } } };
+  Object.defineProperty(navigator, 'serviceWorker', { value: { getRegistration: async () => reg, ready: Promise.resolve(reg), register: async () => reg, addEventListener() {}, controller: null }, configurable: true });
+  window.PushManager = function PushManager() {};
+  window.__notifPerm = 'granted';
+  window.Notification = { get permission() { return window.__notifPerm; }, requestPermission: async () => window.__notifPerm };
+};
+
+test('推播通知：設定頁先選好時段再開啟（要求權限、向瀏覽器登記、交給後端）、改時間與開關、同時間擋下、測試推播、關閉；權限被拒時不能開', { skip }, async () => {
+  await withApp({ initScript: PUSH_INIT }, async (a) => {
+    const { page, s } = a;
+    const be = s.backend;
+    await a.login();
+    await a.go('settings');
+    await page.waitForFunction(() => /未開啟/.test(document.querySelector('[data-testid=push-status]')?.innerText || ''));
+    assert.equal(await page.locator('[data-testid=push-slots] .push-slot').count(), 4);
+    // 開啟前先把中午關掉、晚上改 19 點
+    await page.uncheck('[data-testid=push-on-noon]');
+    await page.selectOption('[data-testid=push-hour-evening]', '19');
+    await page.click('[data-testid=push-enable]');
+    await page.waitForFunction(() => /已開啟/.test(document.querySelector('[data-testid=push-status]')?.innerText || ''));
+    const opts = await page.evaluate(() => window.__pushOpts);
+    assert.deepEqual(opts, { userVisibleOnly: true, keyLen: 65, firstByte: 4 }, '向瀏覽器登記時用了後端的 VAPID 公鑰');
+    const subs = be.call('push_info').data.subscriptions;
+    assert.equal(subs.length, 1); assert.equal(subs[0].label, '開發用瀏覽器');
+    assert.deepEqual(subs[0].slots, { morning: { on: true, hour: 8 }, noon: { on: false, hour: 12 }, evening: { on: true, hour: 19 }, night: { on: true, hour: 22 } });
+    assert.ok(be.state.triggers.some((t) => t.getHandlerFunction() === 'pushJob'));
+    const meta = await page.evaluate(async () => { const c = await caches.open('wb-push'); const t = await c.match('./push-token'); const u = await c.match('./push-api'); return { token: t ? (await t.text()).length : 0, api: u ? await u.text() : '' }; });
+    assert.equal(meta.token, 48); assert.ok(meta.api.startsWith('http'));
+    // 開啟後畫面顯示剛才的設定
+    assert.equal(await page.locator('[data-testid=push-on-noon]').isChecked(), false);
+    assert.equal(await page.locator('[data-testid=push-hour-evening]').inputValue(), '19');
+    // 改時間／開關會立刻送後端
+    await page.selectOption('[data-testid=push-hour-morning]', '7');
+    await page.waitForFunction(() => /早上改成 7 點/.test(document.querySelector('.toast')?.innerText || ''));
+    await page.check('[data-testid=push-on-noon]');
+    await page.waitForFunction(() => /已開啟中午/.test(document.querySelector('.toast')?.innerText || ''));
+    const s2 = be.call('push_info').data.subscriptions[0].slots;
+    assert.equal(s2.morning.hour, 7); assert.equal(s2.noon.on, true);
+    // 睡前改成跟晚上同一個時間：後端擋下、畫面退回
+    await page.selectOption('[data-testid=push-hour-night]', '19');
+    await page.waitForFunction(() => /不能選同一個時間/.test(document.querySelector('.toast')?.innerText || ''));
+    assert.equal(await page.locator('[data-testid=push-hour-night]').inputValue(), '22');
+    assert.equal(be.call('push_info').data.subscriptions[0].slots.night.hour, 22);
+    // 測試推播：後端真的對推播網址送出（模擬推播服務回 201）
+    const sent = [];
+    be.state.urlFetch.handler = (url, o) => { sent.push({ url, o }); return { code: 201, body: '' }; };
+    await page.click('[data-testid=push-test]');
+    await page.waitForFunction(() => /已送出測試通知/.test(document.querySelector('.toast')?.innerText || ''));
+    assert.equal(sent.length, 1); assert.equal(sent[0].url, 'https://fcm.googleapis.com/fcm/send/e2e-sub-1');
+    assert.match(sent[0].o.headers.Authorization, /^vapid t=/);
+    // 關閉：瀏覽器取消登記、後端移除、快取清掉
+    await page.click('[data-testid=push-disable]');
+    await page.waitForFunction(() => /未開啟/.test(document.querySelector('[data-testid=push-status]')?.innerText || ''));
+    assert.equal(be.call('push_info').data.subscriptions.length, 0);
+    assert.equal(await page.evaluate(() => window.__pushUnsub), true);
+    assert.equal(await page.evaluate(() => caches.has('wb-push')), false);
+    // 權限被拒：按鈕停用、說明怎麼解
+    await page.evaluate(() => { window.__notifPerm = 'denied'; });
+    await a.go('home'); await a.go('settings');
+    await page.waitForFunction(() => /被封鎖/.test(document.querySelector('[data-testid=push-status]')?.innerText || ''));
+    assert.equal(await page.locator('[data-testid=push-enable]').isDisabled(), true);
   });
 });

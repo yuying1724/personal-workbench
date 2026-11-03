@@ -4,7 +4,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.8.0';
+var WB_VERSION = '2.9.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -120,6 +120,89 @@ var WbApi = (function () {
   });
   Object.keys(SELF_LOCKING).forEach(function (k) { H[k] = { fn: function (p) { return SELF_LOCKING[k](p); } }; });
 
+  // ---------- 推播通知 ----------
+  var TASK_CLOSED_ = ['已完成', '已取消', '已跳過'];
+  function ymdOf_(ms) { return Utilities.formatDate(new Date(ms), Session.getScriptTimeZone(), 'yyyy-MM-dd'); }
+  function addDaysYmd_(ymd, n) { var d = WbLogic.parseYmd(ymd); d.setDate(d.getDate() + n); return WbLogic.ymd(d); }
+  function mdOf_(ymd) { return ymd ? Number(ymd.slice(5, 7)) + '/' + Number(ymd.slice(8, 10)) : ''; }
+  function names_(rows, field, max) {
+    var list = rows.map(function (r) { return r[field]; });
+    return list.slice(0, max).join('、') + (list.length > max ? '…等 ' + list.length + ' 個' : '');
+  }
+  /**
+   * 推播用的摘要，依時段不同：
+   *  - morning（早上）：早上時段還沒打卡的習慣＋今天到期的任務（星標優先）＋逾期筆數＋3 天內要付款的訂閱
+   *  - noon（中午）：中午時段還沒打卡的習慣＋早上還沒補的
+   *  - evening（晚上）：晚上時段還沒打卡的習慣＋今天到期還沒完成的任務
+   *  - night（睡前）：今天該做但還沒打卡的全部習慣（含「不限」時段）
+   * count＝件數（0 就不推）；title／body 是通知的標題與內文（內文最多 4 行）；url 是點通知要開的頁面。
+   */
+  function pushSummary(slot, nowMs) {
+    var info = WbPush.SLOT_INFO[slot] || WbPush.SLOT_INFO.morning;
+    slot = WbPush.SLOT_INFO[slot] ? slot : 'morning';
+    var today = ymdOf_(nowMs);
+    return withReadMemo_(function () {
+      var habits = getHabits_().filter(function (h) { return h['狀態'] !== '封存' && h['今日應做'] && !h['今日已完成']; });
+      var byTime = function (t) { return habits.filter(function (h) { return (h['時段'] || '不限') === t; }); };
+      var tasks = getTasks_().filter(function (t) { return TASK_CLOSED_.indexOf(t['狀態'] || '') < 0 && t['到期日']; });
+      var dueToday = tasks.filter(function (t) { return t['到期日'] === today; })
+        .sort(function (a, b) { return (b['星標'] === true) - (a['星標'] === true); });
+      var overdue = tasks.filter(function (t) { return t['到期日'] < today; });
+      var parts = [], lines = [], count = 0;
+      var taskLine = function (t) { return (t['星標'] === true ? '★ ' : '') + t['任務名稱']; };
+      if (slot === 'morning') {
+        var am = byTime('早上');
+        if (am.length) { count += am.length; parts.push('早上 ' + am.length + ' 個習慣'); lines.push('習慣：' + names_(am, '習慣名稱', 3)); }
+        if (dueToday.length) { count += dueToday.length; parts.push('今天 ' + dueToday.length + ' 筆任務'); dueToday.slice(0, 3).forEach(function (t) { lines.push(taskLine(t)); }); if (dueToday.length > 3) lines.push('…還有 ' + (dueToday.length - 3) + ' 筆任務'); }
+        if (overdue.length) { count += overdue.length; parts.push('逾期 ' + overdue.length + ' 筆'); }
+        var soon = addDaysYmd_(today, 3);
+        var subs = getSubscriptions_().filter(function (x) { return x['取消訂閱'] !== true && x['下次付款日'] && x['下次付款日'] >= today && x['下次付款日'] <= soon; });
+        if (subs.length) { count += subs.length; parts.push(subs.length + ' 筆訂閱要付款'); subs.slice(0, 2).forEach(function (x) { lines.push(mdOf_(x['下次付款日']) + ' ' + x['產品'] + ' 付款'); }); }
+      } else if (slot === 'noon') {
+        var noon = byTime('中午'), amLeft = byTime('早上');
+        if (noon.length) { count += noon.length; parts.push('中午 ' + noon.length + ' 個習慣'); lines.push('習慣：' + names_(noon, '習慣名稱', 3)); }
+        if (amLeft.length) { count += amLeft.length; parts.push('早上還有 ' + amLeft.length + ' 個沒打卡'); lines.push('早上沒打卡：' + names_(amLeft, '習慣名稱', 3)); }
+      } else if (slot === 'evening') {
+        var pm = byTime('晚上');
+        if (pm.length) { count += pm.length; parts.push('晚上 ' + pm.length + ' 個習慣'); lines.push('習慣：' + names_(pm, '習慣名稱', 3)); }
+        if (dueToday.length) { count += dueToday.length; parts.push('今天任務還剩 ' + dueToday.length + ' 筆'); dueToday.slice(0, 2).forEach(function (t) { lines.push(taskLine(t)); }); }
+      } else {
+        if (habits.length) { count += habits.length; parts.push('今天還有 ' + habits.length + ' 個習慣沒打卡'); lines.push(names_(habits, '習慣名稱', 4)); }
+      }
+      var title = count ? parts.join('｜') : (info.label + '：今天沒有要處理的事');
+      var body = lines.slice(0, 4).join('\n') + (lines.length > 4 ? '\n…還有 ' + (lines.length - 4) + ' 項' : '');
+      return { slot: slot, count: count, title: title, body: body, lines: lines, today: today, url: info.url };
+    }, true);
+  }
+
+  /** 推播：前端 pushManager.subscribe 需要的公鑰、這個帳號目前訂閱的裝置、時段預設 */
+  H.push_info = { fn: function () { return { publicKey: WbWebPush.publicKey(), subscriptions: WbPush.listAll(), slots: WbPush.SLOT_INFO, order: WbPush.SLOTS, trigger: WbPush.hasTrigger() }; } };
+  H.push_subscribe = { fn: function (p, env) { return WbPush.subscribe(p, env); } };
+  H.push_update = { fn: function (p) { return WbPush.update(p); } };
+  H.push_unsubscribe = { fn: function (p) { return WbPush.unsubscribe(p); } };
+  /** 立刻推一則（測試用）：不管時間、也不管有沒有事；p.slot 指定用哪個時段的摘要，沒給就看現在幾點 */
+  H.push_test = {
+    fn: function (p, env) {
+      var list = WbPush.load();
+      var sub = WbPush.find(list, p.id);
+      if (!sub) throw WbFail('NOT_FOUND', '找不到這個推播訂閱（請重新開啟通知）');
+      var slot = WbPush.SLOT_INFO[p.slot] ? p.slot : WbPush.slotForHour(sub, Number(Utilities.formatDate(new Date(env.now), 'Asia/Taipei', 'HH')));
+      var r = WbPush.sendTo(sub, slot, env.now, list);
+      if (!r.ok) throw WbFail('PUSH_FAILED', '推播送出失敗（' + (r.code || '連線錯誤') + '）' + (r.gone ? '：這支手機的訂閱已失效，請關閉後重新開啟通知' : r.body ? '：' + r.body : ''));
+      return { code: r.code, slot: slot, summary: pushSummary(slot, env.now) };
+    },
+  };
+  /** 手機的 service worker 收到推播後來拿摘要：用訂閱時發給它的裝置摘要碼，不用登入 */
+  H.push_summary = {
+    auth: false,
+    fn: function (p, env) {
+      var sub = WbPush.byToken(p.token);
+      if (!sub || sub.active === false) throw WbFail('AUTH_FAILED', '推播裝置碼無效，請重新開啟通知');
+      var s = pushSummary(sub.pendingSlot || 'morning', env.now);
+      return { slot: s.slot, title: s.title, body: s.body, count: s.count, today: s.today, url: s.url };
+    },
+  };
+
   function errorResponse(e) {
     if (e && e.wbCode) return { ok: false, error: { code: e.wbCode, message: e.message, details: e.extra || undefined } };
     var msg = e && e.message ? e.message : String(e);
@@ -152,5 +235,5 @@ var WbApi = (function () {
     }
   }
 
-  return { handle: handle, actions: Object.keys(H) };
+  return { handle: handle, actions: Object.keys(H), pushSummary: pushSummary };
 })();

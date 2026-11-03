@@ -9,6 +9,7 @@
 const crypto = require('node:crypto');
 
 function toSigned(buf) { return Array.from(buf).map((b) => (b > 127 ? b - 256 : b)); }
+function asBuf(v) { return Array.isArray(v) ? Buffer.from(v.map((b) => b & 255)) : Buffer.from(String(v), 'utf8'); }
 const TZ_MS = 8 * 3600 * 1000;
 
 class MockRange {
@@ -226,9 +227,14 @@ function createMocks() {
   };
   const Utilities = {
     DigestAlgorithm: { SHA_256: 'SHA_256' },
-    computeDigest: (alg, s) => toSigned(crypto.createHash('sha256').update(String(s), 'utf8').digest()),
-    computeHmacSha256Signature: (msg, key) => toSigned(crypto.createHmac('sha256', String(key)).update(String(msg), 'utf8').digest()),
+    computeDigest: (alg, s) => toSigned(crypto.createHash('sha256').update(asBuf(s)).digest()),
+    computeHmacSha256Signature: (msg, key) => toSigned(crypto.createHmac('sha256', asBuf(key)).update(asBuf(msg)).digest()),
     getUuid: () => crypto.randomUUID(),
+    newBlob: (s) => ({ getBytes: () => toSigned(Buffer.from(String(s), 'utf8')) }),
+    base64Encode: (bytes) => asBuf(bytes).toString('base64'),
+    base64EncodeWebSafe: (bytes) => asBuf(bytes).toString('base64').replace(/\+/g, '-').replace(/\//g, '_'),
+    base64Decode: (str) => toSigned(Buffer.from(String(str), 'base64')),
+    base64DecodeWebSafe: (str) => toSigned(Buffer.from(String(str).replace(/-/g, '+').replace(/_/g, '/'), 'base64')),
     sleep: (ms) => { state.sleptMs += ms; },
     formatDate: (d, tz, fmt) => {
       const t = new Date(new Date(d.getTime()).getTime() + TZ_MS); // 只模擬 Asia/Taipei
@@ -247,7 +253,7 @@ function createMocks() {
     deleteTrigger: (t) => { state.triggers = state.triggers.filter((x) => x !== t); },
     newTrigger: (fn) => {
       const spec = { fn };
-      const b = { timeBased: () => b, everyDays: (n) => { spec.days = n; return b; }, onWeekDay: (d) => { spec.weekDay = d; return b; }, atHour: (h) => { spec.hour = h; return b; },
+      const b = { timeBased: () => b, everyDays: (n) => { spec.days = n; return b; }, everyHours: (n) => { spec.hours = n; return b; }, onWeekDay: (d) => { spec.weekDay = d; return b; }, atHour: (h) => { spec.hour = h; return b; },
         create: () => { const t = { getHandlerFunction: () => fn, spec }; state.triggers.push(t); return t; } };
       return b;
     },
@@ -277,6 +283,16 @@ function createMocks() {
   };
   const Logger = { log: (m) => state.logs.push(String(m)) };
   const MailApp = { sendEmail: (to, subject, body) => { state.mail.push({ to, subject, body }); } };
+  // UrlFetchApp（推播用）：沒設 handler 時模擬「尚未授權 external_request」直接丟例外
+  state.urlFetch = { calls: [], handler: null };
+  const UrlFetchApp = {
+    fetch: (url, opts) => {
+      state.urlFetch.calls.push({ url, opts });
+      if (!state.urlFetch.handler) throw new Error('You do not have permission to call UrlFetchApp.fetch. Required permissions: https://www.googleapis.com/auth/script.external_request');
+      const r = state.urlFetch.handler(url, opts);
+      return { getResponseCode: () => (r.code === undefined ? 200 : r.code), getContentText: () => (typeof r.body === 'string' ? r.body : JSON.stringify(r.body)) };
+    },
+  };
   // Sheets 進階服務（只模擬 Spreadsheets.Values.batchGet：後端 wbPreloadAll_ 用它一次讀完所有分頁）
   // UNFORMATTED_VALUE：數字／布林原樣；FORMATTED_STRING：日期依試算表地區設定（zh_TW）輸出成 "2026/9/24 上午 10:43:00" 這種字串
   const isDate = (v) => v instanceof Date || Object.prototype.toString.call(v) === '[object Date]'; // vm 另一個 realm 的 Date，instanceof 抓不到
@@ -312,7 +328,7 @@ function createMocks() {
     },
   };
   const Session = { getScriptTimeZone: () => 'Asia/Taipei', getEffectiveUser: () => ({ getEmail: () => 'owner@example.com' }), getActiveUser: () => ({ getEmail: () => 'owner@example.com' }) };
-  return { state, newSheet, setActive: (ss) => { active = ss; }, globals: { SpreadsheetApp, DriveApp, PropertiesService, CacheService, LockService, Utilities, ContentService, ScriptApp, Logger, MailApp, Session, Sheets } };
+  return { state, newSheet, setActive: (ss) => { active = ss; }, globals: { SpreadsheetApp, DriveApp, PropertiesService, CacheService, LockService, Utilities, ContentService, ScriptApp, Logger, MailApp, Session, Sheets, UrlFetchApp } };
 }
 
 module.exports = { createMocks, MockSheet, MockSpreadsheet };

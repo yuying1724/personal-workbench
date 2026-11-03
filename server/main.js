@@ -5,7 +5,8 @@
 var WB_MAX_BODY_BYTES = 300000;
 
 function doGet(e) {
-  return jsonOut_({ ok: true, data: { name: 'personal-workbench', version: WB_VERSION, message: '後端運作中。請用網頁版登入使用。' } });
+  // via: 'GET'：POST 如果被 Google 轉址成 GET 就會收到這個回應，呼叫端看到它就知道操作沒有被執行、可以重送
+  return jsonOut_({ ok: true, via: 'GET', data: { name: 'personal-workbench', version: WB_VERSION, message: '後端運作中。請用網頁版登入使用。' } });
 }
 
 function doPost(e) {
@@ -33,7 +34,31 @@ function onOpen() {
     .addSeparator()
     .addItem('立即備份一次', 'menuBackupNow')
     .addItem('開啟／關閉每週自動備份', 'menuToggleWeeklyBackup')
+    .addSeparator()
+    .addItem('推播通知：安裝排程／授權', 'menuPushSetup')
     .addToUi();
+}
+
+/** 每小時排程：到了各支手機各時段設定的時間，有事就推播通知（詳見 WbPush） */
+function pushJob() {
+  try { WbPush.runHourly(WbClock.now()); } catch (e) { try { Logger.log('推播排程失敗：' + (e && e.stack ? e.stack : e)); } catch (x) { /* ignore */ } }
+}
+
+/**
+ * 推播通知第一次使用：從選單執行一次，讓 Google 跳出授權（推播要連外部網址、裝排程）；順便確認每小時排程已安裝。
+ * 手機在設定頁開啟通知時也會自動裝排程，但如果那時還沒授權會失敗，就從這裡補。
+ */
+function menuPushSetup() {
+  var ok = WbPush.ensureTrigger();
+  var keys = WbWebPush.loadKeys();
+  var subs = WbPush.listAll();
+  wbAlert_('推播通知', [
+    '每小時排程：' + (ok ? '已安裝' : '安裝失敗（請重新執行一次並允許授權）'),
+    '推播金鑰：' + (keys && keys.x ? '已產生' : '未產生'),
+    '已開啟通知的裝置：' + (subs.length ? subs.map(function (s) { return (s.label || s.id) + (s.active ? '' : '（已失效）'); }).join('、') : '無'),
+    '',
+    '接著到手機的 App：設定 › 通知 › 開啟，之後可以按「發送測試通知」確認。',
+  ].join('\n'));
 }
 
 function wbUi_() { return SpreadsheetApp.getUi(); }
@@ -116,6 +141,7 @@ function menuStatus() {
     '裝置：' + (devices.length ? devices.map(function (d) { return d.id + ' ' + d.name; }).join('、') : '無'),
     '每週自動備份：' + (wbBackupTrigger_() ? '已開啟（每週日凌晨 3～4 點）' : '未開啟'),
     '最近一次備份：' + (props.getProperty('BACKUP_LAST') || '還沒有'),
+    '推播通知：' + (WbPush.hasTrigger() ? '排程已安裝' : '排程未安裝') + '，裝置 ' + WbPush.listAll().filter(function (x) { return x.active; }).length + ' 個',
   ].join('\n'));
 }
 
