@@ -423,3 +423,57 @@ test('推播通知：設定頁先選好時段再開啟（要求權限、向瀏�
     assert.equal(await page.locator('[data-testid=push-enable]').isDisabled(), true);
   });
 });
+
+test('service worker 收到推播：用裝置摘要碼向後端拿內容顯示完整通知；拿不到（碼被換掉）就顯示一般提醒並記下原因、設定頁看得到', { skip }, async () => {
+  const s = await startDevServer({ demo: true });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'zh-TW' });
+  try {
+    const origin = s.url.replace('127.0.0.1', 'localhost');
+    await ctx.grantPermissions(['notifications'], { origin });
+    const page = await ctx.newPage();
+    page.setDefaultTimeout(15000);
+    await page.goto(origin);
+    await page.waitForFunction(() => document.activeElement && document.activeElement.tagName === 'INPUT');
+    await page.fill('input[placeholder^="XXXXX"]', s.token); await page.fill('input[aria-label="PIN"]', s.pin); await page.click('button[type=submit]');
+    await page.waitForSelector('.page-head');
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    const be = s.backend;
+    // 這個測試瀏覽器沒有真的推播服務：直接向後端登記一筆訂閱，把摘要碼放進 service worker 用的小倉庫
+    const sub = be.call('push_subscribe', { endpoint: 'https://fcm.googleapis.com/fcm/send/sw-test', keys: { p256dh: 'x', auth: 'y' } }).data;
+    be.state.urlFetch.handler = () => ({ code: 201, body: '' });
+    assert.ok(be.call('push_test', { id: sub.id, slot: 'morning' }).ok);
+    await page.evaluate(async ({ token }) => {
+      const c = await caches.open('wb-push');
+      await c.put('./push-token', new Response(token)); await c.put('./push-api', new Response(new URL('/api', location.href).href));
+      localStorage.setItem('wb.push', JSON.stringify({ id: 'x', slots: null }));
+    }, { token: sub.token });
+    const reg = await page.evaluate(async () => { const r = await navigator.serviceWorker.ready; return r.scope; });
+    const cdp = await ctx.newCDPSession(page);
+    let regId = null;
+    const seen = [];
+    cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => { for (const r of e.registrations) { seen.push(r.scopeURL); if (r.scopeURL === reg) regId = r.registrationId; } });
+    cdp.on('ServiceWorker.workerVersionUpdated', (e) => { for (const v of e.versions) if (!regId && v.scriptURL.startsWith(reg)) regId = v.registrationId; });
+    await cdp.send('ServiceWorker.enable');
+    for (let i = 0; i < 30 && !regId; i++) await page.waitForTimeout(100);
+    if (!regId) console.log('scopes seen', seen, reg);
+    assert.ok(regId, '找得到 service worker');
+    // 無頭瀏覽器不會保留通知，所以看 service worker 記下的結果（顯示的標題、內文、有沒有拿到）
+    const lastOf = () => page.evaluate(async () => { const r = await (await caches.open('wb-push')).match('./push-last'); return r ? r.json() : null; });
+    const push = async () => {
+      await page.evaluate(async () => (await caches.open('wb-push')).delete('./push-last'));
+      await cdp.send('ServiceWorker.deliverPushMessage', { origin: new URL(origin).origin, registrationId: regId, data: '' });
+      for (let i = 0; i < 150; i++) { const v = await lastOf(); if (v) return v; await page.waitForTimeout(200); }
+      return null;
+    };
+    let last = await push();
+    assert.equal(last.ok, true, JSON.stringify(last));
+    assert.equal(last.title, '早上提醒'); assert.match(last.body, /^📌|^✅|^⏰/);
+    assert.ok(be.call('push_info').data.subscriptions[0].fetchedAt, '後端記下手機來拿的時間');
+    // 摘要碼被換掉（例如另一個地方重新登記）：顯示一般提醒，記下原因；設定頁看得到
+    be.call('push_subscribe', { endpoint: 'https://fcm.googleapis.com/fcm/send/sw-test', keys: { p256dh: 'x', auth: 'y' } });
+    last = await push();
+    assert.equal(last.ok, false); assert.equal(last.title, '個人工作台'); assert.equal(last.body, '有事要處理，點開查看');
+    assert.match(last.error, /裝置碼無效/);
+    assert.ok(be.call('push_info').data.badTokenAt);
+  } finally { await ctx.close(); await s.close(); }
+});

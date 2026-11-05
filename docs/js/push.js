@@ -53,7 +53,7 @@ async function putMeta(token) {
 async function clearMeta() { try { await caches.delete(PUSH_CACHE); } catch (e) { /* 忽略 */ } }
 
 async function hasMeta() {
-  try { const c = await caches.open(PUSH_CACHE); const [t, a] = await Promise.all([c.match('./push-token'), c.match('./push-api')]); return !!(t && a); } catch (e) { return false; }
+  try { if (!(await caches.has(PUSH_CACHE))) return false; const c = await caches.open(PUSH_CACHE); const [t, a] = await Promise.all([c.match('./push-token'), c.match('./push-api')]); return !!(t && a); } catch (e) { return false; }
 }
 /**
  * 自我修復：這台裝置有開通知、瀏覽器的推播登記也在，但 Cache Storage 裡的裝置摘要碼不見了（例如按過「清除快取並重新載入」、瀏覽器清資料）
@@ -75,14 +75,19 @@ export async function ensureMeta() {
   return true;
 }
 
-/** 這台裝置目前的狀態：{ supported, permission, enabled, slots, id } */
+/** service worker 記下的「上一則通知有沒有拿到內容」：{ at, ok, error } 或 null */
+async function lastResult() {
+  try { if (!(await caches.has(PUSH_CACHE))) return null; const r = await (await caches.open(PUSH_CACHE)).match('./push-last'); return r ? await r.json() : null; } catch (e) { return null; } // 先問有沒有，避免 open 憑空建出空的倉庫
+}
+
+/** 這台裝置目前的狀態：{ supported, permission, enabled, slots, id, last } */
 export async function status() {
   if (!isSupported()) return { supported: false, enabled: false, permission: permission(), slots: defaultSlots() };
   try { await ensureMeta(); } catch (e) { /* 修不好就維持現狀，設定頁仍可關閉再開啟 */ }
   const l = local();
   let sub = null;
   try { const reg = await registration(); sub = reg ? await reg.pushManager.getSubscription() : null; } catch (e) { sub = null; }
-  return { supported: true, permission: permission(), enabled: !!(l && l.id && sub), slots: (l && l.slots) || defaultSlots(), id: l ? l.id : '' };
+  return { supported: true, permission: permission(), enabled: !!(l && l.id && sub), slots: (l && l.slots) || defaultSlots(), id: l ? l.id : '', last: await lastResult() };
 }
 
 /** 開啟：回傳 { id, slots, trigger }；trigger=false 代表後端沒辦法自己裝排程（要到試算表選單安裝） */

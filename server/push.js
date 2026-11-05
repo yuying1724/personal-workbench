@@ -59,7 +59,8 @@ var WbPush = (function () {
     return out;
   }
   function pub(s) {
-    return { id: s.id, label: s.label, slots: normalizeSlots(null, s.slots), createdAt: s.createdAt, last: s.last || {}, lastCode: s.lastCode || null, active: s.active !== false, deviceId: s.deviceId || '' };
+    return { id: s.id, label: s.label, slots: normalizeSlots(null, s.slots), createdAt: s.createdAt, last: s.last || {}, lastCode: s.lastCode || null, active: s.active !== false, deviceId: s.deviceId || '',
+      lastAt: s.lastAt || '', lastSlot: s.pendingSlot || '', fetchedAt: s.fetchedAt || '' };
   }
 
   /** 新增（或更新同一個推播網址的）訂閱；回傳給前端的 token 只會出現這一次，後端只存雜湊 */
@@ -111,6 +112,17 @@ var WbPush = (function () {
 
   function listAll() { return load().map(pub); }
 
+  /** 手機來拿摘要時記一下時間（設定頁顯示「手機幾點拿到內容」，用來判斷是送不到還是拿不到） */
+  function markFetched(id, nowMs) {
+    var list = load(), sub = find(list, id);
+    if (!sub) return;
+    sub.fetchedAt = stamp(nowMs);
+    save(list);
+  }
+  /** 有人拿著不認得的裝置碼來拿摘要（例如手機裡存的碼已經被換掉）：記下時間，設定頁會提示 */
+  function markBadToken(nowMs) { try { props().setProperty('PUSH_BAD_TOKEN_AT', stamp(nowMs)); } catch (e) { /* ignore */ } }
+  function badTokenAt() { return props().getProperty('PUSH_BAD_TOKEN_AT') || ''; }
+
   function byToken(token) {
     if (!token) return null;
     var h = sha256Hex(String(token));
@@ -132,13 +144,20 @@ var WbPush = (function () {
     try { return ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'pushJob'; }); } catch (e) { return false; }
   }
 
-  /** 送給某個訂閱（測試按鈕／排程共用）；先記下這次是哪個時段，手機取摘要時才知道要算哪一段 */
-  function sendTo(sub, slot, nowMs, list) {
+  /**
+   * 送給某個訂閱（測試按鈕／排程共用）。
+   * 送出「之前」就把這次的時段和算好的摘要存起來（sub.pending）：手機收到推播後馬上來拿，直接回存好的內容，
+   * 不用再讀一次試算表（快很多，手機在省電狀態下給的時間很短）。list 有給就先存檔再送。
+   */
+  function sendTo(sub, slot, nowMs, list, summary) {
     sub.pendingSlot = SLOTS.indexOf(slot) >= 0 ? slot : 'morning';
+    sub.pending = summary ? { slot: sub.pendingSlot, title: summary.title, body: summary.body, count: summary.count, url: summary.url, today: summary.today, at: nowMs } : null;
+    sub.lastAt = stamp(nowMs); sub.fetchedAt = '';
+    if (list) save(list);
     var r;
-    try { r = WbWebPush.send(sub, nowMs); }
+    try { r = WbWebPush.send(sub, nowMs, { urgency: 'high' }); }
     catch (e) { r = { code: 0, ok: false, gone: false, body: String(e && e.message || e).slice(0, 200) }; }
-    sub.lastCode = r.code; sub.lastAt = stamp(nowMs);
+    sub.lastCode = r.code;
     if (r.ok) sub.fails = 0; else sub.fails = (sub.fails || 0) + 1;
     if (r.gone) sub.active = false;
     if (list) save(list);
@@ -176,7 +195,7 @@ var WbPush = (function () {
         if (!sum) return; // 摘要算失敗：這一小時不記 last，下一小時不會再來（時間過了），明天再試
         s.last[k] = today;
         if (!sum.count) { s.lastCode = 'skip'; return; }
-        var r = sendTo(s, k, nowMs, null);
+        var r = sendTo(s, k, nowMs, list, sum);
         if (r.ok) sent++;
       });
     });
@@ -187,6 +206,6 @@ var WbPush = (function () {
   }
 
   return { subscribe: subscribe, update: update, unsubscribe: unsubscribe, listAll: listAll, byToken: byToken, find: find, sendTo: sendTo, runHourly: runHourly,
-    ensureTrigger: ensureTrigger, hasTrigger: hasTrigger, slotForHour: slotForHour, normalizeSlots: normalizeSlots, defaultSlots: defaultSlots,
+    ensureTrigger: ensureTrigger, hasTrigger: hasTrigger, markFetched: markFetched, markBadToken: markBadToken, badTokenAt: badTokenAt, slotForHour: slotForHour, normalizeSlots: normalizeSlots, defaultSlots: defaultSlots,
     load: load, save: save, SLOTS: SLOTS, SLOT_INFO: SLOT_INFO, SUBS_PROP: SUBS_PROP };
 })();

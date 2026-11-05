@@ -140,6 +140,8 @@ function pushCard() {
       h('div', { class: 'bio-status', 'data-testid': 'push-status' }, icon('bell'), h('span', { class: 'grow small' }, '推播通知：已開啟（這支裝置）'),
         h('button', { class: 'btn btn-sm', 'data-testid': 'push-disable', onclick: async (e) => { await withBusy(e.currentTarget, async () => { await push.disable(); toast('已關閉推播通知'); reloadPush(); }); } }, '關閉')),
       slotRows(Object.assign({}, st.slots), true),
+      st.last ? h('p', { class: 'small ' + (st.last.ok ? 'muted' : 'bad-text'), style: { margin: '8px 0 0' }, 'data-testid': 'push-last' },
+        '上一則通知（' + new Date(st.last.at).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '）：' + (st.last.ok ? '有拿到內容' : '沒拿到內容，' + st.last.error)) : null,
       h('div', { class: 'row-flex wrap', style: { marginTop: '8px' } },
         h('button', { class: 'btn btn-sm', 'data-testid': 'push-test', onclick: async (e) => {
           await withBusy(e.currentTarget, async () => {

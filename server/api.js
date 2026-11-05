@@ -187,7 +187,7 @@ var WbApi = (function () {
   }
 
   /** 推播：前端 pushManager.subscribe 需要的公鑰、這個帳號目前訂閱的裝置、時段預設 */
-  H.push_info = { fn: function () { return { publicKey: WbWebPush.publicKey(), subscriptions: WbPush.listAll(), slots: WbPush.SLOT_INFO, order: WbPush.SLOTS, trigger: WbPush.hasTrigger() }; } };
+  H.push_info = { fn: function () { return { publicKey: WbWebPush.publicKey(), subscriptions: WbPush.listAll(), slots: WbPush.SLOT_INFO, order: WbPush.SLOTS, trigger: WbPush.hasTrigger(), badTokenAt: WbPush.badTokenAt() }; } };
   H.push_subscribe = { fn: function (p, env) { return WbPush.subscribe(p, env); } };
   H.push_update = { fn: function (p) { return WbPush.update(p); } };
   H.push_unsubscribe = { fn: function (p) { return WbPush.unsubscribe(p); } };
@@ -198,9 +198,10 @@ var WbApi = (function () {
       var sub = WbPush.find(list, p.id);
       if (!sub) throw WbFail('NOT_FOUND', '找不到這個推播訂閱（請重新開啟通知）');
       var slot = WbPush.SLOT_INFO[p.slot] ? p.slot : WbPush.slotForHour(sub, Number(Utilities.formatDate(new Date(env.now), 'Asia/Taipei', 'HH')));
-      var r = WbPush.sendTo(sub, slot, env.now, list);
+      var summary = pushSummary(slot, env.now);
+      var r = WbPush.sendTo(sub, slot, env.now, list, summary);
       if (!r.ok) throw WbFail('PUSH_FAILED', '推播送出失敗（' + (r.code || '連線錯誤') + '）' + (r.gone ? '：這支手機的訂閱已失效，請關閉後重新開啟通知' : r.body ? '：' + r.body : ''));
-      return { code: r.code, slot: slot, summary: pushSummary(slot, env.now) };
+      return { code: r.code, slot: slot, summary: summary };
     },
   };
   /** 手機的 service worker 收到推播後來拿摘要：用訂閱時發給它的裝置摘要碼，不用登入 */
@@ -208,7 +209,11 @@ var WbApi = (function () {
     auth: false,
     fn: function (p, env) {
       var sub = WbPush.byToken(p.token);
-      if (!sub || sub.active === false) throw WbFail('AUTH_FAILED', '推播裝置碼無效，請重新開啟通知');
+      if (!sub || sub.active === false) { WbPush.markBadToken(env.now); throw WbFail('AUTH_FAILED', '推播裝置碼無效，請重新開啟通知'); }
+      WbPush.markFetched(sub.id, env.now);
+      // 送出時已經算好的內容（12 小時內）直接回，不用再讀試算表
+      var pd = sub.pending;
+      if (pd && pd.title && env.now - (pd.at || 0) < 12 * 3600 * 1000) return { slot: pd.slot, title: pd.title, body: pd.body, count: pd.count, today: pd.today, url: pd.url };
       var s = pushSummary(sub.pendingSlot || 'morning', env.now);
       return { slot: s.slot, title: s.title, body: s.body, count: s.count, today: s.today, url: s.url };
     },

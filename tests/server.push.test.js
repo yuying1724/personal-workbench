@@ -247,3 +247,34 @@ test('試算表選單：推播設定項目會裝排程並顯示狀態；狀態�
   b.ctx.menuStatus();
   assert.match(JSON.stringify(b.state.ui.log.at(-1)), /推播通知：排程已安裝，裝置 0 個/);
 });
+
+test('送出前先存好摘要：推播送出的那一刻後端已經有這次的內容；手機來拿時直接回存好的（不用再讀試算表）；記錄手機幾點來拿；不認得的碼也會記下', () => {
+  const b = fresh();
+  const H = seedHabits(b);
+  const sub = b.call('push_subscribe', SUB).data;
+  const P = b.ctx.WbPush;
+  let seenAtSend = null;
+  b.state.urlFetch.handler = (url, opts) => { seenAtSend = { stored: JSON.parse(b.state.props.PUSH_SUBS)[0], urgency: opts.headers.Urgency }; return { code: 201, body: '' }; };
+  atHour(b, '08:05');
+  assert.equal(P.runHourly(b.state.clock.now).sent, 1);
+  assert.equal(seenAtSend.urgency, 'high', '高優先：手機省電時也會立刻叫醒、給網路');
+  assert.equal(seenAtSend.stored.pendingSlot, 'morning');
+  assert.equal(seenAtSend.stored.pending.title, '早上提醒', '送出之前就存好了');
+  assert.equal(seenAtSend.stored.fetchedAt, '');
+  // 送出後才把早上的習慣都打卡：手機來拿時仍回送出當下的內容（跟通知一致），而且記下拿的時間
+  b.login();
+  [H.water, H.cal, H.focus].forEach((id) => b.call('set_habit_log', { '習慣ID': id, '數值': 1 }));
+  atHour(b, '08:06');
+  const sm = b.post({ action: 'push_summary', params: { token: sub.token } });
+  assert.ok(sm.ok); assert.equal(sm.data.title, '早上提醒'); assert.match(sm.data.body, /^✅ 習慣 3/);
+  const info = b.call('push_info').data;
+  assert.match(info.subscriptions[0].lastAt, /08:05/); assert.match(info.subscriptions[0].fetchedAt, /08:06/); assert.equal(info.subscriptions[0].lastSlot, 'morning');
+  assert.equal(info.badTokenAt, '');
+  // 12 小時後還來拿（很晚才收到）：重新算
+  b.state.clock.now += 13 * 3600 * 1000;
+  assert.equal(b.post({ action: 'push_summary', params: { token: sub.token } }).data.count, 0);
+  // 不認得的碼：拒絕並記下時間
+  assert.equal(b.post({ action: 'push_summary', params: { token: 'stale-token' } }).error.code, 'AUTH_FAILED');
+  b.login();
+  assert.ok(b.call('push_info').data.badTokenAt);
+});

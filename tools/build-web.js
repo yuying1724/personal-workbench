@@ -78,24 +78,47 @@ self.addEventListener('fetch', (e) => {
 });
 
 // ---------- 推播通知 ----------
-// 後端送來的推播沒有內容（省掉加密），收到後用裝置摘要碼向後端拿「這個時段」的摘要再顯示；拿不到就顯示一般提醒。
+// 後端送來的推播沒有內容（省掉加密），收到後用裝置摘要碼向後端拿「這個時段」的摘要再顯示。
+// 手機剛被叫醒時網路可能還沒好：每次最多等 12 秒、失敗就隔一下再試，總共 3 次；都失敗才顯示一般提醒，並把原因記下來（設定頁會顯示）。
 async function pushSummary() {
   const c = await caches.open(PUSH_CACHE);
   const [tok, api] = await Promise.all([c.match('./push-token'), c.match('./push-api')]);
-  if (!tok || !api) return null;
+  if (!tok || !api) throw new Error('這支裝置沒有存裝置摘要碼');
   const token = await tok.text(), apiUrl = await api.text();
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'push_summary', params: { token } }) });
-    const body = await res.json();
-    if (body && body.via === 'GET') continue; // 被 Google 轉址成 GET，再試一次
-    return body && body.ok ? body.data : null;
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, attempt * 2000));
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 12000);
+    try {
+      const res = await fetch(apiUrl, { method: 'POST', redirect: 'follow', signal: ctl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'push_summary', params: { token } }) });
+      const text = await res.text();
+      let body = null;
+      try { body = JSON.parse(text); } catch (e) { throw new Error('後端回應不是 JSON（' + res.status + '）'); }
+      if (body && body.via === 'GET') throw new Error('請求被轉成 GET');
+      if (body && body.ok) return body.data;
+      const err = new Error((body && body.error && body.error.message) || '後端回應錯誤');
+      if (body && body.error && body.error.code === 'AUTH_FAILED') { err.fatal = true; throw err; }
+      throw err;
+    } catch (e) {
+      lastErr = e && e.name === 'AbortError' ? new Error('等後端超過 12 秒') : e;
+      if (lastErr.fatal) break;
+    } finally { clearTimeout(timer); }
   }
-  return null;
+  throw lastErr || new Error('拿不到內容');
+}
+async function notePushResult(err, title, body) {
+  try {
+    const c = await caches.open(PUSH_CACHE);
+    const v = { at: new Date().toISOString(), ok: !err, error: err ? String((err && err.message) || err).slice(0, 120) : '', title, body: String(body || '').slice(0, 300) };
+    await c.put('./push-last', new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json' } }));
+  } catch (e) { /* 忽略 */ }
 }
 self.addEventListener('push', (e) => {
   e.waitUntil((async () => {
-    let title = '個人工作台', body = '有事要處理，點開查看', url = '#/home', tag = 'wb-todo';
-    try { const s = await pushSummary(); if (s && s.title) { title = s.title; body = s.body || ''; url = s.url || url; tag = 'wb-' + (s.slot || 'todo'); } } catch (err) { /* 顯示一般提醒 */ }
+    let title = '個人工作台', body = '有事要處理，點開查看', url = '#/home', tag = 'wb-todo', err = null;
+    try { const s = await pushSummary(); if (s && s.title) { title = s.title; body = s.body || ''; url = s.url || url; tag = 'wb-' + (s.slot || 'todo'); } } catch (x) { err = x; }
+    await notePushResult(err, title, body);
     await self.registration.showNotification(title, { body, icon: './icons/icon-192.png', badge: './icons/icon-192.png', tag, renotify: true, data: { url: self.registration.scope + url } });
   })());
 });
