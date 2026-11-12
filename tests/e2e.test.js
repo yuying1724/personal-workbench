@@ -76,6 +76,12 @@ test('任務：新增（含子任務、每週重複）、打勾完成會產生�
     await page.click('.fab');
     await page.waitForSelector('.sheet');
     await page.fill('.sheet .field:has-text("任務名稱") input', '週會準備');
+    // 新增任務的到期日預設是今天（「今天」那顆是亮的）；按「無日期」可以清掉
+    const localYmd = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    assert.equal(await page.inputValue('.sheet input[type=date] >> nth=0'), localYmd(0));
+    assert.equal(await page.locator('.sheet .chips.quick .chip.on').first().innerText(), '今天');
+    await page.click('.sheet .chips.quick >> text=無日期');
+    assert.equal(await page.inputValue('.sheet input[type=date] >> nth=0'), '');
     await page.click('.sheet .chips.quick >> text=明天');
     await page.selectOption('.sheet select >> nth=1', 'week'); // 第 0 個是「所屬專案」
     await page.click('.sheet [data-testid=form-save]');

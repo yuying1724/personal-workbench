@@ -275,7 +275,8 @@ export function openTaskForm(id, defaults = {}) {
   const name = textField('任務名稱', t ? t['任務名稱'] : defaults['任務名稱'] || '');
   const cats = multiChips('分類', d.options['任務分類'], t ? t['分類'] : defaults['分類']);
   const project = selectField('所屬專案', (d.projects || []).map((p) => [p['專案ID'], p['專案名稱'] || p['專案ID']]), t ? t['所屬專案'] : defaults['所屬專案'] || '', { emptyLabel: '（無）' });
-  const due = dateField('到期日', t ? t['到期日'] || '' : defaults['到期日'] || '', { quick: [['今天', () => todayStr(0)], ['明天', () => todayStr(1)], ['3 天後', () => todayStr(3)], ['這週日', thisSundayStr], ['無日期', '']], emptyHint: '沒有到期日' });
+  // 新增時預設今天（要沒有到期日就按「無日期」）；呼叫端有指定（包含指定成空的）就照它的
+  const due = dateField('到期日', t ? t['到期日'] || '' : ('到期日' in defaults ? defaults['到期日'] || '' : todayStr(0)), { quick: [['今天', () => todayStr(0)], ['明天', () => todayStr(1)], ['3 天後', () => todayStr(3)], ['這週日', thisSundayStr], ['無日期', '']], emptyHint: '沒有到期日' });
   const star = checkField('星標（重要）', t ? t['星標'] === true : !!defaults['星標']);
   const notes = textField('備註', t ? t['備註'] : '', { multiline: true, rows: 2 });
 
