@@ -251,6 +251,17 @@ button.item:active, a.item:active { background: var(--accent-soft); }
 .progress .num { font-size: 13px; color: var(--sub); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .group { padding: 4px 14px; }
 .group-head { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 0; min-height: var(--tap); border: 0; background: none; font-weight: 650; text-align: left; color: inherit; }
+.group-top { display: flex; align-items: center; gap: 8px; }
+.group-top .group-head { width: auto; flex: 1; min-width: 0; }
+/* 多選：選取框是圓的；選到的列有底色；底部一條操作列（蓋在分頁列上方），這時右下角的＋先收起來 */
+input[type=checkbox].pick-check { border-radius: 50%; }
+.task-row.picked { background: var(--accent-soft); border-radius: 10px; }
+.select-bar { position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-h) + 10px + env(safe-area-inset-bottom)); z-index: 22; display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-md); font-weight: 600; }
+@media (min-width: 900px) { .select-bar { left: calc(var(--sidebar-w) + 32px); right: auto; width: min(836px, calc(100vw - var(--sidebar-w) - 64px)); bottom: 24px; } }
+body:has(.select-bar) .fab { display: none; }
+.resched-preview { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.resched-preview .list { max-height: 38vh; overflow-y: auto; }
+.resched-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
 .group-head.static { cursor: default; color: var(--sub); font-size: 13.5px; padding-bottom: 2px; min-height: 0; }
 .group-head .caret { transition: transform .15s ease; color: var(--sub); }
 .group.collapsed .group-head .caret { transform: rotate(-90deg); }

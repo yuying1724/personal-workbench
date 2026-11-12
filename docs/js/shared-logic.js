@@ -148,7 +148,47 @@ var WbLogic = (function () {
     return { total: (tasks || []).length, completed: completed, overdue: overdue, dueSoon: dueSoon, starredOpen: starredOpen };
   }
 
+  // ---------- 一次改多筆任務的到期日 ----------
+  function addDaysYmd(dateStr, n) {
+    var d = parseYmd(dateStr);
+    if (!d) return '';
+    d.setDate(d.getDate() + n);
+    return ymd(d);
+  }
+  /**
+   * 算出「哪一筆從幾號改到幾號」。tasks：要改的任務（順序＝建立順序）；回傳 [{ id, name, from, to, skip? }]，順序照原本的到期日（沒日期的排最後）。
+   *  - mode 'same'：全部改成 opts.date
+   *  - mode 'shift'：每筆各自往後 opts.days 天（負數＝往前）；原本沒有到期日的沒辦法順延 → skip:true、to 維持空的
+   *  - mode 'spread'：從 opts.start 起，照原本的先後順序每天排 opts.perDay 筆
+   * 參數不合法（沒給日期、天數不是整數…）回傳 null。
+   */
+  function planReschedule(tasks, mode, opts) {
+    opts = opts || {};
+    var list = (tasks || []).map(function (t, i) { return { t: t, i: i, due: t['到期日'] || '' }; });
+    list.sort(function (a, b) {
+      if (a.due !== b.due) { if (!a.due) return 1; if (!b.due) return -1; return a.due < b.due ? -1 : 1; }
+      return a.i - b.i;
+    });
+    var row = function (x, to, skip) { var r = { id: x.t['任務ID'], name: x.t['任務名稱'] || '', from: x.due, to: to }; if (skip) r.skip = true; return r; };
+    if (mode === 'same') {
+      if (!parseYmd(opts.date)) return null;
+      return list.map(function (x) { return row(x, opts.date); });
+    }
+    if (mode === 'shift') {
+      var days = Number(opts.days);
+      if (!isFinite(days) || Math.floor(days) !== days || days === 0 || Math.abs(days) > 3650) return null;
+      return list.map(function (x) { return x.due ? row(x, addDaysYmd(x.due, days)) : row(x, '', true); });
+    }
+    if (mode === 'spread') {
+      var per = Number(opts.perDay);
+      if (!parseYmd(opts.start) || !isFinite(per) || Math.floor(per) !== per || per < 1 || per > 100) return null;
+      return list.map(function (x, k) { return row(x, addDaysYmd(opts.start, Math.floor(k / per))); });
+    }
+    return null;
+  }
+
   return {
+    addDaysYmd: addDaysYmd, planReschedule: planReschedule,
     ymd: ymd, parseYmd: parseYmd, addMonthsSafe: addMonthsSafe, startOfWeek: startOfWeek,
     parseRepeatRule: parseRepeatRule, nextDueDate: nextDueDate, applyRepeatEnd: applyRepeatEnd,
     isRequiredDay: isRequiredDay, isHabitDoneForDay: isHabitDoneForDay, habitTierForValue: habitTierForValue, taskStats: taskStats,

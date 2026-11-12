@@ -73,7 +73,7 @@ export async function reload(...bundles) {
 
 // 每個寫入動作儲存後要重抓哪些資料（後端也有同一張表，會直接把資料附在寫入的回應裡）
 const RELOAD_AFTER = {
-  course: ['course_bundle'], subscription: ['sub_bundle'], task: ['project_task_bundle'], task_status: ['project_task_bundle'], project: ['project_task_bundle'],
+  course: ['course_bundle'], subscription: ['sub_bundle'], task: ['project_task_bundle'], task_status: ['project_task_bundle'], task_dues: ['project_task_bundle'], project: ['project_task_bundle'],
   habit: ['habit_bundle'], habit_log: ['habit_bundle'], diary: ['diary_bundle'], option: ['admin_bundle'], system: ['admin_bundle'],
 };
 

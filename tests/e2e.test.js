@@ -477,3 +477,98 @@ test('service worker 收到推播：用裝置摘要碼向後端拿內容顯示�
     assert.ok(be.call('push_info').data.badTokenAt);
   } finally { await ctx.close(); await s.close(); }
 });
+
+test('任務多選改到期日：選取模式（點列＝選取、全選逾期、＋收起來）、三種改法都有預覽（每天排幾筆／整批順延／同一天）、確定後一次改完並離開選取；沒日期的不能順延', { skip }, async () => {
+  await withApp({ demo: false }, async (a) => {
+    const { page, s } = a;
+    const be = s.backend;
+    const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const mk = (n, due) => be.call('create_task', { '任務名稱': n, '狀態': '待辦', '到期日': due, '分類': ['工作'] }).data.id;
+    mk('第 3 章', day(-9)); mk('第 4 章', day(-8)); mk('第 5 章', day(-8)); mk('第 6 章', day(-7)); mk('雜事', ''); mk('未來的事', day(5));
+    const dueOf = () => Object.fromEntries(a.data().tasks.map((t) => [t['任務名稱'], t['到期日']]));
+    const bar = () => page.locator('[data-testid=task-select-bar]');
+    const okText = () => page.locator('[data-testid=reschedule-ok]').innerText();
+    const previewRows = async () => (await page.locator('[data-testid=reschedule-preview] .resched-row').allInnerTexts()).map((x) => x.replace(/\s+/g, ' '));
+    const md = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getMonth() + 1}/${d.getDate()}`; };
+    await a.login();
+    await a.go('tasks');
+    await page.waitForSelector('.task-row');
+    assert.equal(await bar().count(), 0);
+    assert.equal(await page.locator('.fab').isVisible(), true);
+    // 進入選取模式：＋收起來、還沒選不能按改日期、點列是選取不是開表單
+    await page.click('[data-testid=task-select-toggle]');
+    await bar().waitFor();
+    assert.equal(await page.locator('.fab').isVisible(), false);
+    assert.equal(await page.locator('[data-testid=task-reschedule]').isDisabled(), true);
+    await page.click('.task-row:has-text("未來的事") .item-main');
+    assert.equal(await page.locator('.sheet').count(), 0);
+    assert.match(await bar().innerText(), /已選 1 筆/);
+    assert.equal(await page.locator('.task-row.picked').count(), 1);
+    await page.click('.task-row:has-text("未來的事") [data-testid=task-pick]'); // 再點一次取消
+    assert.match(await bar().innerText(), /點任務來選取/);
+    // 全選逾期
+    await page.click('[data-testid=task-select-all-overdue]');
+    assert.match(await bar().innerText(), /已選 4 筆/);
+    assert.equal(await page.locator('[data-testid=task-select-all-overdue]').innerText(), '取消全選');
+    // 改日期：預設「每天排幾筆」＝從今天起每天 2 筆
+    await page.click('[data-testid=task-reschedule]');
+    await page.waitForSelector('[data-testid=reschedule-sheet]');
+    assert.equal(await page.locator('.sheet .seg button.on').innerText(), '每天排幾筆');
+    assert.equal(await okText(), '確定改 4 筆');
+    let rows = await previewRows();
+    assert.equal(rows.length, 4);
+    assert.ok(rows[0].startsWith('第 3 章') && rows[0].includes('→ ' + md(0)), rows[0]);
+    assert.ok(rows[1].startsWith('第 4 章') && rows[1].includes('→ ' + md(0)), rows[1]);
+    assert.ok(rows[2].startsWith('第 5 章') && rows[2].includes('→ ' + md(1)), rows[2]);
+    assert.ok(rows[3].startsWith('第 6 章') && rows[3].includes('→ ' + md(1)), rows[3]);
+    assert.match(await page.locator('[data-testid=reschedule-preview]').innerText(), new RegExp('會排到 ' + md(1).replace('/', '\\/')));
+    await page.fill('[data-testid=reschedule-perday]', '1');
+    assert.ok((await previewRows())[3].includes('→ ' + md(3)));
+    // 整批順延：預設天數＝讓最早那筆落在今天（9 天），間隔不變；清空天數就不能按
+    await page.click('.sheet .seg button[data-mode=shift]');
+    assert.equal(await page.inputValue('[data-testid=reschedule-days]'), '9');
+    rows = await previewRows();
+    assert.ok(rows[0].includes('→ ' + md(0)) && rows[1].includes('→ ' + md(1)) && rows[2].includes('→ ' + md(1)) && rows[3].includes('→ ' + md(2)), rows.join('|'));
+    await page.fill('[data-testid=reschedule-days]', '');
+    assert.equal(await page.locator('[data-testid=reschedule-ok]').isDisabled(), true);
+    // 同一天：選「明天」
+    await page.click('.sheet .seg button[data-mode=same]');
+    await page.click('.sheet .chips.quick >> text=明天');
+    rows = await previewRows();
+    assert.ok(rows.every((r) => r.includes('→ ' + md(1))), rows.join('|'));
+    // 回到每天 2 筆，確定
+    await page.click('.sheet .seg button[data-mode=spread]');
+    await page.fill('[data-testid=reschedule-perday]', '2');
+    assert.equal(await okText(), '確定改 4 筆');
+    await page.click('[data-testid=reschedule-ok]');
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await page.waitForFunction(() => !document.querySelector('[data-testid=task-select-bar]'));
+    assert.equal(await page.locator('.fab').isVisible(), true, '改完離開選取模式');
+    await page.waitForFunction(() => /已更新 4 筆任務的到期日/.test(document.querySelector('.toast')?.innerText || ''));
+    assert.equal(await page.locator('[data-group=overdue]').count(), 0, '畫面上沒有逾期的了');
+    await page.waitForFunction(() => !document.querySelector('.sync-pill') || !document.querySelector('.sync-pill').offsetParent);
+    let due = dueOf();
+    assert.deepEqual([due['第 3 章'], due['第 4 章'], due['第 5 章'], due['第 6 章'], due['雜事'], due['未來的事']], [day(0), day(0), day(1), day(1), '', day(5)]);
+    // 沒日期的不能順延：選「雜事」＋「未來的事」順延 3 天 → 只改 1 筆
+    await page.click('[data-testid=task-select-toggle]');
+    await page.click('.task-row:has-text("雜事") .item-main');
+    await page.click('.task-row:has-text("未來的事") .item-main');
+    await page.click('[data-testid=task-reschedule]');
+    await page.click('.sheet .seg button[data-mode=shift]');
+    await page.fill('[data-testid=reschedule-days]', '3');
+    assert.equal(await okText(), '確定改 1 筆');
+    assert.match(await page.locator('[data-testid=reschedule-preview]').innerText(), /1 筆原本沒有到期日，沒辦法順延/);
+    await page.click('[data-testid=reschedule-ok]');
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await page.waitForFunction(() => /已更新 1 筆/.test(document.querySelector('.toast')?.innerText || ''));
+    await page.waitForTimeout(400);
+    due = dueOf();
+    assert.equal(due['未來的事'], day(8)); assert.equal(due['雜事'], '');
+    // 選取到一半切到別頁再回來：不會還停在選取模式
+    await page.click('[data-testid=task-select-toggle]');
+    await bar().waitFor();
+    await a.go('habits'); await a.go('tasks');
+    await page.waitForSelector('.task-row');
+    assert.equal(await bar().count(), 0);
+  });
+});

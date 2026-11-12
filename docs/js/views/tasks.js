@@ -19,6 +19,12 @@ const GROUPS = [
   { key: 'done', label: '已完成／已取消／已跳過' },
 ];
 
+// ---------- 多選模式（一次改多筆的到期日）：只存在記憶體，離開任務頁就結束 ----------
+let selecting = false;
+const selected = new Set();
+function exitSelect() { selecting = false; selected.clear(); }
+window.addEventListener('hashchange', exitSelect);
+
 export function projectNameById(id) {
   const p = (state.data.projects || []).find((x) => x['專案ID'] === id);
   return p ? p['專案名稱'] || '' : '';
@@ -57,6 +63,25 @@ export function renderTasks(root) {
   groups.done.sort((a, b) => (b['到期日'] || '').localeCompare(a['到期日'] || ''));
 
   const collapsed = f.collapsed || {};
+  const rerender = () => renderTasks(root);
+  // 已經不存在的（別台刪掉了）就從選取裡拿掉
+  const alive = new Set(tasks.map((t) => t['任務ID']));
+  [...selected].forEach((id) => { if (!alive.has(id)) selected.delete(id); });
+  const selectable = (t) => !String(t['任務ID']).startsWith('tmp-');
+  const toggleOne = (t) => {
+    if (!selectable(t)) { toast('這筆任務還在儲存中，請等幾秒再選'); return; }
+    if (selected.has(t['任務ID'])) selected.delete(t['任務ID']); else selected.add(t['任務ID']);
+    rerender();
+  };
+  const selectBtn = h('button', { type: 'button', class: 'btn btn-sm' + (selecting ? ' btn-primary' : ''), 'data-testid': 'task-select-toggle', onclick: () => { if (selecting) exitSelect(); else selecting = true; rerender(); } }, selecting ? '完成' : '選取');
+  const groupSelectAll = (key) => {
+    const list = groups[key].filter(selectable);
+    const all = list.length > 0 && list.every((t) => selected.has(t['任務ID']));
+    return h('button', { type: 'button', class: 'link-btn nowrap', 'data-testid': 'task-select-all-' + key, onclick: () => {
+      list.forEach((t) => { if (all) selected.delete(t['任務ID']); else selected.add(t['任務ID']); });
+      rerender();
+    } }, all ? '取消全選' : '全選');
+  };
   const chips = h('div', { class: 'chips chip-filter' },
     h('button', { type: 'button', class: 'chip' + (catSet.size ? '' : ' on'), onclick: () => vs.set({ cats: [] }) }, '全部分類'),
     cats.map((c) => h('button', { type: 'button', class: 'chip' + (catSet.has(c) ? ' on' : ''), onclick: () => {
@@ -64,7 +89,7 @@ export function renderTasks(root) {
     } }, c)));
 
   mount(root,
-    pageHead(systemName('任務', '任務')),
+    pageHead(systemName('任務', '任務'), tasks.length ? selectBtn : null),
     stats([['總任務數', s.total ?? 0], ['已完成', s.completed ?? 0, ` / ${s.total ?? 0}`], ['逾期', s.overdue ?? 0], ['3 天內到期', s.dueSoon ?? 0], ['星標未完成', s.starredOpen ?? 0]]),
     h('div', { class: 'toolbar' },
       searchBox(f.q, '搜尋任務名稱…', (q) => vs.set({ q })),
@@ -76,15 +101,102 @@ export function renderTasks(root) {
       h('div', { class: 'count muted small' }, `共 ${rows.length} / ${tasks.length} 筆`)),
     rows.length ? GROUPS.filter((g) => groups[g.key].length).map((g) => {
       const isCollapsed = !!collapsed[g.key];
-      return h('div', { class: 'card group' + (isCollapsed ? ' collapsed' : '') },
-        h('button', { class: 'group-head', type: 'button', 'aria-expanded': String(!isCollapsed), onclick: () => vs.set({ collapsed: Object.assign({}, collapsed, { [g.key]: !isCollapsed }) }) },
-          icon('chevronDown', 'caret'), h('span', { class: g.key === 'overdue' ? 'bad-text' : '' }, g.label), h('span', { class: 'muted' }, `（${groups[g.key].length}）`)),
-        isCollapsed ? null : h('ul', { class: 'list' }, groups[g.key].map((t) => h('li', null, taskRow(t, g.key)))));
-    }) : h('div', { class: 'card' }, empty(tasks.length ? '沒有符合條件的任務' : '還沒有任務，按右下角 + 新增', tasks.length ? null : '✅')));
+      const head = h('button', { class: 'group-head', type: 'button', 'aria-expanded': String(!isCollapsed), onclick: () => vs.set({ collapsed: Object.assign({}, collapsed, { [g.key]: !isCollapsed }) }) },
+        icon('chevronDown', 'caret'), h('span', { class: g.key === 'overdue' ? 'bad-text' : '' }, g.label), h('span', { class: 'muted' }, `（${groups[g.key].length}）`));
+      const sel = selecting ? { has: (t) => selected.has(t['任務ID']), toggle: toggleOne } : null;
+      return h('div', { class: 'card group' + (isCollapsed ? ' collapsed' : ''), 'data-group': g.key },
+        selecting && !isCollapsed ? h('div', { class: 'group-top' }, head, groupSelectAll(g.key)) : head,
+        isCollapsed ? null : h('ul', { class: 'list' }, groups[g.key].map((t) => h('li', null, taskRow(t, g.key, sel)))));
+    }) : h('div', { class: 'card' }, empty(tasks.length ? '沒有符合條件的任務' : '還沒有任務，按右下角 + 新增', tasks.length ? null : '✅')),
+    selecting ? h('div', { class: 'select-bar', 'data-testid': 'task-select-bar', role: 'toolbar', 'aria-label': '已選取的任務' },
+      h('span', { class: 'grow' }, selected.size ? `已選 ${selected.size} 筆` : '點任務來選取'),
+      h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { exitSelect(); rerender(); } }, '取消'),
+      h('button', { type: 'button', class: 'btn btn-sm btn-primary', disabled: !selected.size, 'data-testid': 'task-reschedule', onclick: () => {
+        openReschedule(tasks.filter((t) => selected.has(t['任務ID'])), () => { exitSelect(); rerender(); });
+      } }, icon('calendar'), '改日期')) : null);
+}
+
+/** 一次改多筆的到期日：三種改法（同一天／整批順延／從某天起每天排 N 筆），先預覽「哪一筆從幾號改到幾號」再確定 */
+function openReschedule(list, onDone) {
+  const today = todayStr(0);
+  const dues = list.map((t) => t['到期日']).filter(Boolean).sort();
+  const daysBetween = (a, b) => Math.round((WbLogic.parseYmd(b) - WbLogic.parseYmd(a)) / 86400000);
+  // 順延的預設天數：讓最早那一筆剛好落在今天（都沒過期就 1 天）
+  const catchUp = dues.length && dues[0] < today ? daysBetween(dues[0], today) : 1;
+  const st = { mode: list.length > 1 ? 'spread' : 'same', date: today, days: catchUp, start: today, perDay: Math.min(2, list.length) };
+  const body = h('div', { 'data-testid': 'reschedule-sheet' });
+  const okBtn = h('button', { class: 'btn btn-primary', type: 'button', 'data-testid': 'reschedule-ok' });
+  const plan = () => WbLogic.planReschedule(list, st.mode, st);
+  const num = (label, value, min, max, onInput, testid) => {
+    const inp = h('input', { type: 'number', inputmode: 'numeric', min, max, value: String(value), 'aria-label': label, 'data-testid': testid, oninput: (e) => { onInput(e.target.value === '' ? NaN : Number(e.target.value)); paintPreview(); } });
+    return field(label, inp);
+  };
+  const previewBox = h('div', { class: 'resched-preview', 'data-testid': 'reschedule-preview' });
+  function paintPreview() {
+    const p = plan();
+    const changes = p ? p.filter((x) => !x.skip && x.to !== x.from) : [];
+    okBtn.disabled = !changes.length;
+    mount(okBtn, changes.length ? `確定改 ${changes.length} 筆` : '沒有要改的');
+    if (!p) { mount(previewBox, h('div', { class: 'muted small' }, '請先把上面的日期或數字填好')); return; }
+    const last = p.filter((x) => x.to).map((x) => x.to).sort().pop();
+    const skipped = p.filter((x) => x.skip).length, same = p.filter((x) => !x.skip && x.to === x.from).length;
+    mount(previewBox,
+      h('div', { class: 'muted small', style: { marginBottom: '6px' } },
+        (st.mode === 'spread' && last ? `會排到 ${dateLabel(last)}。` : '') + (skipped ? `${skipped} 筆原本沒有到期日，沒辦法順延。` : '') + (same ? `${same} 筆日期沒變。` : '') || '改完會變成這樣：'),
+      h('ul', { class: 'list' }, p.map((x) => h('li', { class: 'resched-row' + (x.skip || x.to === x.from ? ' muted' : '') },
+        h('div', { class: 'grow wraptext' }, x.name || '（未命名）'),
+        h('div', { class: 'nowrap small' }, x.from ? dateLabel(x.from) : '無日期', ' → ', h('b', null, x.skip ? '不變' : dateLabel(x.to)))))));
+  }
+  function paint() {
+    const seg = h('div', { class: 'seg', role: 'tablist' }, [['same', '同一天'], ['shift', '整批順延'], ['spread', '每天排幾筆']].map(([v, t]) =>
+      h('button', { type: 'button', class: st.mode === v ? 'on' : '', 'data-mode': v, onclick: () => { st.mode = v; paint(); } }, t)));
+    let controls;
+    if (st.mode === 'same') {
+      const df = dateField('全部改到這一天', st.date, { quick: [['今天', () => todayStr(0)], ['明天', () => todayStr(1)], ['3 天後', () => todayStr(3)], ['這週日', () => thisSundayStr()]] });
+      df.input.setAttribute('data-testid', 'reschedule-date');
+      df.input.addEventListener('change', () => { st.date = df.value; paintPreview(); });
+      df.input.addEventListener('input', () => { st.date = df.value; paintPreview(); });
+      controls = df.el;
+    } else if (st.mode === 'shift') {
+      controls = h('div', null,
+        num('每一筆各自往後幾天', st.days, -3650, 3650, (v) => { st.days = v; }, 'reschedule-days'),
+        h('div', { class: 'chips quick' }, [[1, '1 天'], [3, '3 天'], [7, '7 天']].concat(catchUp > 1 ? [[catchUp, `${catchUp} 天（最早那筆到今天）`]] : []).map(([v, t]) =>
+          h('button', { type: 'button', class: 'chip' + (st.days === v ? ' on' : ''), onclick: () => { st.days = v; paint(); } }, t))),
+        h('p', { class: 'muted small' }, '原本隔幾天，改完還是隔幾天。'));
+    } else {
+      const df = dateField('從哪一天開始', st.start, { quick: [['今天', () => todayStr(0)], ['明天', () => todayStr(1)]] });
+      df.input.setAttribute('data-testid', 'reschedule-start');
+      df.input.addEventListener('change', () => { st.start = df.value; paintPreview(); });
+      df.input.addEventListener('input', () => { st.start = df.value; paintPreview(); });
+      controls = h('div', null, h('div', { class: 'grid-2' }, df.el, num('每天排幾筆', st.perDay, 1, 100, (v) => { st.perDay = v; }, 'reschedule-perday')),
+        h('p', { class: 'muted small' }, '照原本的先後順序重新排，每天固定幾筆。'));
+    }
+    mount(body, h('p', { class: 'muted small', style: { marginTop: 0 } }, `要改 ${list.length} 筆任務的到期日。只改日期，其他內容和重複規則都不動。`), seg, h('div', { style: { marginTop: '12px' } }, controls), previewBox);
+    paintPreview();
+  }
+  okBtn.onclick = () => {
+    const p = plan();
+    const changes = p ? p.filter((x) => !x.skip && x.to !== x.from) : [];
+    if (!changes.length) return;
+    const byId = new Map(list.map((t) => [t['任務ID'], t]));
+    write('set_task_dues', { items: changes.map((x) => ({ '任務ID': x.id, '到期日': x.to })) }, {
+      toast: `已更新 ${changes.length} 筆任務的到期日`,
+      optimistic: () => {
+        const prev = changes.map((x) => [byId.get(x.id), x.from]);
+        changes.forEach((x) => { byId.get(x.id)['到期日'] = x.to; });
+        const undoStats = recalcTaskStats();
+        return () => { prev.forEach(([t, d]) => { t['到期日'] = d; }); undoStats(); };
+      },
+    });
+    sheet.close();
+    onDone();
+  };
+  const sheet = openSheet({ title: '改到期日', body, footer: [h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, '取消'), okBtn] });
+  paint();
 }
 
 /** 單一任務列（任務頁、首頁、專案頁共用） */
-export function taskRow(t, groupKey) {
+export function taskRow(t, groupKey, select) {
   const status = t['狀態'] || '';
   const isDone = TASK_CLOSED.includes(status);
   const subs = t['子任務'] || [];
@@ -98,14 +210,18 @@ export function taskRow(t, groupKey) {
   const withDots = [];
   meta.forEach((m, i) => { if (i) withDots.push(' · '); withDots.push(m); });
 
-  const check = h('input', { type: 'checkbox', class: 'big-check', checked: isDone, 'aria-label': '完成', onchange: (e) => toggleTaskDone(t, e.target.checked) });
-  return h('div', { class: 'item task-row' + (isDone ? ' done' : '') },
+  // 多選模式：前面的框變成「選取」（圓的，跟打勾完成區分），點整列也是選取，不開表單
+  const picked = !!select && select.has(t);
+  const check = select
+    ? h('input', { type: 'checkbox', class: 'big-check pick-check', checked: picked, 'aria-label': '選取', 'data-testid': 'task-pick', onchange: () => select.toggle(t) })
+    : h('input', { type: 'checkbox', class: 'big-check', checked: isDone, 'aria-label': '完成', onchange: (e) => toggleTaskDone(t, e.target.checked) });
+  return h('div', { class: 'item task-row' + (isDone ? ' done' : '') + (picked ? ' picked' : ''), 'data-id': t['任務ID'] },
     check,
-    h('button', { type: 'button', class: 'grow item-main', onclick: () => openTaskForm(t['任務ID']) },
+    h('button', { type: 'button', class: 'grow item-main', onclick: () => (select ? select.toggle(t) : openTaskForm(t['任務ID'])) },
       h('div', { class: 't wraptext' }, t['星標'] ? icon('starFill', 'star') : null, t['星標'] ? ' ' : null, t['任務名稱'] || '（未命名）',
         t['重複規則'] ? h('span', { class: 'muted', title: '重複：' + repeatRuleLabel(t['重複規則']) }, ' ', icon('repeat')) : null),
       withDots.length ? h('div', { class: 's wraptext' }, withDots) : null),
-    canSkipTask(t) ? h('button', { type: 'button', class: 'icon-btn', title: '跳過本次', 'aria-label': '跳過本次', onclick: () => skipTask(t) }, icon('skip')) : null);
+    canSkipTask(t) && !select ? h('button', { type: 'button', class: 'icon-btn', title: '跳過本次', 'aria-label': '跳過本次', onclick: () => skipTask(t) }, icon('skip')) : null);
 }
 
 /** 任務統計（跟後端 getTaskStats_ 是同一份程式：shared/logic.js），樂觀更新時在本機重算 */

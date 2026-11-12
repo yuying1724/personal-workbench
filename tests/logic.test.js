@@ -89,3 +89,30 @@ test('任務統計：逾期、即將到期、星標、已取消／已跳過不�
   ];
   assert.deepEqual(JSON.parse(JSON.stringify(L.taskStats(tasks, '2026-10-11', '2026-10-14'))), { total: 7, completed: 1, overdue: 1, dueSoon: 1, starredOpen: 1 });
 });
+
+test('一次改多筆到期日：同一天、整批順延（保持間隔、跨月、沒日期的跳過）、每天排 N 筆（照原本先後順序）；參數不合法回 null', () => {
+  const P = (tasks, mode, opts) => JSON.parse(JSON.stringify(L.planReschedule(tasks, mode, opts)));
+  const T = (id, due, name) => ({ '任務ID': id, '到期日': due, '任務名稱': name || id });
+  // 故意不照日期排：回傳要照原本到期日排，同一天的照傳入順序，沒日期的最後
+  const tasks = [T('c5', '2026-11-05'), T('c3', '2026-11-04'), T('c4', '2026-11-05'), T('x', ''), T('c6', '2026-11-06')];
+  assert.deepEqual(P(tasks, 'same', { date: '2026-11-13' }).map((r) => [r.id, r.from, r.to]),
+    [['c3', '2026-11-04', '2026-11-13'], ['c5', '2026-11-05', '2026-11-13'], ['c4', '2026-11-05', '2026-11-13'], ['c6', '2026-11-06', '2026-11-13'], ['x', '', '2026-11-13']]);
+  // 順延 9 天：間隔不變；沒日期的 skip
+  const sh = P(tasks, 'shift', { days: 9 });
+  assert.deepEqual(sh.map((r) => r.to), ['2026-11-13', '2026-11-14', '2026-11-14', '2026-11-15', '']);
+  assert.equal(sh[4].skip, true); assert.equal(sh[0].skip, undefined);
+  assert.deepEqual(P([T('a', '2026-11-28'), T('b', '2026-12-30')], 'shift', { days: 5 }).map((r) => r.to), ['2026-12-03', '2027-01-04'], '跨月、跨年');
+  assert.deepEqual(P([T('a', '2026-03-03')], 'shift', { days: -3 }).map((r) => r.to), ['2026-02-28'], '負數＝往前');
+  // 每天 2 筆，從 11/13 起
+  assert.deepEqual(P(tasks, 'spread', { start: '2026-11-13', perDay: 2 }).map((r) => [r.id, r.to]),
+    [['c3', '2026-11-13'], ['c5', '2026-11-13'], ['c4', '2026-11-14'], ['c6', '2026-11-14'], ['x', '2026-11-15']]);
+  // 她的實際情況：16 筆、每天 2 筆、從 11/13 → 最後一筆 11/20
+  const loma = Array.from({ length: 16 }, (_, i) => T('L' + i, '2026-11-' + String(4 + Math.floor(i / 2)).padStart(2, '0')));
+  const sp = P(loma, 'spread', { start: '2026-11-13', perDay: 2 });
+  assert.equal(sp[0].to, '2026-11-13'); assert.equal(sp[15].to, '2026-11-20');
+  assert.equal(P(loma, 'spread', { start: '2026-11-28', perDay: 5 })[15].to, '2026-12-01');
+  // 不合法
+  [['same', {}], ['same', { date: 'abc' }], ['shift', { days: 0 }], ['shift', { days: 1.5 }], ['shift', { days: NaN }], ['spread', { start: '2026-11-13', perDay: 0 }], ['spread', { perDay: 2 }], ['oops', {}]]
+    .forEach(([m, o]) => assert.equal(L.planReschedule(tasks, m, o), null, m + JSON.stringify(o)));
+  assert.equal(L.addDaysYmd('2028-02-28', 1), '2028-02-29');
+});

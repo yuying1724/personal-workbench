@@ -625,6 +625,35 @@ function setTaskStatus_(p) {
   return { success: true, id: id, nextTaskCreated: nextTaskCreated };
 }
 
+// 一次改多筆任務的到期日（只動 E 到期日、J 更新時間，其他欄位不碰；重複規則不變）。
+// p.items = [{ 任務ID, 到期日:'yyyy-MM-dd' }]。先全部檢查過才開始寫：有任何一筆找不到或日期不對就整批不改。
+function setTaskDues_(p) {
+  var items = p && p.items;
+  if (!Array.isArray(items) || !items.length) throw new Error("沒有要修改的任務");
+  if (items.length > 300) throw new Error("一次最多改 300 筆");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("任務");
+  var data = sheet.getDataRange().getValues();
+  var rowOf = {};
+  for (var i = 1; i < data.length; i++) rowOf[data[i][0]] = i + 1;
+  var seen = {}, missing = [];
+  items.forEach(function (it) {
+    var id = it && it["任務ID"], due = it && it["到期日"];
+    if (!id) throw new Error("缺少任務ID");
+    if (seen[id]) throw new Error("任務重複：" + id);
+    seen[id] = true;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(due || "")) || !WbLogic.parseYmd(due) || WbLogic.ymd(WbLogic.parseYmd(due)) !== due) throw new Error("到期日格式不正確：" + due);
+    if (!rowOf[id]) missing.push(id);
+  });
+  if (missing.length) throw new Error("找不到任務：" + missing.join("、"));
+  var now = new Date();
+  items.forEach(function (it) {
+    var row = rowOf[it["任務ID"]];
+    sheet.getRange(row, 5).setValue(it["到期日"]); // E欄：到期日
+    sheet.getRange(row, 10).setValue(now);          // J欄：更新時間
+  });
+  return { success: true, updated: items.length };
+}
+
 function deleteTask_(p) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var id = p["任務ID"];

@@ -433,3 +433,31 @@ test('閒置多久要重新輸入 PIN：登入時可指定（5 分鐘～30 天�
   assert.equal(b.post({ action: 'bootstrap', params: {}, session: s3.session }).ok, true, '換發的新碼可以用');
   assert.equal(b.post({ action: 'set_session_ttl', params: { ttlMinutes: 60 } }).error.code, 'AUTH_REQUIRED', '沒登入不能換發');
 });
+
+test('任務：set_task_dues 一次改多筆到期日（只動到期日和更新時間、重複規則不變、回傳最新資料）；有一筆不對就整批不改', () => {
+  const b = loadBackend();
+  b.setup();
+  const mk = (n, due, extra) => b.call('create_task', Object.assign({ '任務名稱': n, '狀態': '待辦', '到期日': due, '分類': ['工作'], '備註': '備註' + n, '子任務': [{ '內容': 's', '完成': true }] }, extra || {})).data.id;
+  const a = mk('第 3 章', '2026-11-04', { '星標': true }), c = mk('第 4 章', '2026-11-05'), r = mk('每月', '2026-11-10', { '重複規則': JSON.stringify({ freq: 'month', interval: 1 }) }), keep = mk('不動', '2026-11-06');
+  const res = b.call('set_task_dues', { items: [{ '任務ID': a, '到期日': '2026-11-13' }, { '任務ID': c, '到期日': '2026-11-14' }, { '任務ID': r, '到期日': '2026-12-01' }] });
+  assert.ok(res.ok, JSON.stringify(res)); assert.equal(res.data.updated, 3);
+  assert.equal(res.reload.name, 'project_task_bundle', '回應附上最新的任務資料');
+  const by = Object.fromEntries(b.call('tasks').data.map((t) => [t['任務ID'], t]));
+  assert.equal(by[a]['到期日'], '2026-11-13'); assert.equal(by[c]['到期日'], '2026-11-14'); assert.equal(by[r]['到期日'], '2026-12-01'); assert.equal(by[keep]['到期日'], '2026-11-06');
+  assert.equal(by[a]['星標'], true); assert.equal(by[a]['備註'], '備註第 3 章'); assert.deepEqual(by[a]['分類'], ['工作']); assert.equal(by[a]['子任務'][0]['完成'], true); assert.equal(by[a]['狀態'], '待辦');
+  assert.deepEqual(JSON.parse(by[r]['重複規則']), { freq: 'month', interval: 1 }, '重複規則不動');
+  assert.equal(b.call('tasks').data.length, 4, '不會多產生任務');
+  // 整批檢查：有找不到的、日期不對的、重複的 → 全部不改
+  const before = JSON.stringify(b.call('tasks').data.map((t) => [t['任務ID'], t['到期日']]));
+  const bad = [
+    [{ '任務ID': a, '到期日': '2026-11-20' }, { '任務ID': 'T9999', '到期日': '2026-11-20' }],
+    [{ '任務ID': a, '到期日': '2026-11-20' }, { '任務ID': c, '到期日': '2026-02-31' }],
+    [{ '任務ID': a, '到期日': '2026-11-20' }, { '任務ID': c, '到期日': '' }],
+    [{ '任務ID': a, '到期日': '2026-11-20' }, { '任務ID': a, '到期日': '2026-11-21' }],
+    [],
+  ];
+  bad.forEach((items) => { const x = b.call('set_task_dues', { items }); assert.equal(x.ok, false, JSON.stringify(items)); });
+  assert.match(b.call('set_task_dues', { items: bad[0] }).error.message, /找不到任務：T9999/);
+  assert.equal(JSON.stringify(b.call('tasks').data.map((t) => [t['任務ID'], t['到期日']])), before);
+  assert.equal(b.post({ action: 'set_task_dues', params: { items: [{ '任務ID': a, '到期日': '2026-11-20' }] } }).error.code, 'AUTH_REQUIRED');
+});

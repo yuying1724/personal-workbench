@@ -153,7 +153,47 @@ var WbLogic = (function () {
     return { total: (tasks || []).length, completed: completed, overdue: overdue, dueSoon: dueSoon, starredOpen: starredOpen };
   }
 
+  // ---------- 一次改多筆任務的到期日 ----------
+  function addDaysYmd(dateStr, n) {
+    var d = parseYmd(dateStr);
+    if (!d) return '';
+    d.setDate(d.getDate() + n);
+    return ymd(d);
+  }
+  /**
+   * 算出「哪一筆從幾號改到幾號」。tasks：要改的任務（順序＝建立順序）；回傳 [{ id, name, from, to, skip? }]，順序照原本的到期日（沒日期的排最後）。
+   *  - mode 'same'：全部改成 opts.date
+   *  - mode 'shift'：每筆各自往後 opts.days 天（負數＝往前）；原本沒有到期日的沒辦法順延 → skip:true、to 維持空的
+   *  - mode 'spread'：從 opts.start 起，照原本的先後順序每天排 opts.perDay 筆
+   * 參數不合法（沒給日期、天數不是整數…）回傳 null。
+   */
+  function planReschedule(tasks, mode, opts) {
+    opts = opts || {};
+    var list = (tasks || []).map(function (t, i) { return { t: t, i: i, due: t['到期日'] || '' }; });
+    list.sort(function (a, b) {
+      if (a.due !== b.due) { if (!a.due) return 1; if (!b.due) return -1; return a.due < b.due ? -1 : 1; }
+      return a.i - b.i;
+    });
+    var row = function (x, to, skip) { var r = { id: x.t['任務ID'], name: x.t['任務名稱'] || '', from: x.due, to: to }; if (skip) r.skip = true; return r; };
+    if (mode === 'same') {
+      if (!parseYmd(opts.date)) return null;
+      return list.map(function (x) { return row(x, opts.date); });
+    }
+    if (mode === 'shift') {
+      var days = Number(opts.days);
+      if (!isFinite(days) || Math.floor(days) !== days || days === 0 || Math.abs(days) > 3650) return null;
+      return list.map(function (x) { return x.due ? row(x, addDaysYmd(x.due, days)) : row(x, '', true); });
+    }
+    if (mode === 'spread') {
+      var per = Number(opts.perDay);
+      if (!parseYmd(opts.start) || !isFinite(per) || Math.floor(per) !== per || per < 1 || per > 100) return null;
+      return list.map(function (x, k) { return row(x, addDaysYmd(opts.start, Math.floor(k / per))); });
+    }
+    return null;
+  }
+
   return {
+    addDaysYmd: addDaysYmd, planReschedule: planReschedule,
     ymd: ymd, parseYmd: parseYmd, addMonthsSafe: addMonthsSafe, startOfWeek: startOfWeek,
     parseRepeatRule: parseRepeatRule, nextDueDate: nextDueDate, applyRepeatEnd: applyRepeatEnd,
     isRequiredDay: isRequiredDay, isHabitDoneForDay: isHabitDoneForDay, habitTierForValue: habitTierForValue, taskStats: taskStats,
@@ -167,7 +207,7 @@ var WbLogic = (function () {
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.9.0';
+var WB_VERSION = '2.10.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -209,7 +249,7 @@ var WbApi = (function () {
   var WRITES = {
     create_course: createCourse_, update_course: updateCourse_, delete_course: deleteCourse_,
     create_subscription: createSubscription_, update_subscription: updateSubscription_, delete_subscription: deleteSubscription_,
-    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_, set_task_status: setTaskStatus_,
+    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_, set_task_status: setTaskStatus_, set_task_dues: setTaskDues_,
     create_project: createProject_, update_project: updateProject_, delete_project: deleteProject_,
     create_habit: createHabit_, update_habit: updateHabit_, delete_habit: deleteHabit_,
     create_diary: createDiary_, update_diary: updateDiary_, delete_diary: deleteDiary_,
@@ -221,7 +261,7 @@ var WbApi = (function () {
 
   // 寫入成功後順便回傳該模組的最新資料（前端就不用再打一次 *_bundle，省一次約 1.4 秒的請求）
   var RELOAD_AFTER = {
-    course: 'course_bundle', subscription: 'sub_bundle', task: 'project_task_bundle', task_status: 'project_task_bundle',
+    course: 'course_bundle', subscription: 'sub_bundle', task: 'project_task_bundle', task_status: 'project_task_bundle', task_dues: 'project_task_bundle',
     project: 'project_task_bundle', habit: 'habit_bundle', habit_log: 'habit_bundle', diary: 'diary_bundle',
     option: 'admin_bundle', system: 'admin_bundle',
   };
@@ -1628,6 +1668,35 @@ function setTaskStatus_(p) {
     }, repeatRuleRaw, normalizeDate_(existing[4]));
   }
   return { success: true, id: id, nextTaskCreated: nextTaskCreated };
+}
+
+// 一次改多筆任務的到期日（只動 E 到期日、J 更新時間，其他欄位不碰；重複規則不變）。
+// p.items = [{ 任務ID, 到期日:'yyyy-MM-dd' }]。先全部檢查過才開始寫：有任何一筆找不到或日期不對就整批不改。
+function setTaskDues_(p) {
+  var items = p && p.items;
+  if (!Array.isArray(items) || !items.length) throw new Error("沒有要修改的任務");
+  if (items.length > 300) throw new Error("一次最多改 300 筆");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("任務");
+  var data = sheet.getDataRange().getValues();
+  var rowOf = {};
+  for (var i = 1; i < data.length; i++) rowOf[data[i][0]] = i + 1;
+  var seen = {}, missing = [];
+  items.forEach(function (it) {
+    var id = it && it["任務ID"], due = it && it["到期日"];
+    if (!id) throw new Error("缺少任務ID");
+    if (seen[id]) throw new Error("任務重複：" + id);
+    seen[id] = true;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(due || "")) || !WbLogic.parseYmd(due) || WbLogic.ymd(WbLogic.parseYmd(due)) !== due) throw new Error("到期日格式不正確：" + due);
+    if (!rowOf[id]) missing.push(id);
+  });
+  if (missing.length) throw new Error("找不到任務：" + missing.join("、"));
+  var now = new Date();
+  items.forEach(function (it) {
+    var row = rowOf[it["任務ID"]];
+    sheet.getRange(row, 5).setValue(it["到期日"]); // E欄：到期日
+    sheet.getRange(row, 10).setValue(now);          // J欄：更新時間
+  });
+  return { success: true, updated: items.length };
 }
 
 function deleteTask_(p) {

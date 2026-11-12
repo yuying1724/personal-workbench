@@ -4,7 +4,7 @@
  * 除了 ping / login，其他操作都要有效的工作階段碼（裝置授權碼＋PIN 登入後取得）。
  * 各模組的讀寫邏輯沿用 server/legacy.js（原本 Api.gs 的函式），這裡只負責驗證與分派。
  */
-var WB_VERSION = '2.9.0';
+var WB_VERSION = '2.10.0';
 var WbClock = { now: function () { return Date.now(); } };
 
 function WbFail(code, message, extra) {
@@ -46,7 +46,7 @@ var WbApi = (function () {
   var WRITES = {
     create_course: createCourse_, update_course: updateCourse_, delete_course: deleteCourse_,
     create_subscription: createSubscription_, update_subscription: updateSubscription_, delete_subscription: deleteSubscription_,
-    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_, set_task_status: setTaskStatus_,
+    create_task: createTask_, update_task: updateTask_, delete_task: deleteTask_, skip_task: skipTask_, set_task_status: setTaskStatus_, set_task_dues: setTaskDues_,
     create_project: createProject_, update_project: updateProject_, delete_project: deleteProject_,
     create_habit: createHabit_, update_habit: updateHabit_, delete_habit: deleteHabit_,
     create_diary: createDiary_, update_diary: updateDiary_, delete_diary: deleteDiary_,
@@ -58,7 +58,7 @@ var WbApi = (function () {
 
   // 寫入成功後順便回傳該模組的最新資料（前端就不用再打一次 *_bundle，省一次約 1.4 秒的請求）
   var RELOAD_AFTER = {
-    course: 'course_bundle', subscription: 'sub_bundle', task: 'project_task_bundle', task_status: 'project_task_bundle',
+    course: 'course_bundle', subscription: 'sub_bundle', task: 'project_task_bundle', task_status: 'project_task_bundle', task_dues: 'project_task_bundle',
     project: 'project_task_bundle', habit: 'habit_bundle', habit_log: 'habit_bundle', diary: 'diary_bundle',
     option: 'admin_bundle', system: 'admin_bundle',
   };
